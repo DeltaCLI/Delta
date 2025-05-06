@@ -1,0 +1,40 @@
+# Define the name of the binary
+BINARY_NAME = delta
+
+# Define the Go compiler flags
+GOFLAGS := -v
+
+# Define the directory for compiled binaries (optional)
+BUILD_DIR = build
+
+# Define the target architecture and OS (e.g., linux/amd64, windows/amd64, darwin/amd64)
+TARGET_ARCH ?= amd64
+TARGET_OS ?= $(shell go env GOOS)
+
+# Define the full target
+TARGET := $(TARGET_OS)/$(TARGET_ARCH)
+
+# Define the output binary path
+OUTPUT_BINARY = $(BUILD_DIR)/$(TARGET)/$(BINARY_NAME)
+
+all: build
+
+build: $(OUTPUT_BINARY)
+	@echo "Building $(BINARY_NAME) for $(TARGET)"
+	@mkdir -p $(dir $(OUTPUT_BINARY))
+	CGO_ENABLED=0 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build $(GOFLAGS) -o $(OUTPUT_BINARY) cli.go
+
+clean:
+	@echo "Cleaning up build directory"
+	@rm -rf $(BUILD_DIR)
+
+run: build
+	@echo "Running $(BINARY_NAME)"
+	@./$(OUTPUT_BINARY)
+
+install: build
+	@echo "Installing $(BINARY_NAME) to /usr/local/bin/$(BINARY_NAME)"
+	@sudo cp $(OUTPUT_BINARY) /usr/local/bin/$(BINARY_NAME)
+	@chmod +x /usr/local/bin/$(BINARY_NAME)
+
+.PHONY: all clean run install
