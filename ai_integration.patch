@@ -1,0 +1,113 @@
+--- cli.go.orig
++++ cli.go
+@@ -7,6 +7,7 @@
+ 	"crypto/sha256"
+ 	"fmt"
+ 	"io"
++	"io/fs"
+ 	"io/ioutil"
+ 	"os"
+ 	"os/exec"
+@@ -188,13 +189,32 @@
+ func main() {
+ 	fmt.Println("Welcome to Delta! 🔼")
+ 	fmt.Println()
++	
++	// Initialize AI features
++	aiManager, err := NewAIPredictionManager("http://localhost:11434", "llama3.3:8b")
++	var aiEnabled bool
++	
++	if err == nil {
++		// Try to initialize AI in the background
++		go func() {
++			aiEnabled = aiManager.Initialize()
++			if aiEnabled {
++				fmt.Println("\033[2m[AI features enabled: Using llama3.3:8b model]\033[0m")
++			}
++		}()
++	} else {
++		fmt.Println("\033[2m[AI features disabled: Could not initialize AI manager]\033[0m")
++	}
+ 
+ 	historyFile := os.Getenv("HOME") + "/.delta_history"
+ 	historyLimit := 500
+ 	
+ 	// Initialize our encrypted history handler
+-	historyHandler, err := NewEncryptedHistoryHandler(historyFile, historyLimit)
++	historyHandler, histErr := NewEncryptedHistoryHandler(historyFile, historyLimit)
++	err = histErr
+ 	if err != nil {
+ 		fmt.Println("Error initializing history:", err)
+ 	}
+@@ -236,6 +256,17 @@
+ 		}
+ 		rl.SetPrompt(prompt)
+ 
++		// Display AI thought if available
++		if aiManager != nil && aiManager.IsEnabled() {
++			thought := aiManager.GetCurrentThought()
++			if thought != "" {
++				// Display thought above prompt in a subtle gray color
++				// The escape sequences create a dimmed text effect
++				fmt.Printf("\033[2m[∆ thinking: %s]\033[0m\n", thought)
++			}
++		}
++		
++		// Wait for any background AI prediction tasks to complete
++		if aiManager != nil {
++			aiManager.Wait()
++		}
++		
+ 		// Read input from the user with history support
+ 		input, err := rl.Readline()
+ 		if err != nil {
+@@ -258,6 +289,14 @@
+ 		if command != "" && historyHandler != nil {
+ 			historyHandler.Write(command)
+ 		}
++		
++		// Process command with AI if enabled
++		if aiManager != nil && aiManager.IsEnabled() && command != "" {
++			// Submit command to AI for analysis in the background
++			go func(cmd string) {
++				aiManager.AddCommand(cmd)
++			}(command)
++		}
+ 
+ 		// Handle the exit command
+ 		if command == "exit" || command == "quit" {
+@@ -275,6 +314,31 @@
+ 			continue
+ 		}
+ 
++		// Internal commands handler (:command style)
++		if strings.HasPrefix(command, ":") {
++			internalCmd := strings.TrimPrefix(command, ":")
++			parts := strings.Fields(internalCmd)
++			
++			if len(parts) > 0 {
++				switch parts[0] {
++				case "ai":
++					if len(parts) > 1 {
++						if parts[1] == "on" && aiManager != nil {
++							aiManager.EnablePredictions()
++							fmt.Println("AI predictions enabled")
++						} else if parts[1] == "off" && aiManager != nil {
++							aiManager.DisablePredictions()
++							fmt.Println("AI predictions disabled")
++						} else if parts[1] == "status" && aiManager != nil {
++							if aiManager.IsEnabled() {
++								fmt.Println("AI predictions are currently enabled")
++							} else {
++								fmt.Println("AI predictions are currently disabled")
++							}
++						}
++					}
++				}
++			}
++			continue
++		}
+ 		
+ 		// Process the command in a subshell and pass our signal channel
+ 		runCommand(command, c)
+ 	}
