@@ -18,6 +18,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - Package names should be short and lowercase
 5. **Types**: Always specify types explicitly when not obvious from context
 6. **Comments**: Document public functions with meaningful comments
+7. **No Hardcoded Values**:
+   - Avoid hardcoded shell paths (use $SHELL environment variable)
+   - Avoid hardcoded file paths (use os.UserHomeDir() or similar)
+   - Use environment variables or configuration when possible
+   - DO NOT hardcode command names or special handling for specific applications
 
 ## Development Workflow
 When making changes, follow these steps:
@@ -27,3 +32,16 @@ When making changes, follow these steps:
 4. Use `go fmt` before committing
 
 For larger changes, consider adding Go tests using the standard testing package.
+
+## Interactive Application Support
+When working with subprocess execution:
+1. **Signal Handling**:
+   - Properly reset signal handlers before starting subprocesses
+   - Forward signals directly to subprocesses
+   - Don't use process groups for command execution unless necessary
+   - Restore shell signal handlers after subprocess completes
+   - IMPORTANT: Do NOT use the `-i` flag when executing shells as it breaks signal handling
+2. **Terminal Support**:
+   - Test interactive applications (e.g., htop, vim, nano) to ensure proper handling
+   - Ensure proper TTY setup for subprocesses
+   - Source appropriate shell profile files (.bashrc, .zshrc) explicitly rather than relying on `-i` flag

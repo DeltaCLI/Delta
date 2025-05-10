@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha256"
@@ -285,61 +286,215 @@ func runCommand(command string, sigChan chan os.Signal) {
 		return
 	}
 
-	// Set up command
-	cmd := exec.Command("zsh", "-c", "source ~/.zshrc && " + command)
+	// Get the user's shell from environment
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		// Default to bash if SHELL is not set
+		shell = "/bin/bash"
+	}
 
+	// Get shell name for specialized handling
+	shellName := filepath.Base(shell)
+
+	// Get home directory safely
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		// Fall back to $HOME if os.UserHomeDir fails
+		homeDir = os.Getenv("HOME")
+		if homeDir == "" {
+			// If we can't determine home directory, just run command directly
+			err = runDirectCommand(shell, command, sigChan)
+			return
+		}
+	}
+
+	// Build the appropriate shell command based on shell type
+	var shellCmd string
+
+	switch shellName {
+	case "zsh":
+		// Special handling for ZSH to properly load aliases and functions
+		shellCmd = buildZshCommand(homeDir, command)
+	case "bash":
+		// Bash profile loading
+		shellCmd = buildBashCommand(homeDir, command)
+	case "fish":
+		// Fish shell handling
+		shellCmd = buildFishCommand(homeDir, command)
+	default:
+		// Default shell handling - just run the command
+		shellCmd = command
+	}
+
+	// Now run the command
+	runShellCommand(shell, shellCmd, sigChan)
+}
+
+// ZSH special handling to properly load functions and aliases
+func buildZshCommand(homeDir string, command string) string {
+	zshrcFile := filepath.Join(homeDir, ".zshrc")
+	zshenvFile := filepath.Join(homeDir, ".zshenv")
+	
+	// Start with an empty command
+	shellCmd := ""
+	
+	// Source zshenv if it exists
+	if _, err := os.Stat(zshenvFile); err == nil {
+		shellCmd += "source " + zshenvFile + " 2>/dev/null || true; "
+	}
+	
+	// Source zshrc if it exists - this contains most user functions and aliases
+	if _, err := os.Stat(zshrcFile); err == nil {
+		shellCmd += "source " + zshrcFile + " 2>/dev/null || true; "
+	}
+	
+	// Parse the command to get just the command name (no arguments)
+	cmdName := command
+	cmdArgs := ""
+	
+	if len(strings.Fields(command)) > 0 {
+		cmdName = strings.Fields(command)[0]
+		
+		if len(strings.Fields(command)) > 1 {
+			cmdArgs = strings.Join(strings.Fields(command)[1:], " ")
+		}
+		
+		// Special handling for common commands that might be functions or aliases
+		shellCmd += "if typeset -f " + cmdName + " > /dev/null 2>&1; then\n" +
+			"  # It's a shell function, run it\n" +
+			"  " + cmdName + " " + cmdArgs + "\n" +
+			"elif alias " + cmdName + " > /dev/null 2>&1; then\n" +
+			"  # It's an alias, expand and run it\n" +
+			"  EXPANDED=$(alias " + cmdName + " | sed 's/^[^=]*=//g' | sed \"s/'//g\")\n" +
+			"  eval \"$EXPANDED " + cmdArgs + "\"\n" +
+			"else\n" +
+			"  # It's an external command, run it directly\n" +
+			"  " + command + "\n" +
+			"fi"
+	} else {
+		// Empty command, just return it
+		shellCmd += command
+	}
+	
+	return shellCmd
+}
+
+// Bash profile loading
+func buildBashCommand(homeDir string, command string) string {
+	profileFile := filepath.Join(homeDir, ".bash_profile")
+	rcFile := filepath.Join(homeDir, ".bashrc")
+	
+	// Start with an empty command
+	shellCmd := ""
+	
+	// Source bash_profile or bashrc if they exist
+	if _, err := os.Stat(profileFile); err == nil {
+		shellCmd += "source " + profileFile + " 2>/dev/null || true; "
+	} else if _, err := os.Stat(rcFile); err == nil {
+		shellCmd += "source " + rcFile + " 2>/dev/null || true; "
+	}
+	
+	// Append the user's command
+	shellCmd += command
+	
+	return shellCmd
+}
+
+// Fish shell profile loading
+func buildFishCommand(homeDir string, command string) string {
+	configFile := filepath.Join(homeDir, ".config/fish/config.fish")
+	
+	// If config.fish exists, source it
+	if _, err := os.Stat(configFile); err == nil {
+		return "source " + configFile + " 2>/dev/null || true; " + command
+	}
+	
+	// Otherwise just return the original command
+	return command
+}
+
+// Execute a command directly without any profile sourcing
+func runDirectCommand(shell string, command string, sigChan chan os.Signal) error {
+	// Create the command with default arguments
+	shellArgs := []string{"-c", command}
+	cmd := exec.Command(shell, shellArgs...)
+	
 	// Connect standard I/O
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	
+	return executeCommand(cmd, sigChan)
+}
 
-	// For potentially interactive programs, we don't use a separate process group
-	// This allows signals like Ctrl+C to be passed directly to the child process
+// Execute a shell command with profile sourcing
+func runShellCommand(shell string, shellCmd string, sigChan chan os.Signal) error {
+	// Create command with the -c flag for all shells
+	shellArgs := []string{"-c", shellCmd}
+	cmd := exec.Command(shell, shellArgs...)
+	
+	// Connect standard I/O
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	
+	return executeCommand(cmd, sigChan)
+}
 
+// Actually execute the command with proper signal handling
+func executeCommand(cmd *exec.Cmd, sigChan chan os.Signal) error {
 	// Start the command
 	err := cmd.Start()
 	if err != nil {
 		fmt.Println("Error starting command:", err)
-		return
+		return err
 	}
-
+	
 	// Set up channel for command completion
 	done := make(chan error, 1)
 	go func() {
 		done <- cmd.Wait()
 	}()
-
+	
 	// Set up temporary signal handling for this subprocess
 	subprocSigChan := make(chan os.Signal, 1)
-
+	
 	// Temporarily disable our main shell signal handling
 	signal.Reset(os.Interrupt, syscall.SIGTERM)
-
+	
 	// Set up subprocess-specific signal handling
-	// This allows us to properly distinguish between signals
 	signal.Notify(subprocSigChan, os.Interrupt, syscall.SIGTERM)
-
+	
+	// Create a context that can be cancelled
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	
 	// Set up a goroutine to handle signals during subprocess execution
 	go func() {
-		for range subprocSigChan {
-			// Just let the signal pass through to the subprocess
-			// Don't forward it - the OS will do that automatically
-			// since we're not using Setpgid
+		select {
+		case sig := <-subprocSigChan:
+			// Pass the signal to the child process
+			if cmd.Process != nil {
+				cmd.Process.Signal(sig)
+			}
+		case <-ctx.Done():
+			// Exit if context is cancelled
+			return
 		}
 	}()
-
+	
 	// Wait for the command to complete
 	err = <-done
-
+	
 	// Reset all signal handling
 	signal.Reset(os.Interrupt, syscall.SIGTERM)
-
+	
 	// Close our subprocess signal channel by stopping notification
 	signal.Stop(subprocSigChan)
-
+	
 	// Re-establish the main shell's signal handling
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
+	
 	// Process completed, check for errors
 	if err != nil {
 		// Only show error message for non-interrupt exits
@@ -352,4 +507,6 @@ func runCommand(command string, sigChan chan os.Signal) {
 			fmt.Println("Command failed:", err)
 		}
 	}
+	
+	return err
 }
