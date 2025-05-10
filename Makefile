@@ -22,7 +22,8 @@ all: build
 build: $(OUTPUT_BINARY)
 	@echo "Building $(BINARY_NAME) for $(TARGET)"
 	@mkdir -p $(dir $(OUTPUT_BINARY))
-	CGO_ENABLED=0 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build $(GOFLAGS) -o $(OUTPUT_BINARY) cli.go
+	CGO_ENABLED=0 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build $(GOFLAGS) -o $(OUTPUT_BINARY) cli.go ai.go ai_manager.go
+	@echo "Successfully built $(BINARY_NAME) for $(TARGET)"
 
 clean:
 	@echo "Cleaning up build directory"

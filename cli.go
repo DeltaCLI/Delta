@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -17,7 +16,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/chzyer/readline"
 )
@@ -522,56 +520,18 @@ func (c *DeltaCompleter) completeFilePath(prefix string) []string {
 	return completions
 }
 
-// AI system configuration
-var (
-	aiEnabled    = false
-	aiModel      = "llama3.3:8b"
-	aiClient     *OllamaClient
-	aiPrediction = ""
-	aiAvailable  = false
-)
-
-// OllamaClient manages communication with the Ollama server
-type OllamaClient struct {
-	httpClient *http.Client
-	serverURL  string
-}
-
-// NewOllamaClient creates a new client for communicating with Ollama
-func NewOllamaClient() *OllamaClient {
-	return &OllamaClient{
-		httpClient: &http.Client{
-			Timeout: 5 * time.Second,
-		},
-		serverURL: "http://localhost:11434",
-	}
-}
-
-// CheckModelAvailability checks if the specified model is available
-func (c *OllamaClient) CheckModelAvailability(model string) bool {
-	// Make a simple GET request to /api/tags
-	resp, err := c.httpClient.Get(c.serverURL + "/api/tags")
-	if err != nil {
-		fmt.Printf("Error connecting to Ollama: %v\n", err)
-		return false
-	}
-	defer resp.Body.Close()
-
-	// Read and parse the body
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("Error reading Ollama response: %v\n", err)
-		return false
-	}
-
-	// Simple check - just see if the model name appears in the response
-	return strings.Contains(string(body), model)
-}
-
-// Predict generates a prediction based on the given context
-func (c *OllamaClient) Predict(context string) (string, error) {
-	// For now, return a placeholder - in a real implementation, this would call the Ollama API
-	return "Command suggestion based on context...", nil
+// Show help for internal commands
+func showHelp() {
+	fmt.Println("Delta CLI Internal Commands:")
+	fmt.Println("  :ai [on|off]      - Enable or disable AI assistant")
+	fmt.Println("  :ai model <name>  - Change AI model (e.g., phi4:latest)")
+	fmt.Println("  :ai status        - Show AI assistant status")
+	fmt.Println("  :help             - Show this help message")
+	fmt.Println("")
+	fmt.Println("Shell Navigation:")
+	fmt.Println("  exit, quit        - Exit Delta shell")
+	fmt.Println("  sub               - Enter subcommand mode")
+	fmt.Println("  end               - Exit subcommand mode")
 }
 
 // Handle internal commands that start with a colon
@@ -601,8 +561,28 @@ func handleInternalCommand(command string) bool {
 	}
 }
 
+// GetAIManager returns the global AI manager instance
+func GetAIManager() *AIPredictionManager {
+	// Initialize AI manager if needed
+	if globalAIManager == nil {
+		var err error
+		globalAIManager, err = NewAIPredictionManager("http://localhost:11434", "phi4:latest")
+		if err == nil {
+			globalAIManager.Initialize()
+		}
+	}
+	return globalAIManager
+}
+
 // Handle AI-specific commands
 func handleAICommand(args []string) bool {
+	// Get a reference to the global AI manager
+	ai := GetAIManager()
+	if ai == nil {
+		fmt.Println("AI features unavailable - failed to initialize AI manager")
+		return true
+	}
+
 	if len(args) == 0 {
 		fmt.Println("AI assistant is currently", getAIStatusText())
 		return true
@@ -610,40 +590,18 @@ func handleAICommand(args []string) bool {
 
 	switch args[0] {
 	case "on":
-		if !aiEnabled {
-			// Check if we can connect to Ollama
-			if aiClient == nil {
-				aiClient = NewOllamaClient()
-			}
-
-			// Check if the model is available
-			available := aiClient.CheckModelAvailability(aiModel)
-			if !available {
-				fmt.Printf("AI model %s is not available. Make sure Ollama is running and the model is pulled.\n", aiModel)
-				fmt.Println("You can pull the model with: ollama pull " + aiModel)
-				return true
-			}
-
-			aiEnabled = true
-			aiAvailable = true
-			fmt.Println("AI assistant enabled using model", aiModel)
-		} else {
-			fmt.Println("AI assistant is already enabled.")
-		}
+		ai.EnablePredictions()
+		fmt.Println("AI assistant enabled")
 		return true
 
 	case "off":
-		if aiEnabled {
-			aiEnabled = false
-			fmt.Println("AI assistant disabled.")
-		} else {
-			fmt.Println("AI assistant is already disabled.")
-		}
+		ai.DisablePredictions()
+		fmt.Println("AI assistant disabled")
 		return true
 
 	case "model":
 		if len(args) < 2 {
-			fmt.Println("Current AI model:", aiModel)
+			fmt.Println("Current AI model:", ai.ollamaClient.ModelName)
 			return true
 		}
 
@@ -651,26 +609,22 @@ func handleAICommand(args []string) bool {
 		newModel := args[1]
 
 		// Check if the model is available
-		if aiClient == nil {
-			aiClient = NewOllamaClient()
-		}
-
-		available := aiClient.CheckModelAvailability(newModel)
+		available, _ := ai.ollamaClient.CheckModelAvailability()
 		if !available {
 			fmt.Printf("AI model %s is not available. Make sure Ollama is running and the model is pulled.\n", newModel)
 			fmt.Println("You can pull the model with: ollama pull " + newModel)
 			return true
 		}
 
-		aiModel = newModel
-		fmt.Println("AI model set to:", aiModel)
+		ai.ollamaClient.ModelName = newModel
+		fmt.Println("AI model set to:", newModel)
 		return true
 
 	case "status":
 		fmt.Println("AI Status:")
-		fmt.Println("- Enabled:", aiEnabled)
-		fmt.Println("- Model:", aiModel)
-		fmt.Println("- Available:", aiAvailable)
+		fmt.Println("- Enabled:", ai.IsEnabled())
+		fmt.Println("- Model:", ai.ollamaClient.ModelName)
+		fmt.Println("- Available:", ai.isInitialized)
 		return true
 
 	default:
@@ -682,39 +636,49 @@ func handleAICommand(args []string) bool {
 
 // Get the AI status as a formatted text
 func getAIStatusText() string {
-	if aiEnabled {
-		return fmt.Sprintf("enabled (using %s)", aiModel)
+	ai := GetAIManager()
+	if ai == nil {
+		return "unavailable"
+	}
+
+	if ai.IsEnabled() {
+		return fmt.Sprintf("enabled (using %s)", ai.ollamaClient.ModelName)
 	}
 	return "disabled"
 }
 
-// Show help for internal commands
-func showHelp() {
-	fmt.Println("Delta CLI Internal Commands:")
-	fmt.Println("  :ai [on|off]      - Enable or disable AI assistant")
-	fmt.Println("  :ai model <name>  - Change AI model (e.g., llama3.3:8b)")
-	fmt.Println("  :ai status        - Show AI assistant status")
-	fmt.Println("  :help             - Show this help message")
-	fmt.Println("")
-	fmt.Println("Shell Navigation:")
-	fmt.Println("  exit, quit        - Exit Delta shell")
-	fmt.Println("  sub               - Enter subcommand mode")
-	fmt.Println("  end               - Exit subcommand mode")
-}
+// Global variable for AI manager
+var globalAIManager *AIPredictionManager
 
 func main() {
 	fmt.Println("Welcome to Delta! 🔼")
 	fmt.Println()
 
+	// Initialize AI features
+	// Use GetAIManager to ensure we have a single instance
+	ai := GetAIManager()
+
+	// Try to initialize AI first, showing enabled message
+	if ai != nil && ai.Initialize() {
+		fmt.Println("\033[33m[∆ AI features enabled: Using " + ai.ollamaClient.ModelName + " model]\033[0m")
+	}
+
+	// Set up cleanup for AI resources on exit
+	defer func() {
+		if ai != nil && ai.cancelFunc != nil {
+			ai.cancelFunc() // Cancel any pending AI requests
+		}
+	}()
+
 	historyFile := os.Getenv("HOME") + "/.delta_history"
 	historyLimit := 500
-	
+
 	// Initialize our encrypted history handler
 	historyHandler, err := NewEncryptedHistoryHandler(historyFile, historyLimit)
 	if err != nil {
 		fmt.Println("Error initializing history:", err)
 	}
-	
+
 	// Create our completer
 	completer := NewDeltaCompleter(historyHandler)
 
@@ -732,7 +696,7 @@ func main() {
 		return
 	}
 	defer rl.Close()
-	
+
 	// Load history from our encrypted file
 	if historyHandler != nil {
 		history, err := historyHandler.GetHistory(historyLimit)
@@ -759,6 +723,21 @@ func main() {
 		}
 		rl.SetPrompt(prompt)
 
+		// Display AI thought if available
+		ai := GetAIManager()
+		if ai != nil && ai.IsEnabled() {
+			thought := ai.GetCurrentThought()
+			if thought != "" {
+				// Display thought above prompt in a subtle gray color
+				fmt.Printf("\033[31m[∆ thinking: %s]\033[0m\n", thought)
+			}
+		}
+
+		// Wait for any background AI prediction tasks to complete
+		if ai != nil {
+			ai.Wait()
+		}
+
 		// Read input from the user with history support
 		input, err := rl.Readline()
 		if err != nil {
@@ -776,10 +755,19 @@ func main() {
 
 		// Trim any whitespace from the input
 		command := strings.TrimSpace(input)
-		
+
 		// Save command to encrypted history
 		if command != "" && historyHandler != nil {
 			historyHandler.Write(command)
+		}
+
+		// Process command with AI if enabled
+		// We've already defined ai above, so just reuse it here
+		if ai != nil && ai.IsEnabled() && command != "" {
+			// Submit command to AI for analysis in the background
+			go func(cmd string) {
+				ai.AddCommand(cmd)
+			}(command)
 		}
 
 		// Handle the exit command

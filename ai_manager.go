@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -19,12 +20,16 @@ type AIPredictionManager struct {
 	isInitialized     bool
 	waitGroup         sync.WaitGroup
 	predictionEnabled bool
+	cancelFunc        context.CancelFunc // Used to cancel pending requests
 }
 
 // NewAIPredictionManager creates a new AI prediction manager
 func NewAIPredictionManager(ollamaURL string, modelName string) (*AIPredictionManager, error) {
 	client := NewOllamaClient(ollamaURL, modelName)
-	
+
+	// Create a cancellable context
+	_, cancel := context.WithCancel(context.Background())
+
 	return &AIPredictionManager{
 		ollamaClient:      client,
 		commandHistory:    []string{},
@@ -34,6 +39,7 @@ func NewAIPredictionManager(ollamaURL string, modelName string) (*AIPredictionMa
 		contextPrompt:     "You are Delta, an AI assistant for the command line. Analyze the user's commands and provide a short, helpful thought or prediction.",
 		isInitialized:     false,
 		predictionEnabled: false,
+		cancelFunc:        cancel,
 	}, nil
 }
 
@@ -120,7 +126,21 @@ func (m *AIPredictionManager) GetCurrentThought() string {
 
 // Wait waits for background prediction tasks to complete
 func (m *AIPredictionManager) Wait() {
-	m.waitGroup.Wait()
+	// Use WaitTimeout to prevent hanging on exit
+	timeout := time.Millisecond * 100
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		m.waitGroup.Wait()
+	}()
+	select {
+	case <-c:
+		// Completed normally
+		return
+	case <-time.After(timeout):
+		// Timed out - continue anyway
+		return
+	}
 }
 
 // generateThought generates a new thought based on command history
@@ -140,7 +160,7 @@ func (m *AIPredictionManager) generateThought() {
 	historyStr := strings.Join(history, "\n")
 	
 	prompt := fmt.Sprintf(
-		"Here are my recent commands:\n%s\n\nProvide a single short sentence (max 60 chars) that summarizes what I might be working on or a helpful suggestion:",
+		"Here are my recent commands:\n%s\n\nProvide a helpful thought that summarizes what I might be working on or a relevant suggestion:",
 		historyStr,
 	)
 	
@@ -150,10 +170,8 @@ func (m *AIPredictionManager) generateThought() {
 		return
 	}
 	
-	// Limit thought length and ensure it's a single line
-	if len(thought) > 60 {
-		thought = thought[:57] + "..."
-	}
+	// Ensure it's a single line without cutting it off
+	thought = strings.ReplaceAll(thought, "\n", " ")
 	
 	m.processingLock.Lock()
 	m.currentThought = thought

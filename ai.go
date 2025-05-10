@@ -2,10 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -55,6 +59,30 @@ func (c *OllamaClient) IsAvailable() bool {
 
 // Generate sends a prompt to Ollama and returns the response
 func (c *OllamaClient) Generate(prompt string, systemPrompt string) (string, error) {
+	// Create a context that can be cancelled
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // Ensure resources are freed
+
+	// Set up a channel to signal exit
+	cancelChan := make(chan struct{})
+
+	// Handle application exit by cancelling request
+	go func() {
+		// Listen for exit signals
+		signalChan := make(chan os.Signal, 1)
+		signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+		select {
+		case <-signalChan:
+			// Cancel the context when exit signal received
+			cancel()
+			close(cancelChan)
+		case <-ctx.Done():
+			// Context was cancelled elsewhere
+			close(cancelChan)
+		}
+	}()
+
 	reqBody := OllamaRequest{
 		Model:  c.ModelName,
 		Prompt: prompt,
@@ -62,34 +90,38 @@ func (c *OllamaClient) Generate(prompt string, systemPrompt string) (string, err
 		Stream: false,
 		Options: map[string]interface{}{
 			"temperature": 0.1,
-			"num_predict": 64,
+			"num_predict": 256, // Increased to allow longer responses
 		},
 	}
-	
+
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
 		return "", err
 	}
-	
-	resp, err := c.HttpClient.Post(
-		c.BaseURL+"/api/generate",
-		"application/json",
-		bytes.NewBuffer(jsonData),
-	)
+
+	// Create a request with context
+	req, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/api/generate", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// Use the context-aware request
+	resp, err := c.HttpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
-	
+
 	var result OllamaResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", err
 	}
-	
+
 	// Remove extra whitespace and make sure the response is a single line
 	response := strings.TrimSpace(result.Response)
 	response = strings.ReplaceAll(response, "\n", " ")
-	
+
 	return response, nil
 }
 
