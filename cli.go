@@ -201,6 +201,9 @@ func NewDeltaCompleter(historyHandler *EncryptedHistoryHandler) *DeltaCompleter 
 	internalCmds := map[string][]string{
 		"ai":   {"on", "off", "model", "status"},
 		"help": {},
+		"jump": {"add", "remove", "rm", "import", "list"},
+		"j":    {},
+		"init": {},
 	}
 
 	return &DeltaCompleter{
@@ -433,6 +436,24 @@ func (c *DeltaCompleter) completeInternalCommand(input string) []string {
 		cmd := parts[0]
 		subCmd := parts[1]
 
+		// Special handling for jump commands
+		if cmd == "jump" || cmd == "j" {
+			// Get locations from JumpManager
+			jm := GetJumpManager()
+			if jm != nil {
+				var matches []string
+				matchPrefix := ":" + cmd + " "
+
+				for _, loc := range jm.ListLocations() {
+					if strings.HasPrefix(loc, subCmd) {
+						matches = append(matches, matchPrefix+loc)
+					}
+				}
+				sort.Strings(matches)
+				return matches
+			}
+		}
+
 		// Check if the command exists
 		if subCmds, ok := c.internalCmds[cmd]; ok {
 			// Find matching subcommands
@@ -524,11 +545,19 @@ func (c *DeltaCompleter) completeFilePath(prefix string) []string {
 func showHelp() {
 	fmt.Println("Delta CLI Internal Commands:")
 	fmt.Println("  :ai [on|off]      - Enable or disable AI assistant")
-	fmt.Println("  :ai model <name>  - Change AI model (e.g., phi4:latest)")
+	fmt.Println("  :ai model <n>  - Change AI model (e.g., phi4:latest)")
 	fmt.Println("  :ai status        - Show AI assistant status")
+	fmt.Println("  :jump <location>  - Jump to predefined location")
+	fmt.Println("  :jump add <name> [path] - Add a new jump location")
+	fmt.Println("  :jump remove <name>     - Remove a jump location")
+	fmt.Println("  :jump import jumpsh     - Import locations from jump.sh")
+	fmt.Println("  :j <location>     - Shorthand for jump")
+	fmt.Println("  :init             - Initialize configuration files")
 	fmt.Println("  :help             - Show this help message")
 	fmt.Println("")
 	fmt.Println("Shell Navigation:")
+	fmt.Println("  cd [directory]    - Change current directory")
+	fmt.Println("  pwd               - Print current working directory")
 	fmt.Println("  exit, quit        - Exit Delta shell")
 	fmt.Println("  sub               - Enter subcommand mode")
 	fmt.Println("  end               - Exit subcommand mode")
@@ -554,11 +583,56 @@ func handleInternalCommand(command string) bool {
 	case "help":
 		showHelp()
 		return true
+	case "jump", "j":
+		return HandleJumpCommand(args)
+	case "init":
+		return handleInitCommand()
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 		fmt.Println("Type :help for a list of available commands.")
 		return true
 	}
+}
+
+// handleInitCommand initializes all required configuration files
+func handleInitCommand() bool {
+	fmt.Println("Initializing Delta CLI configuration...")
+
+	// Initialize JumpManager (creates config directory and jump_locations.json)
+	jm := GetJumpManager()
+	if jm != nil {
+		fmt.Printf("Jump locations config created at: %s\n", jm.configPath)
+	}
+
+	// Initialize AI Manager
+	ai := GetAIManager()
+	if ai != nil {
+		fmt.Println("AI assistant initialized")
+	}
+
+	// Initialize history file
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		homeDir = os.Getenv("HOME")
+	}
+	historyFile := filepath.Join(homeDir, ".delta_history")
+
+	// Create an empty history file if it doesn't exist
+	if _, err := os.Stat(historyFile); os.IsNotExist(err) {
+		// Create directory if it doesn't exist
+		dir := filepath.Dir(historyFile)
+		if err := os.MkdirAll(dir, 0755); err == nil {
+			// Initialize empty history
+			historyHandler := NewEncryptedHistory(historyFile)
+			historyHandler.WriteHistory([]string{})
+			fmt.Printf("History file created at: %s\n", historyFile)
+		}
+	} else {
+		fmt.Printf("History file already exists at: %s\n", historyFile)
+	}
+
+	fmt.Println("Delta CLI configuration initialized successfully!")
+	return true
 }
 
 // GetAIManager returns the global AI manager instance
@@ -718,8 +792,25 @@ func main() {
 		if inSubCommand {
 			prompt = "⬠ "
 		} else {
-			// Display the delta symbol as the prompt
-			prompt = "∆ "
+			// Get current directory for the prompt
+			pwd, err := os.Getwd()
+			if err == nil {
+				// Get the home directory to replace with ~
+				home, err := os.UserHomeDir()
+				if err == nil && strings.HasPrefix(pwd, home) {
+					// Replace home directory with ~
+					pwd = "~" + pwd[len(home):]
+				}
+
+				// Get just the last part of the path for brevity
+				lastPart := filepath.Base(pwd)
+
+				// Display the current directory in the prompt
+				prompt = fmt.Sprintf("[%s] ∆ ", lastPart)
+			} else {
+				// Default prompt if we can't get the directory
+				prompt = "∆ "
+			}
 		}
 		rl.SetPrompt(prompt)
 
@@ -804,6 +895,92 @@ func runCommand(command string, sigChan chan os.Signal) {
 	// Parse the command to get the executable
 	cmdParts := strings.Fields(command)
 	if len(cmdParts) == 0 {
+		return
+	}
+
+	// Check for built-in `jump` command to override external jump.sh
+	if cmdParts[0] == "jump" {
+		// Use our internal jump command instead
+		args := []string{}
+		if len(cmdParts) > 1 {
+			args = cmdParts[1:]
+		}
+		HandleJumpCommand(args)
+		return
+	}
+
+	// Handle cd command directly to change our own working directory
+	if cmdParts[0] == "cd" {
+		// Default to home directory if no argument is given
+		targetDir := ""
+		if len(cmdParts) > 1 {
+			targetDir = cmdParts[1]
+		} else {
+			var err error
+			targetDir, err = os.UserHomeDir()
+			if err != nil {
+				fmt.Println("Error getting home directory:", err)
+				return
+			}
+		}
+
+		// Expand ~ to home directory
+		if targetDir == "~" {
+			var err error
+			targetDir, err = os.UserHomeDir()
+			if err != nil {
+				fmt.Println("Error getting home directory:", err)
+				return
+			}
+		} else if strings.HasPrefix(targetDir, "~/") {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				fmt.Println("Error getting home directory:", err)
+				return
+			}
+			targetDir = filepath.Join(home, targetDir[2:])
+		}
+
+		// Handle special case for ..
+		if targetDir == ".." {
+			// Get current directory and go up one level
+			pwd, err := os.Getwd()
+			if err != nil {
+				fmt.Println("Error getting current directory:", err)
+				return
+			}
+			targetDir = filepath.Dir(pwd)
+		}
+
+		// Handle relative paths that don't start with ./ or ../
+		if !filepath.IsAbs(targetDir) && !strings.HasPrefix(targetDir, "./") && !strings.HasPrefix(targetDir, "../") {
+			// Combine with current directory
+			pwd, err := os.Getwd()
+			if err != nil {
+				fmt.Println("Error getting current directory:", err)
+				return
+			}
+			targetDir = filepath.Join(pwd, targetDir)
+		}
+
+		// Change the working directory
+		err := os.Chdir(targetDir)
+		if err != nil {
+			fmt.Printf("cd: %v\n", err)
+			return
+		}
+
+		return
+	}
+
+	// Handle pwd command directly
+	if cmdParts[0] == "pwd" {
+		pwd, err := os.Getwd()
+		if err != nil {
+			fmt.Println("Error getting current directory:", err)
+			return
+		}
+		fmt.Println(pwd)
 		return
 	}
 

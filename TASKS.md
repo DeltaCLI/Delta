@@ -2,6 +2,12 @@
 
 ## Completed Tasks
 
+### Configuration Initialization Command (2025-05-10)
+- Added `:init` command to ensure all configuration files exist
+- Command initializes Jump Manager config file, AI Manager, and history file
+- Ensures proper configuration directory structure is created if missing
+- Added help documentation and tab completion for the new command
+
 ### Tab Completion Implementation (2025-05-10)
 - Added tab completion for commands and file paths
 - Implemented DeltaCompleter that implements the readline.AutoCompleter interface
@@ -38,7 +44,7 @@
 
 ## Planned Improvements
 
-- Implement more internal commands with `:command` syntax
+- Implement more internal commands with `:command` syntax (✓ Added `:init`)
 - Add configurable command aliases
 - Implement plugin system for extensibility
 - Add support for different AI models beyond llama3.3:8b
