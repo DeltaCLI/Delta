@@ -207,6 +207,9 @@ func NewDeltaCompleter(historyHandler *EncryptedHistoryHandler) *DeltaCompleter 
 		"mem":      {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
 		"tokenizer": {"status", "stats", "process", "vocab", "test", "help"},
 		"tok":      {"status", "stats", "process", "vocab", "test", "help"},
+		"inference": {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
+		"inf":      {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
+		"feedback": {"helpful", "unhelpful", "correction"},
 		"init":     {},
 	}
 
@@ -577,6 +580,28 @@ func handleInternalCommand(command string) bool {
 		return HandleMemoryCommand(args)
 	case "tokenizer", "tok":
 		return HandleTokenizerCommand(args)
+	case "inference", "inf":
+		return HandleInferenceCommand(args)
+	case "feedback":
+		// Shorthand for inference feedback
+		if im := GetInferenceManager(); im != nil {
+			feedbackType := "helpful"
+			correction := ""
+
+			if len(args) > 0 {
+				feedbackType = args[0]
+			}
+
+			// Combine all remaining arguments as the correction text
+			if len(args) > 1 {
+				correction = strings.Join(args[1:], " ")
+			}
+
+			addInferenceFeedback(im, feedbackType, correction)
+			return true
+		}
+		fmt.Println("Inference system not available. Enable it with ':inference enable'")
+		return true
 	case "init":
 		return handleInitCommand()
 	default:
@@ -617,6 +642,22 @@ func handleInitCommand() bool {
 	tok := GetTokenizer()
 	if tok != nil {
 		fmt.Printf("Tokenizer initialized with %d vocabulary tokens\n", tok.GetVocabularySize())
+	}
+
+	// Initialize Inference Manager
+	inf := GetInferenceManager()
+	if inf != nil {
+		err := inf.Initialize()
+		if err == nil {
+			fmt.Println("Inference system initialized")
+			if inf.learningConfig.CollectFeedback {
+				fmt.Println("Learning feedback collection is enabled")
+			} else {
+				fmt.Println("Learning feedback collection is disabled")
+			}
+		} else {
+			fmt.Printf("Warning: Failed to initialize inference system: %v\n", err)
+		}
 	}
 
 	// Initialize history file
@@ -684,35 +725,169 @@ func handleAICommand(args []string) bool {
 
 	case "model":
 		if len(args) < 2 {
+			// Show current model information
 			fmt.Println("Current AI model:", ai.ollamaClient.ModelName)
+
+			// Check if using a custom model from inference system
+			infMgr := GetInferenceManager()
+			if infMgr != nil && infMgr.IsEnabled() && infMgr.learningConfig.UseCustomModel {
+				fmt.Printf("Custom trained model: %s\n", infMgr.learningConfig.CustomModelPath)
+			}
+
+			// Show model options
+			fmt.Println("\nAvailable commands:")
+			fmt.Println("  :ai model <model_name>    - Use specified Ollama model")
+			fmt.Println("  :ai model custom <path>   - Use custom trained model")
+			fmt.Println("  :ai model default         - Use default Ollama model")
 			return true
 		}
 
-		// Set a new model
-		newModel := args[1]
+		if args[1] == "custom" {
+			// Use custom trained model
+			if len(args) < 3 {
+				fmt.Println("Please specify the path to the custom model")
+				fmt.Println("Usage: :ai model custom <path_to_model>")
+				return true
+			}
 
-		// Check if the model is available
-		available, _ := ai.ollamaClient.CheckModelAvailability()
-		if !available {
-			fmt.Printf("AI model %s is not available. Make sure Ollama is running and the model is pulled.\n", newModel)
-			fmt.Println("You can pull the model with: ollama pull " + newModel)
+			// Check inference manager availability
+			infMgr := GetInferenceManager()
+			if infMgr == nil {
+				fmt.Println("Inference system not available")
+				return true
+			}
+
+			modelPath := args[2]
+
+			// Update to use custom model
+			err := ai.UpdateModel(modelPath, true)
+			if err != nil {
+				fmt.Printf("Error setting custom model: %v\n", err)
+				return true
+			}
+
+			fmt.Printf("Now using custom trained model: %s\n", modelPath)
+			return true
+
+		} else if args[1] == "default" {
+			// Revert to default Ollama model
+			infMgr := GetInferenceManager()
+			if infMgr != nil && infMgr.IsEnabled() {
+				// Disable custom model in inference config
+				inferenceConfig := infMgr.inferenceConfig
+				learningConfig := infMgr.learningConfig
+
+				learningConfig.UseCustomModel = false
+				inferenceConfig.UseLocalInference = false
+
+				infMgr.UpdateConfig(inferenceConfig, learningConfig)
+				fmt.Println("Reverted to default Ollama model")
+			}
+
+			// Make sure Ollama model is set
+			ai.ollamaClient.ModelName = "phi4:latest" // Default model
+			fmt.Println("Using Ollama model:", ai.ollamaClient.ModelName)
+			return true
+		} else {
+			// Set a new Ollama model
+			newModel := args[1]
+
+			// Disable any custom model first
+			infMgr := GetInferenceManager()
+			if infMgr != nil && infMgr.IsEnabled() && infMgr.learningConfig.UseCustomModel {
+				// Disable custom model in inference config
+				inferenceConfig := infMgr.inferenceConfig
+				learningConfig := infMgr.learningConfig
+
+				learningConfig.UseCustomModel = false
+				inferenceConfig.UseLocalInference = false
+
+				infMgr.UpdateConfig(inferenceConfig, learningConfig)
+			}
+
+			// Update Ollama model
+			err := ai.UpdateModel(newModel, false)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				fmt.Println("You can pull the model with: ollama pull " + newModel)
+				return true
+			}
+
+			fmt.Println("AI model set to:", newModel)
 			return true
 		}
-
-		ai.ollamaClient.ModelName = newModel
-		fmt.Println("AI model set to:", newModel)
-		return true
 
 	case "status":
 		fmt.Println("AI Status:")
 		fmt.Println("- Enabled:", ai.IsEnabled())
 		fmt.Println("- Model:", ai.ollamaClient.ModelName)
 		fmt.Println("- Available:", ai.isInitialized)
+
+		// Check for custom trained model
+		infMgr := GetInferenceManager()
+		if infMgr != nil && infMgr.IsEnabled() {
+			fmt.Println("- Learning system enabled:", infMgr.IsEnabled())
+			if infMgr.learningConfig.UseCustomModel {
+				fmt.Println("- Using custom trained model:", infMgr.learningConfig.CustomModelPath)
+			}
+
+			stats := infMgr.GetInferenceStats()
+			fmt.Printf("- Training examples: %d\n", stats["training_examples"].(int))
+			fmt.Printf("- Feedback entries: %d\n", stats["feedback_count"].(int))
+
+			if infMgr.ShouldTrain() {
+				fmt.Println("- Training status: Due for training")
+			} else {
+				fmt.Printf("- Training status: %d examples collected since last training\n",
+					infMgr.learningConfig.AccumulatedTrainingExamples)
+			}
+		}
+		return true
+
+	case "feedback":
+		// Shorthand for inference feedback
+		if len(args) < 2 {
+			fmt.Println("Please specify feedback type: helpful, unhelpful, or correction")
+			fmt.Println("Usage: :ai feedback <helpful|unhelpful|correction> [correction]")
+			return true
+		}
+
+		// Get the inference manager
+		infMgr := GetInferenceManager()
+		if infMgr == nil {
+			fmt.Println("Inference system not available")
+			return true
+		}
+
+		feedbackType := args[1]
+		correction := ""
+		if len(args) > 2 {
+			correction = args[2]
+		}
+
+		// Add feedback
+		addInferenceFeedback(infMgr, feedbackType, correction)
+		return true
+
+	case "help":
+		fmt.Println("AI Assistant Commands")
+		fmt.Println("====================")
+		fmt.Println("  :ai              - Show AI status")
+		fmt.Println("  :ai on           - Enable AI assistant")
+		fmt.Println("  :ai off          - Disable AI assistant")
+		fmt.Println("  :ai model        - Show current model")
+		fmt.Println("  :ai model <name> - Switch to specified Ollama model")
+		fmt.Println("  :ai model custom <path> - Use custom trained model")
+		fmt.Println("  :ai model default - Revert to default model")
+		fmt.Println("  :ai status       - Show detailed AI status")
+		fmt.Println("  :ai feedback <helpful|unhelpful|correction> [correction]")
+		fmt.Println("                   - Provide feedback on last prediction")
+		fmt.Println("  :ai help         - Show this help message")
 		return true
 
 	default:
 		fmt.Printf("Unknown AI command: %s\n", args[0])
-		fmt.Println("Available AI commands: on, off, model, status")
+		fmt.Println("Type :ai help for available commands")
 		return true
 	}
 }
@@ -744,6 +919,15 @@ func main() {
 	// Try to initialize AI first, showing enabled message
 	if ai != nil && ai.Initialize() {
 		fmt.Println("\033[33m[∆ AI features enabled: Using " + ai.ollamaClient.ModelName + " model]\033[0m")
+	}
+
+	// Initialize inference system for learning capabilities
+	infMgr := GetInferenceManager()
+	if infMgr != nil && infMgr.IsEnabled() {
+		infMgr.Initialize()
+		fmt.Println("\033[33m[∆ Learning system enabled: " +
+			fmt.Sprintf("%d training examples collected]\033[0m",
+			infMgr.learningConfig.AccumulatedTrainingExamples))
 	}
 
 	// Set up cleanup for AI resources on exit
