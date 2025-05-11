@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -110,7 +111,8 @@ func HandleMemoryCommand(args []string) bool {
 			if len(args) >= 2 {
 				switch args[1] {
 				case "start":
-					fmt.Println("Training functionality will be implemented in a future milestone")
+					fmt.Println("Starting Docker training environment...")
+					runTrainingContainer(mm, args[2:])
 					return true
 
 				case "status":
@@ -132,9 +134,14 @@ func HandleMemoryCommand(args []string) bool {
 						fmt.Println("Usage: :memory train feedback <helpful|unhelpful>")
 					}
 					return true
+
+				case "docker":
+					fmt.Println("Setting up Docker training environment...")
+					runTrainingContainer(mm, args[2:])
+					return true
 				}
 			}
-			fmt.Println("Usage: :memory train [start|status|add|feedback]")
+			fmt.Println("Usage: :memory train [start|docker|status|add|feedback]")
 			return true
 		}
 
@@ -461,6 +468,132 @@ func addTrainingFeedback(mm *MemoryManager, feedback string) {
 	// This will be implemented in a future milestone
 	fmt.Printf("Feedback recorded: %s\n", feedback)
 	fmt.Println("Feedback storage will be implemented in a future milestone")
+}
+
+// runTrainingContainer launches the Docker training environment
+func runTrainingContainer(mm *MemoryManager, args []string) {
+	// Check if Docker is installed
+	_, err := exec.LookPath("docker")
+	if err != nil {
+		fmt.Println("Docker not found. Please install Docker to use the training environment.")
+		return
+	}
+
+	// Check if training directory exists
+	homeDir, _ := os.UserHomeDir()
+	trainingDir := filepath.Join(homeDir, ".config", "delta", "training")
+
+	// Create training directory if it doesn't exist
+	err = os.MkdirAll(trainingDir, 0755)
+	if err != nil {
+		fmt.Printf("Error creating training directory: %v\n", err)
+		return
+	}
+
+	// Check if the Docker files are installed
+	dockerfilePath := filepath.Join(trainingDir, "Dockerfile")
+	if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
+		// Copy the Docker files from the installation directory
+		installDir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
+		srcDir := filepath.Join(installDir, "training")
+
+		// Alternative paths to check if the first one doesn't exist
+		alternativePaths := []string{
+			"/home/bleepbloop/deltacli/training",
+			"/usr/local/share/delta/training",
+			"/usr/share/delta/training",
+		}
+
+		// Check if the source directory exists
+		if _, err := os.Stat(srcDir); os.IsNotExist(err) {
+			// Try alternative paths
+			for _, path := range alternativePaths {
+				if _, err := os.Stat(path); err == nil {
+					srcDir = path
+					break
+				}
+			}
+		}
+
+		// If we found a valid source directory, copy the files
+		if _, err := os.Stat(srcDir); err == nil {
+			fmt.Printf("Copying training files from %s to %s...\n", srcDir, trainingDir)
+
+			filesToCopy := []string{
+				"Dockerfile",
+				"docker-compose.yml",
+				"docker-entrypoint.sh",
+				"requirements.txt",
+				"train.py",
+				"train_multi.py",
+				"run_training.sh",
+			}
+
+			for _, file := range filesToCopy {
+				srcFile := filepath.Join(srcDir, file)
+				dstFile := filepath.Join(trainingDir, file)
+
+				// Check if source file exists
+				if _, err := os.Stat(srcFile); os.IsNotExist(err) {
+					continue
+				}
+
+				// Copy the file
+				data, err := os.ReadFile(srcFile)
+				if err != nil {
+					fmt.Printf("Error reading %s: %v\n", file, err)
+					continue
+				}
+
+				err = os.WriteFile(dstFile, data, 0644)
+				if err != nil {
+					fmt.Printf("Error writing %s: %v\n", file, err)
+					continue
+				}
+
+				// Make scripts executable
+				if strings.HasSuffix(file, ".sh") {
+					os.Chmod(dstFile, 0755)
+				}
+			}
+		} else {
+			fmt.Println("Error: Training files not found. Please install Delta properly.")
+			return
+		}
+	}
+
+	// Check if Docker Compose is available
+	composeCommand := "docker-compose"
+	_, err = exec.LookPath(composeCommand)
+	if err != nil {
+		composeCommand = "docker compose" // Try alternative syntax
+	}
+
+	// Build the Docker container
+	fmt.Println("Building Docker training environment...")
+	buildCmd := exec.Command("bash", "-c", fmt.Sprintf("cd %s && %s build", trainingDir, composeCommand))
+	buildCmd.Stdout = os.Stdout
+	buildCmd.Stderr = os.Stderr
+
+	err = buildCmd.Run()
+	if err != nil {
+		fmt.Printf("Error building Docker container: %v\n", err)
+		return
+	}
+
+	// Run the training container
+	fmt.Println("Starting training container...")
+	runCmd := exec.Command("bash", "-c", fmt.Sprintf("cd %s && %s up", trainingDir, composeCommand))
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+
+	err = runCmd.Run()
+	if err != nil {
+		fmt.Printf("Error running Docker container: %v\n", err)
+		return
+	}
+
+	fmt.Println("Training completed.")
 }
 
 // Helper functions

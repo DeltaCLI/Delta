@@ -1,0 +1,29 @@
+# Deep Learning Framework
+torch>=2.1.0
+torchvision>=0.16.0
+
+# Training Utilities
+numpy>=1.24.0
+tensorboard>=2.15.0
+tqdm>=4.66.0
+wandb>=0.16.0
+pydantic>=2.5.0
+accelerate>=0.25.0
+
+# Optimization
+bitsandbytes>=0.41.0
+transformers>=4.35.0
+sentencepiece>=0.1.99
+tokenizers>=0.15.0
+flash-attn>=2.3.0
+
+# Vector Database
+faiss-gpu>=1.8.0
+onnx>=1.14.1
+onnxruntime-gpu>=1.16.0
+
+# Utilities
+scipy>=1.11.0
+matplotlib>=3.8.0
+pandas>=2.1.0
+PyYAML>=6.0

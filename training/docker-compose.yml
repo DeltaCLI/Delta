@@ -1,0 +1,31 @@
+version: '3'
+
+services:
+  delta-training:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ~/.config/delta/memory:/data/raw
+      - ./processed:/data/processed
+      - ./models:/models
+      - ./checkpoints:/checkpoints
+      - ./logs:/logs
+    environment:
+      - MODEL_SIZE=small
+      - BATCH_SIZE=32
+      - GRADIENT_ACCUMULATION_STEPS=4
+      - LEARNING_RATE=3e-4
+      - WARMUP_ITERS=1000
+      - MAX_ITERS=30000
+      - WANDB_DISABLED=true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    shm_size: 8gb
+    ulimits:
+      memlock: -1
