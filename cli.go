@@ -199,13 +199,15 @@ type DeltaCompleter struct {
 func NewDeltaCompleter(historyHandler *EncryptedHistoryHandler) *DeltaCompleter {
 	// Initialize internal commands for completion
 	internalCmds := map[string][]string{
-		"ai":     {"on", "off", "model", "status"},
-		"help":   {},
-		"jump":   {"add", "remove", "rm", "import", "list"},
-		"j":      {},
-		"memory": {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
-		"mem":    {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
-		"init":   {},
+		"ai":       {"on", "off", "model", "status"},
+		"help":     {},
+		"jump":     {"add", "remove", "rm", "import", "list"},
+		"j":        {},
+		"memory":   {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
+		"mem":      {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
+		"tokenizer": {"status", "stats", "process", "vocab", "test", "help"},
+		"tok":      {"status", "stats", "process", "vocab", "test", "help"},
+		"init":     {},
 	}
 
 	return &DeltaCompleter{
@@ -573,6 +575,8 @@ func handleInternalCommand(command string) bool {
 		return HandleJumpCommand(args)
 	case "memory", "mem":
 		return HandleMemoryCommand(args)
+	case "tokenizer", "tok":
+		return HandleTokenizerCommand(args)
 	case "init":
 		return handleInitCommand()
 	default:
@@ -607,6 +611,12 @@ func handleInitCommand() bool {
 		} else {
 			fmt.Printf("Warning: Failed to initialize memory system: %v\n", err)
 		}
+	}
+
+	// Initialize Tokenizer
+	tok := GetTokenizer()
+	if tok != nil {
+		fmt.Printf("Tokenizer initialized with %d vocabulary tokens\n", tok.GetVocabularySize())
 	}
 
 	// Initialize history file

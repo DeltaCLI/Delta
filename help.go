@@ -34,6 +34,16 @@ func showEnhancedHelp() {
 	fmt.Println("  :memory clear     - Clear all collected data (requires confirmation)")
 	fmt.Println("  :memory train     - Memory training commands")
 	fmt.Println("  :mem              - Shorthand for memory commands")
+
+	// Tokenizer Commands
+	fmt.Println("")
+	fmt.Println("  Tokenizer System:")
+	fmt.Println("  :tokenizer status - Show tokenizer status")
+	fmt.Println("  :tokenizer stats  - Show detailed tokenizer statistics")
+	fmt.Println("  :tokenizer process - Process command data for training")
+	fmt.Println("  :tokenizer vocab  - Show vocabulary information")
+	fmt.Println("  :tokenizer test   - Test tokenization on sample commands")
+	fmt.Println("  :tok              - Shorthand for tokenizer commands")
 	
 	// Other Commands
 	fmt.Println("")
