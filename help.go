@@ -10,6 +10,8 @@ func showEnhancedHelp() {
 	fmt.Println("  AI Assistant:")
 	fmt.Println("  :ai [on|off]      - Enable or disable AI assistant")
 	fmt.Println("  :ai model <n>     - Change AI model (e.g., phi4:latest)")
+	fmt.Println("  :ai model custom <path> - Use custom trained model")
+	fmt.Println("  :ai feedback <type> [correction] - Provide feedback on predictions")
 	fmt.Println("  :ai status        - Show AI assistant status")
 	
 	// Jump Commands
@@ -44,7 +46,45 @@ func showEnhancedHelp() {
 	fmt.Println("  :tokenizer vocab  - Show vocabulary information")
 	fmt.Println("  :tokenizer test   - Test tokenization on sample commands")
 	fmt.Println("  :tok              - Shorthand for tokenizer commands")
-	
+
+	// Inference and Learning Commands
+	fmt.Println("")
+	fmt.Println("  Inference and Learning:")
+	fmt.Println("  :inference [enable|disable] - Control inference system")
+	fmt.Println("  :inference feedback <type>  - Provide feedback on predictions")
+	fmt.Println("  :inference stats   - Show detailed inference statistics")
+	fmt.Println("  :inference examples - Show training examples")
+	fmt.Println("  :inference model   - Manage custom models")
+	fmt.Println("  :inference config  - Configure inference system")
+	fmt.Println("  :inf               - Shorthand for inference commands")
+	fmt.Println("  :feedback <type>   - Shorthand for feedback commands")
+
+	// Vector Database Commands
+	fmt.Println("")
+	fmt.Println("  Vector Database:")
+	fmt.Println("  :vector [enable|disable] - Control vector database")
+	fmt.Println("  :vector search <cmd>  - Search for similar commands")
+	fmt.Println("  :vector embed <cmd>   - Generate embedding for a command")
+	fmt.Println("  :vector stats         - Show detailed vector database statistics")
+	fmt.Println("  :vector config        - Configure vector database")
+
+	// Embedding Commands
+	fmt.Println("")
+	fmt.Println("  Embedding System:")
+	fmt.Println("  :embedding [enable|disable] - Control embedding system")
+	fmt.Println("  :embedding generate <cmd>   - Generate embedding for a command")
+	fmt.Println("  :embedding stats            - Show detailed embedding statistics")
+	fmt.Println("  :embedding config           - Configure embedding system")
+
+	// Speculative Decoding Commands
+	fmt.Println("")
+	fmt.Println("  Speculative Decoding:")
+	fmt.Println("  :speculative [enable|disable] - Control speculative decoding")
+	fmt.Println("  :speculative draft <text>     - Test speculative drafting")
+	fmt.Println("  :speculative stats            - Show detailed statistics")
+	fmt.Println("  :speculative config           - Configure speculative decoding")
+	fmt.Println("  :specd                        - Shorthand for speculative commands")
+
 	// Other Commands
 	fmt.Println("")
 	fmt.Println("  System:")

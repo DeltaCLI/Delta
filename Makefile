@@ -22,7 +22,16 @@ all: build
 build: $(OUTPUT_BINARY)
 	@echo "Building $(BINARY_NAME) for $(TARGET)"
 	@mkdir -p $(dir $(OUTPUT_BINARY))
-	CGO_ENABLED=0 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build $(GOFLAGS) -o $(OUTPUT_BINARY) ai.go ai_manager.go jump_manager.go jump_helper.go cli.go memory_manager.go memory_commands.go tokenizer.go tokenizer_commands.go inference.go inference_commands.go help.go
+	CGO_ENABLED=0 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build $(GOFLAGS) -o $(OUTPUT_BINARY) \
+		ai.go ai_manager.go \
+		jump_manager.go jump_helper.go \
+		cli.go help.go \
+		memory_manager.go memory_commands.go \
+		tokenizer.go tokenizer_commands.go \
+		inference.go inference_commands.go \
+		vector_db.go vector_commands.go \
+		embedding_manager.go embedding_commands.go \
+		speculative_decoding.go speculative_commands.go
 	@echo "Successfully built $(BINARY_NAME) for $(TARGET)"
 
 clean:

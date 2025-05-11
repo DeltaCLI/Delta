@@ -582,6 +582,12 @@ func handleInternalCommand(command string) bool {
 		return HandleTokenizerCommand(args)
 	case "inference", "inf":
 		return HandleInferenceCommand(args)
+	case "vector":
+		return HandleVectorCommand(args)
+	case "embedding":
+		return HandleEmbeddingCommand(args)
+	case "speculative", "specd":
+		return HandleSpeculativeCommand(args)
 	case "feedback":
 		// Shorthand for inference feedback
 		if im := GetInferenceManager(); im != nil {
@@ -657,6 +663,39 @@ func handleInitCommand() bool {
 			}
 		} else {
 			fmt.Printf("Warning: Failed to initialize inference system: %v\n", err)
+		}
+	}
+
+	// Initialize Vector Database
+	vdb := GetVectorDBManager()
+	if vdb != nil {
+		err := vdb.Initialize()
+		if err == nil {
+			fmt.Println("Vector database initialized")
+		} else {
+			fmt.Printf("Warning: Failed to initialize vector database: %v\n", err)
+		}
+	}
+
+	// Initialize Embedding Manager
+	em := GetEmbeddingManager()
+	if em != nil {
+		err := em.Initialize()
+		if err == nil {
+			fmt.Println("Embedding system initialized")
+		} else {
+			fmt.Printf("Warning: Failed to initialize embedding system: %v\n", err)
+		}
+	}
+
+	// Initialize Speculative Decoder
+	sd := GetSpeculativeDecoder()
+	if sd != nil {
+		err := sd.Initialize()
+		if err == nil {
+			fmt.Println("Speculative decoding initialized")
+		} else {
+			fmt.Printf("Warning: Failed to initialize speculative decoding: %v\n", err)
 		}
 	}
 
@@ -946,8 +985,28 @@ func main() {
 		fmt.Println("Error initializing history:", err)
 	}
 
-	// Create our completer
+	// Create our completer with extended commands
+	internalCmds := map[string][]string{
+		"ai":         {"on", "off", "model", "custom", "default", "status", "feedback", "help"},
+		"help":       {},
+		"jump":       {"add", "remove", "rm", "import", "list"},
+		"j":          {},
+		"memory":     {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
+		"mem":        {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
+		"tokenizer":  {"status", "stats", "process", "vocab", "test", "help"},
+		"tok":        {"status", "stats", "process", "vocab", "test", "help"},
+		"inference":  {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
+		"inf":        {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
+		"feedback":   {"helpful", "unhelpful", "correction"},
+		"vector":     {"enable", "disable", "status", "stats", "search", "embed", "config", "help"},
+		"embedding":  {"enable", "disable", "status", "stats", "generate", "config", "help"},
+		"speculative": {"enable", "disable", "status", "stats", "draft", "reset", "config", "help"},
+		"specd":      {"enable", "disable", "status", "stats", "draft", "reset", "config", "help"},
+		"init":       {},
+	}
+
 	completer := NewDeltaCompleter(historyHandler)
+	completer.internalCmds = internalCmds
 
 	// Configure readline with custom history support and tab completion
 	rl, err := readline.NewEx(&readline.Config{
