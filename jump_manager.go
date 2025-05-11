@@ -168,16 +168,16 @@ func (jm *JumpManager) importLocationsFromJumpSh() {
 func processJumpShFile(jm *JumpManager, lines []string) {
 	// Look for location definitions in the Jump Gate section
 	inJumpGate := false
-	
+
 	for i, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// Find the Jump Gate section
 		if strings.Contains(line, "Jump Gate") {
 			inJumpGate = true
 			continue
 		}
-		
+
 		// Process the Jump Gate section
 		if inJumpGate {
 			// Look for case/elif statements like: elif [[ ${query} == "delta" ]]; then
@@ -187,7 +187,7 @@ func processJumpShFile(jm *JumpManager, lines []string) {
 					parts := strings.Split(line, "==")
 					if len(parts) >= 2 {
 						name := strings.Trim(strings.TrimSpace(parts[1]), "\"' ];")
-						
+
 						// Look for the jumpto call on the next line
 						if i+1 < len(lines) {
 							nextLine := strings.TrimSpace(lines[i+1])
@@ -197,7 +197,7 @@ func processJumpShFile(jm *JumpManager, lines []string) {
 								if len(pathParts) >= 2 {
 									// Clean up the path
 									path := strings.Trim(strings.TrimSpace(pathParts[1]), "\"' $)(||return")
-									
+
 									// Convert any home directory references
 									if path == "~" || path == "$HOME" {
 										home, _ := os.UserHomeDir()
@@ -209,10 +209,23 @@ func processJumpShFile(jm *JumpManager, lines []string) {
 										home, _ := os.UserHomeDir()
 										path = filepath.Join(home, path[6:])
 									}
-									
-									// Skip if it still contains variables
-									if !strings.Contains(path, "$") {
-										jm.locations[name] = path
+
+									// Special case for deepfry location which uses $DEEPFRY_HOME variable
+									if name == "deepfry" {
+										// Try to find DEEPFRY_HOME in environment variables or set a reasonable default
+										deepfryHome := os.Getenv("DEEPFRY_HOME")
+										if deepfryHome != "" {
+											jm.locations[name] = deepfryHome
+										} else {
+											// Set a default location (user's home directory + /deepfry)
+											home, _ := os.UserHomeDir()
+											jm.locations[name] = filepath.Join(home, "deepfry")
+										}
+									} else {
+										// Skip if it still contains variables (except for special cases)
+										if !strings.Contains(path, "$") {
+											jm.locations[name] = path
+										}
 									}
 								}
 							}
@@ -220,9 +233,9 @@ func processJumpShFile(jm *JumpManager, lines []string) {
 					}
 				}
 			}
-			
+
 			// End of Jump Gate section
-			if strings.Contains(line, "###############################################################################") && 
+			if strings.Contains(line, "###############################################################################") &&
 			   i > 0 && strings.Contains(lines[i-1], "fi") {
 				inJumpGate = false
 			}

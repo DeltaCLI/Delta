@@ -199,11 +199,13 @@ type DeltaCompleter struct {
 func NewDeltaCompleter(historyHandler *EncryptedHistoryHandler) *DeltaCompleter {
 	// Initialize internal commands for completion
 	internalCmds := map[string][]string{
-		"ai":   {"on", "off", "model", "status"},
-		"help": {},
-		"jump": {"add", "remove", "rm", "import", "list"},
-		"j":    {},
-		"init": {},
+		"ai":     {"on", "off", "model", "status"},
+		"help":   {},
+		"jump":   {"add", "remove", "rm", "import", "list"},
+		"j":      {},
+		"memory": {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
+		"mem":    {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
+		"init":   {},
 	}
 
 	return &DeltaCompleter{
@@ -543,24 +545,8 @@ func (c *DeltaCompleter) completeFilePath(prefix string) []string {
 
 // Show help for internal commands
 func showHelp() {
-	fmt.Println("Delta CLI Internal Commands:")
-	fmt.Println("  :ai [on|off]      - Enable or disable AI assistant")
-	fmt.Println("  :ai model <n>  - Change AI model (e.g., phi4:latest)")
-	fmt.Println("  :ai status        - Show AI assistant status")
-	fmt.Println("  :jump <location>  - Jump to predefined location")
-	fmt.Println("  :jump add <name> [path] - Add a new jump location")
-	fmt.Println("  :jump remove <name>     - Remove a jump location")
-	fmt.Println("  :jump import jumpsh     - Import locations from jump.sh")
-	fmt.Println("  :j <location>     - Shorthand for jump")
-	fmt.Println("  :init             - Initialize configuration files")
-	fmt.Println("  :help             - Show this help message")
-	fmt.Println("")
-	fmt.Println("Shell Navigation:")
-	fmt.Println("  cd [directory]    - Change current directory")
-	fmt.Println("  pwd               - Print current working directory")
-	fmt.Println("  exit, quit        - Exit Delta shell")
-	fmt.Println("  sub               - Enter subcommand mode")
-	fmt.Println("  end               - Exit subcommand mode")
+	// Call the enhanced help function from help.go
+	showEnhancedHelp()
 }
 
 // Handle internal commands that start with a colon
@@ -585,6 +571,8 @@ func handleInternalCommand(command string) bool {
 		return true
 	case "jump", "j":
 		return HandleJumpCommand(args)
+	case "memory", "mem":
+		return HandleMemoryCommand(args)
 	case "init":
 		return handleInitCommand()
 	default:
@@ -608,6 +596,17 @@ func handleInitCommand() bool {
 	ai := GetAIManager()
 	if ai != nil {
 		fmt.Println("AI assistant initialized")
+	}
+
+	// Initialize Memory Manager
+	mm := GetMemoryManager()
+	if mm != nil {
+		err := mm.Initialize()
+		if err == nil {
+			fmt.Printf("Memory system initialized at: %s\n", mm.storagePath)
+		} else {
+			fmt.Printf("Warning: Failed to initialize memory system: %v\n", err)
+		}
 	}
 
 	// Initialize history file

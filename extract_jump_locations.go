@@ -58,26 +58,26 @@ func main() {
 func extractLocations(data string) map[string]string {
 	// Map to store locations
 	locations := make(map[string]string)
-	
+
 	// Add default locations
 	home, _ := os.UserHomeDir()
 	locations["home"] = home
 	locations["delta"] = "/home/bleepbloop/deltacli"
-	
+
 	// Split into lines
 	lines := strings.Split(data, "\n")
-	
+
 	// Look for variable definitions first (for directories)
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// Look for variable definitions like VAR="/path/to/dir"
 		if strings.Contains(line, "=") && strings.Contains(line, "\"") {
 			parts := strings.SplitN(line, "=", 2)
 			if len(parts) == 2 {
 				name := strings.TrimSpace(parts[0])
 				path := strings.Trim(strings.TrimSpace(parts[1]), "\"'")
-				
+
 				// Skip if it's not a path or if it contains variables
 				if strings.HasPrefix(path, "/") && !strings.Contains(path, "$") {
 					// Convert name to lowercase for consistency
@@ -87,18 +87,18 @@ func extractLocations(data string) map[string]string {
 			}
 		}
 	}
-	
+
 	// Find the Jump Gate section
 	inJumpGate := false
 	for i, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// Find the Jump Gate section
 		if strings.Contains(line, "Jump Gate") {
 			inJumpGate = true
 			continue
 		}
-		
+
 		// Process the Jump Gate section
 		if inJumpGate {
 			// Look for elif statements like: elif [[ ${query} == "delta" ]]; then
@@ -130,7 +130,7 @@ func extractLocations(data string) map[string]string {
 								pathStr = strings.ReplaceAll(pathStr, "return 1", "")
 								pathStr = strings.ReplaceAll(pathStr, "return", "")
 								path := strings.TrimSpace(pathStr)
-								
+
 								// Handle special cases for home directory
 								if path == "~" {
 									path = home
@@ -139,24 +139,36 @@ func extractLocations(data string) map[string]string {
 								} else if strings.HasPrefix(path, "$HOME") {
 									path = filepath.Join(home, path[6:])
 								}
-								
-								// Only add if it's a valid path
-								if !strings.Contains(path, "$") && (strings.HasPrefix(path, "/") || path == home) {
-									locations[name] = path
+
+								// Special case for deepfry location which uses $DEEPFRY_HOME variable
+								if name == "deepfry" {
+									// Try to find DEEPFRY_HOME in environment variables or set a reasonable default
+									deepfryHome := os.Getenv("DEEPFRY_HOME")
+									if deepfryHome != "" {
+										locations[name] = deepfryHome
+									} else {
+										// Set a default location (user's home directory + /deepfry)
+										locations[name] = filepath.Join(home, "deepfry")
+									}
+								} else {
+									// Only add if it's a valid path
+									if !strings.Contains(path, "$") && (strings.HasPrefix(path, "/") || path == home) {
+										locations[name] = path
+									}
 								}
 							}
 						}
 					}
 				}
 			}
-			
+
 			// End of Jump Gate section
-			if strings.Contains(line, "###############################################################################") && 
+			if strings.Contains(line, "###############################################################################") &&
 			   i > 0 && strings.Contains(lines[i-1], "fi") {
 				inJumpGate = false
 			}
 		}
 	}
-	
+
 	return locations
 }
