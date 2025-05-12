@@ -32,7 +32,8 @@ build: $(OUTPUT_BINARY)
 		vector_db.go vector_commands.go \
 		embedding_manager.go embedding_commands.go \
 		speculative_decoding.go speculative_commands.go \
-		knowledge_extractor.go knowledge_commands.go
+		knowledge_extractor.go knowledge_commands.go \
+		agent_manager.go agent_commands.go
 	@echo "Successfully built $(BINARY_NAME) for $(TARGET)"
 
 clean:

@@ -590,6 +590,8 @@ func handleInternalCommand(command string) bool {
 		return HandleSpeculativeCommand(args)
 	case "knowledge", "know":
 		return HandleKnowledgeCommand(args)
+	case "agent":
+		return HandleAgentCommand(args)
 	case "feedback":
 		// Shorthand for inference feedback
 		if im := GetInferenceManager(); im != nil {
@@ -709,6 +711,17 @@ func handleInitCommand() bool {
 			fmt.Println("Knowledge extractor initialized")
 		} else {
 			fmt.Printf("Warning: Failed to initialize knowledge extractor: %v\n", err)
+		}
+	}
+
+	// Initialize Agent Manager
+	am := GetAgentManager()
+	if am != nil {
+		err := am.Initialize()
+		if err == nil {
+			fmt.Println("Agent manager initialized")
+		} else {
+			fmt.Printf("Warning: Failed to initialize agent manager: %v\n", err)
 		}
 	}
 
@@ -982,6 +995,13 @@ func main() {
 			infMgr.learningConfig.AccumulatedTrainingExamples))
 	}
 
+	// Initialize agent manager
+	am := GetAgentManager()
+	if am != nil && am.IsEnabled() {
+		am.Initialize()
+		fmt.Println("\033[33m[∆ Agent system enabled: Task automation active]\033[0m")
+	}
+
 	// Set up cleanup for AI resources on exit
 	defer func() {
 		if ai != nil && ai.cancelFunc != nil {
@@ -1017,6 +1037,7 @@ func main() {
 		"specd":      {"enable", "disable", "status", "stats", "draft", "reset", "config", "help"},
 		"knowledge":  {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "help"},
 		"know":       {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "help"},
+		"agent":      {"enable", "disable", "list", "show", "run", "create", "edit", "delete", "learn", "docker", "stats", "help"},
 		"init":       {},
 	}
 

@@ -96,6 +96,20 @@ func showEnhancedHelp() {
 	fmt.Println("  :knowledge stats              - Show detailed statistics")
 	fmt.Println("  :know                         - Shorthand for knowledge commands")
 
+	// Agent System Commands
+	fmt.Println("")
+	fmt.Println("  Agent System:")
+	fmt.Println("  :agent [enable|disable]       - Control agent manager")
+	fmt.Println("  :agent list                   - List all agents")
+	fmt.Println("  :agent show <id>              - Show agent details")
+	fmt.Println("  :agent run <id>               - Run an agent")
+	fmt.Println("  :agent create <n>          - Create a new agent")
+	fmt.Println("  :agent edit <id>              - Edit agent configuration")
+	fmt.Println("  :agent delete <id>            - Delete an agent")
+	fmt.Println("  :agent learn <cmds>           - Learn a new agent from command sequence")
+	fmt.Println("  :agent docker [list|cache|build] - Manage Docker integration")
+	fmt.Println("  :agent stats                  - Show agent statistics")
+
 	// Other Commands
 	fmt.Println("")
 	fmt.Println("  System:")
