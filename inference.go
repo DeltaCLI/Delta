@@ -14,6 +14,7 @@ import (
 
 // InferenceConfig contains configuration for model inference
 type InferenceConfig struct {
+	Enabled           bool    `json:"enabled"`            // Whether inference is enabled
 	ModelPath         string  `json:"model_path"`         // Path to the model file
 	ModelType         string  `json:"model_type"`         // "onnx" or "pytorch"
 	MaxTokens         int     `json:"max_tokens"`         // Maximum number of tokens to generate
@@ -40,6 +41,7 @@ type LearningConfig struct {
 	TrainingInterval       int     `json:"training_interval"`        // Interval between training sessions (days)
 	LastTrainingTimestamp  int64   `json:"last_training_timestamp"`  // Timestamp of last training
 	AccumulatedTrainingExamples int `json:"accumulated_training_examples"` // Number of accumulated training examples
+	TrainingThreshold      int     `json:"training_threshold"`      // Number of examples before training
 }
 
 // FeedbackEntry represents a user feedback entry

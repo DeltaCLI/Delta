@@ -23,6 +23,7 @@ type VectorDBConfig struct {
 	MaxEntries         int      `json:"max_entries"`
 	IndexBuildInterval int      `json:"index_build_interval"` // in minutes
 	CommandTypes       []string `json:"command_types"`       // Specific types of commands to embed
+	InMemoryMode       bool     `json:"in_memory_mode"`     // Whether to keep vectors in memory
 }
 
 // CommandEmbedding represents a single command with its embedding

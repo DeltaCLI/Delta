@@ -33,7 +33,9 @@ build: $(OUTPUT_BINARY)
 		embedding_manager.go embedding_commands.go \
 		speculative_decoding.go speculative_commands.go \
 		knowledge_extractor.go knowledge_commands.go \
-		agent_manager.go agent_commands.go
+		agent_manager.go agent_commands.go \
+		config_manager.go config_commands.go \
+		spellcheck.go spellcheck_commands.go
 	@echo "Successfully built $(BINARY_NAME) for $(TARGET)"
 
 clean:

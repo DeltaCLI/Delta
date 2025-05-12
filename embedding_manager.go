@@ -23,6 +23,7 @@ type EmbeddingConfig struct {
 	CacheSize         int      `json:"cache_size"`
 	BatchSize         int      `json:"batch_size"`
 	EmbbedingSize     int      `json:"embedding_size"`
+	Dimensions        int      `json:"dimensions"`      // Embedding dimension size
 	UseOllama         bool     `json:"use_ollama"`
 	OllamaURL         string   `json:"ollama_url"`
 	OllamaModel       string   `json:"ollama_model"`

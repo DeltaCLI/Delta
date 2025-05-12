@@ -489,6 +489,294 @@ func (mm *MemoryManager) UpdateConfig(config MemoryConfig) error {
 	return mm.saveConfig()
 }
 
+// ExportOptions represents options for memory export operation
+type ExportOptions struct {
+	Format      string    // "json" or "binary"
+	StartDate   time.Time // Start date for export range (nil for all)
+	EndDate     time.Time // End date for export range (nil for all)
+	IncludeAll  bool      // Whether to include configuration in export
+	Destination string    // Export destination directory
+}
+
+// ExportMetadata contains information about an export
+type ExportMetadata struct {
+	ExportDate   time.Time               `json:"export_date"`
+	StartDate    time.Time               `json:"start_date,omitempty"`
+	EndDate      time.Time               `json:"end_date,omitempty"`
+	Format       string                  `json:"format"`
+	EntryCount   int                     `json:"entry_count"`
+	ShardCount   int                     `json:"shard_count"`
+	IncludesAll  bool                    `json:"includes_all"`
+	Config       *MemoryConfig           `json:"config,omitempty"`
+	ShardDetails map[string]ShardDetails `json:"shard_details,omitempty"`
+}
+
+// ShardDetails contains information about an exported shard
+type ShardDetails struct {
+	Date       string `json:"date"`
+	EntryCount int    `json:"entry_count"`
+	Path       string `json:"path"`
+}
+
+// ExportMemory exports memory data according to specified options
+func (mm *MemoryManager) ExportMemory(options ExportOptions) (string, error) {
+	// Close current shard file to ensure all data is written
+	mm.shardWriteLock.Lock()
+	if mm.shardWriter != nil {
+		mm.shardWriter.Close()
+		mm.shardWriter = nil
+	}
+	mm.shardWriteLock.Unlock()
+
+	// Create export directory
+	exportDir := options.Destination
+	if exportDir == "" {
+		exportDir = filepath.Join(mm.config.StoragePath, "exports")
+	}
+
+	err := os.MkdirAll(exportDir, 0755)
+	if err != nil {
+		return "", fmt.Errorf("failed to create export directory: %v", err)
+	}
+
+	// Create timestamp-based export directory
+	timestamp := time.Now().Format("20060102_150405")
+	exportPath := filepath.Join(exportDir, "export_"+timestamp)
+	err = os.MkdirAll(exportPath, 0755)
+	if err != nil {
+		return "", fmt.Errorf("failed to create export subdirectory: %v", err)
+	}
+
+	// Create metadata structure
+	metadata := ExportMetadata{
+		ExportDate:   time.Now(),
+		Format:       options.Format,
+		EntryCount:   0,
+		ShardCount:   0,
+		IncludesAll:  options.IncludeAll,
+		ShardDetails: make(map[string]ShardDetails),
+	}
+
+	// Include dates if specified
+	if !options.StartDate.IsZero() {
+		metadata.StartDate = options.StartDate
+	}
+	if !options.EndDate.IsZero() {
+		metadata.EndDate = options.EndDate
+	}
+
+	// Include configuration if requested
+	if options.IncludeAll {
+		metadata.Config = &mm.config
+	}
+
+	// Get list of shards to export
+	entries, err := os.ReadDir(mm.config.StoragePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read storage directory: %v", err)
+	}
+
+	// Filter and copy shard files
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "commands_") {
+			continue
+		}
+
+		// Extract date from filename
+		datePart := strings.TrimPrefix(entry.Name(), "commands_")
+		datePart = strings.TrimSuffix(datePart, ".bin")
+
+		shardDate, err := time.Parse("2006-01-02", datePart)
+		if err != nil {
+			// Skip files with invalid date format
+			continue
+		}
+
+		// Apply date range filter if specified
+		if !options.StartDate.IsZero() && shardDate.Before(options.StartDate) {
+			continue
+		}
+		if !options.EndDate.IsZero() && shardDate.After(options.EndDate) {
+			continue
+		}
+
+		// Get shard stats
+		shardPath := filepath.Join(mm.config.StoragePath, entry.Name())
+		entriesCount, _, _, err := mm.getShardStats(shardPath)
+		if err != nil {
+			// Skip files with errors
+			continue
+		}
+
+		// Export based on format
+		var exportedPath string
+		if options.Format == "json" {
+			// Export as JSON
+			entries, err := mm.ReadCommands(datePart)
+			if err != nil {
+				// Skip files with errors
+				continue
+			}
+
+			// Write to JSON file
+			jsonPath := filepath.Join(exportPath, "commands_"+datePart+".json")
+			jsonData, err := json.MarshalIndent(entries, "", "  ")
+			if err != nil {
+				continue
+			}
+
+			err = os.WriteFile(jsonPath, jsonData, 0644)
+			if err != nil {
+				continue
+			}
+
+			exportedPath = jsonPath
+		} else {
+			// Binary format (direct copy)
+			dstPath := filepath.Join(exportPath, entry.Name())
+			data, err := os.ReadFile(shardPath)
+			if err != nil {
+				continue
+			}
+
+			err = os.WriteFile(dstPath, data, 0644)
+			if err != nil {
+				continue
+			}
+
+			exportedPath = dstPath
+		}
+
+		// Update metadata
+		metadata.ShardCount++
+		metadata.EntryCount += entriesCount
+		metadata.ShardDetails[datePart] = ShardDetails{
+			Date:       datePart,
+			EntryCount: entriesCount,
+			Path:       exportedPath,
+		}
+	}
+
+	// Write metadata file
+	metadataPath := filepath.Join(exportPath, "metadata.json")
+	metadataJSON, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return exportPath, fmt.Errorf("failed to create metadata: %v", err)
+	}
+
+	err = os.WriteFile(metadataPath, metadataJSON, 0644)
+	if err != nil {
+		return exportPath, fmt.Errorf("failed to write metadata: %v", err)
+	}
+
+	// Reinitialize memory manager
+	mm.Initialize()
+
+	return exportPath, nil
+}
+
+// ImportMemory imports memory data from an export
+func (mm *MemoryManager) ImportMemory(importPath string, options map[string]bool) error {
+	// Validate import path
+	metadataPath := filepath.Join(importPath, "metadata.json")
+	_, err := os.Stat(metadataPath)
+	if err != nil {
+		return fmt.Errorf("invalid import: metadata.json not found at %s", importPath)
+	}
+
+	// Read metadata
+	metadataBytes, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return fmt.Errorf("failed to read metadata: %v", err)
+	}
+
+	var metadata ExportMetadata
+	err = json.Unmarshal(metadataBytes, &metadata)
+	if err != nil {
+		return fmt.Errorf("failed to parse metadata: %v", err)
+	}
+
+	// Close current shard file
+	mm.shardWriteLock.Lock()
+	if mm.shardWriter != nil {
+		mm.shardWriter.Close()
+		mm.shardWriter = nil
+	}
+	mm.shardWriteLock.Unlock()
+
+	// Import configuration if available and requested
+	importConfig := options["import_config"]
+	if importConfig && metadata.Config != nil {
+		// Keep original storage paths but update other settings
+		config := *metadata.Config
+		config.StoragePath = mm.config.StoragePath
+		config.ModelPath = mm.config.ModelPath
+		mm.config = config
+		mm.saveConfig()
+	}
+
+	// Import memory data
+	for date, shardDetails := range metadata.ShardDetails {
+		// Log info about shard being imported
+		fmt.Printf("Importing shard for %s with %d entries\n", shardDetails.Date, shardDetails.EntryCount)
+
+		// Destination shard path
+		dstPath := filepath.Join(mm.config.StoragePath, "commands_"+date+".bin")
+
+		if metadata.Format == "json" {
+			// Convert JSON to binary format
+			jsonPath := filepath.Join(importPath, "commands_"+date+".json")
+			jsonData, err := os.ReadFile(jsonPath)
+			if err != nil {
+				continue // Skip this shard
+			}
+
+			var entries []CommandEntry
+			err = json.Unmarshal(jsonData, &entries)
+			if err != nil {
+				continue // Skip this shard
+			}
+
+			// Create binary shard file
+			file, err := os.Create(dstPath)
+			if err != nil {
+				continue // Skip this shard
+			}
+
+			// Write each entry in binary format
+			for _, entry := range entries {
+				data, err := json.Marshal(entry)
+				if err != nil {
+					continue // Skip this entry
+				}
+
+				// Write length and data
+				lenBytes := make([]byte, 4)
+				binary.LittleEndian.PutUint32(lenBytes, uint32(len(data)))
+				file.Write(lenBytes)
+				file.Write(data)
+			}
+
+			file.Close()
+		} else {
+			// Direct binary copy
+			srcPath := filepath.Join(importPath, "commands_"+date+".bin")
+			data, err := os.ReadFile(srcPath)
+			if err != nil {
+				continue // Skip this shard
+			}
+
+			err = os.WriteFile(dstPath, data, 0644)
+			if err != nil {
+				continue // Skip this shard
+			}
+		}
+	}
+
+	// Reinitialize memory manager
+	return mm.Initialize()
+}
+
 // Close closes the memory manager and releases resources
 func (mm *MemoryManager) Close() error {
 	mm.shardWriteLock.Lock()

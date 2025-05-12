@@ -30,10 +30,12 @@ type CommandTokens struct {
 
 // TokenizerConfig holds configuration for the tokenizer
 type TokenizerConfig struct {
+	Enabled        bool     `json:"enabled"`          // Whether tokenizer is enabled
 	VocabSize      int      `json:"vocab_size"`       // Maximum vocabulary size
 	MaxTokenLength int      `json:"max_token_length"` // Maximum token length
 	CommonCommands []string `json:"common_commands"`  // List of common commands for special handling
 	SpecialTokens  []string `json:"special_tokens"`   // Special tokens like [BOS], [EOS], [PAD]
+	StoragePath    string   `json:"storage_path"`     // Path to store tokenizer data
 }
 
 // Tokenizer handles tokenization of commands

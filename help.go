@@ -110,12 +110,33 @@ func showEnhancedHelp() {
 	fmt.Println("  :agent docker [list|cache|build] - Manage Docker integration")
 	fmt.Println("  :agent stats                  - Show agent statistics")
 
+	// Configuration Commands
+	fmt.Println("")
+	fmt.Println("  Configuration:")
+	fmt.Println("  :config                - Show configuration status")
+	fmt.Println("  :config list           - List all configurations")
+	fmt.Println("  :config export <path>  - Export configuration to a file")
+	fmt.Println("  :config import <path>  - Import configuration from a file")
+	fmt.Println("  :config edit <comp>    - View or modify component configuration")
+	fmt.Println("  :config reset          - Reset all configurations to default values")
+
+	// Spell Checker Commands
+	fmt.Println("")
+	fmt.Println("  Spell Checker:")
+	fmt.Println("  :spellcheck [enable|disable] - Control spell checking")
+	fmt.Println("  :spellcheck status     - Show spell checker status")
+	fmt.Println("  :spellcheck config     - Configure spell checker")
+	fmt.Println("  :spellcheck add <word> - Add word to custom dictionary")
+	fmt.Println("  :spellcheck remove <word> - Remove word from dictionary")
+	fmt.Println("  :spellcheck test <cmd> - Test spell checking on a command")
+	fmt.Println("  :spell                 - Shorthand for spellcheck commands")
+
 	// Other Commands
 	fmt.Println("")
 	fmt.Println("  System:")
 	fmt.Println("  :init             - Initialize configuration files")
 	fmt.Println("  :help             - Show this help message")
-	
+
 	// Shell Navigation
 	fmt.Println("")
 	fmt.Println("Shell Navigation:")

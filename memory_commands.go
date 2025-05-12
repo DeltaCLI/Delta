@@ -97,12 +97,28 @@ func HandleMemoryCommand(args []string) bool {
 			return true
 
 		case "export":
-			// Export data for a specific date or all data
+			// Enhanced export with options
+			if len(args) >= 2 && args[1] == "help" {
+				showExportHelp()
+				return true
+			}
+			
+			// Parse export options
+			exportOptions := parseExportOptions(args[1:])
+			exportMemoryData(mm, exportOptions)
+			return true
+			
+		case "import":
+			// Import memory data
 			if len(args) >= 2 {
-				date := args[1]
-				exportMemoryData(mm, date)
+				if args[1] == "help" {
+					showImportHelp()
+					return true
+				}
+				importMemoryData(mm, args[1:])
 			} else {
-				fmt.Println("Usage: :memory export YYYY-MM-DD")
+				fmt.Println("Usage: :memory import <path> [--with-config]")
+				fmt.Println("Use ':memory import help' for more information")
 			}
 			return true
 
@@ -154,7 +170,8 @@ func HandleMemoryCommand(args []string) bool {
 		fmt.Println("  :memory clear      - Clear all data")
 		fmt.Println("  :memory config     - Show configuration")
 		fmt.Println("  :memory list       - List available data shards")
-		fmt.Println("  :memory export     - Export data for a specific date")
+		fmt.Println("  :memory export     - Export data with options")
+		fmt.Println("  :memory import     - Import data from an export")
 		fmt.Println("  :memory train      - Training commands")
 		return true
 	}
@@ -359,64 +376,230 @@ func listMemoryShards(mm *MemoryManager) {
 	}
 }
 
-// exportMemoryData exports data for a specific date
-func exportMemoryData(mm *MemoryManager, date string) {
-	entries, err := mm.ReadCommands(date)
-	if err != nil {
-		fmt.Printf("Error reading commands: %v\n", err)
-		return
+// Parse export options from command-line arguments
+func parseExportOptions(args []string) ExportOptions {
+	options := ExportOptions{
+		Format:      "binary", // Default format
+		IncludeAll:  false,
+		Destination: "",
 	}
-	
-	if len(entries) == 0 {
-		fmt.Printf("No commands found for date: %s\n", date)
-		return
-	}
-	
-	// Create export directory if it doesn't exist
-	exportDir := filepath.Join(mm.config.StoragePath, "exports")
-	err = os.MkdirAll(exportDir, 0755)
-	if err != nil {
-		fmt.Printf("Error creating export directory: %v\n", err)
-		return
-	}
-	
-	// Create export file
-	exportPath := filepath.Join(exportDir, "export_"+date+".txt")
-	file, err := os.Create(exportPath)
-	if err != nil {
-		fmt.Printf("Error creating export file: %v\n", err)
-		return
-	}
-	defer file.Close()
-	
-	// Write header
-	file.WriteString(fmt.Sprintf("# Command Export for %s\n", date))
-	file.WriteString(fmt.Sprintf("# Total Commands: %d\n\n", len(entries)))
-	
-	// Write each command
-	for i, entry := range entries {
-		file.WriteString(fmt.Sprintf("## Command %d\n", i+1))
-		file.WriteString(fmt.Sprintf("Time: %s\n", entry.Timestamp.Format(time.RFC3339)))
-		file.WriteString(fmt.Sprintf("Directory: %s\n", entry.Directory))
-		file.WriteString(fmt.Sprintf("Command: %s\n", entry.Command))
-		file.WriteString(fmt.Sprintf("Exit Code: %d\n", entry.ExitCode))
-		file.WriteString(fmt.Sprintf("Duration: %d ms\n", entry.Duration))
-		
-		if entry.PrevCommand != "" {
-			file.WriteString(fmt.Sprintf("Previous Command: %s\n", entry.PrevCommand))
-		}
-		
-		if len(entry.Environment) > 0 {
-			file.WriteString("Environment:\n")
-			for k, v := range entry.Environment {
-				file.WriteString(fmt.Sprintf("  %s: %s\n", k, v))
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--json":
+			options.Format = "json"
+		case "--binary":
+			options.Format = "binary" 
+		case "--all":
+			options.IncludeAll = true
+		case "--output":
+			if i+1 < len(args) {
+				options.Destination = args[i+1]
+				i++ // Skip the next argument
+			}
+		case "--from":
+			if i+1 < len(args) {
+				date, err := time.Parse("2006-01-02", args[i+1])
+				if err == nil {
+					options.StartDate = date
+				}
+				i++ // Skip the next argument
+			}
+		case "--to":
+			if i+1 < len(args) {
+				date, err := time.Parse("2006-01-02", args[i+1])
+				if err == nil {
+					options.EndDate = date
+				}
+				i++ // Skip the next argument
+			}
+		default:
+			// Check if it's a date in YYYY-MM-DD format
+			if date, err := time.Parse("2006-01-02", args[i]); err == nil {
+				// If both start and end are not set, use as start date
+				// If start is set but end isn't, use as end date
+				if options.StartDate.IsZero() {
+					options.StartDate = date
+				} else if options.EndDate.IsZero() {
+					options.EndDate = date
+				}
 			}
 		}
-		
-		file.WriteString("\n")
 	}
-	
-	fmt.Printf("Exported %d commands to %s\n", len(entries), exportPath)
+
+	return options
+}
+
+// showExportHelp displays help for the export command
+func showExportHelp() {
+	fmt.Println("Memory Export Help")
+	fmt.Println("=================")
+	fmt.Println("Export memory data to a specified format and location.")
+	fmt.Println("")
+	fmt.Println("Usage:")
+	fmt.Println("  :memory export [options]")
+	fmt.Println("  :memory export <date>")
+	fmt.Println("  :memory export <start_date> <end_date>")
+	fmt.Println("")
+	fmt.Println("Options:")
+	fmt.Println("  --json           Export in JSON format (default is binary)")
+	fmt.Println("  --binary         Export in binary format (default)")
+	fmt.Println("  --all            Include configuration in export")
+	fmt.Println("  --output <dir>   Specify output directory")
+	fmt.Println("  --from <date>    Start date (YYYY-MM-DD)")
+	fmt.Println("  --to <date>      End date (YYYY-MM-DD)")
+	fmt.Println("")
+	fmt.Println("Examples:")
+	fmt.Println("  :memory export                    # Export all data in binary format")
+	fmt.Println("  :memory export 2023-01-15         # Export data for specific date")
+	fmt.Println("  :memory export --json             # Export all data in JSON format")
+	fmt.Println("  :memory export --all --json       # Export all data and config in JSON format")
+	fmt.Println("  :memory export 2023-01-01 2023-01-31 # Export date range")
+	fmt.Println("  :memory export --from 2023-01-01 --to 2023-01-31 # Same as above")
+}
+
+// showImportHelp displays help for the import command
+func showImportHelp() {
+	fmt.Println("Memory Import Help")
+	fmt.Println("=================")
+	fmt.Println("Import memory data from a previously exported backup.")
+	fmt.Println("")
+	fmt.Println("Usage:")
+	fmt.Println("  :memory import <path> [options]")
+	fmt.Println("")
+	fmt.Println("Options:")
+	fmt.Println("  --with-config    Import configuration (if available in export)")
+	fmt.Println("")
+	fmt.Println("Examples:")
+	fmt.Println("  :memory import ~/.config/delta/memory/exports/export_20230115_120000")
+	fmt.Println("  :memory import /tmp/delta_backup --with-config")
+	fmt.Println("")
+	fmt.Println("Notes:")
+	fmt.Println("  - Import path must be a directory containing metadata.json")
+	fmt.Println("  - Existing data for imported dates will be overwritten")
+	fmt.Println("  - Configuration is not imported by default")
+}
+
+// exportMemoryData exports data using the new ExportMemory function
+func exportMemoryData(mm *MemoryManager, options ExportOptions) {
+	// Legacy mode for simpler date-based export
+	if !options.StartDate.IsZero() && options.EndDate.IsZero() {
+		// If only start date is set, export a single day
+		date := options.StartDate.Format("2006-01-02")
+		
+		// Check if we should use the legacy export
+		if options.Format == "txt" && options.Destination == "" && !options.IncludeAll {
+			entries, err := mm.ReadCommands(date)
+			if err != nil {
+				fmt.Printf("Error reading commands: %v\n", err)
+				return
+			}
+			
+			if len(entries) == 0 {
+				fmt.Printf("No commands found for date: %s\n", date)
+				return
+			}
+			
+			// Create export directory if it doesn't exist
+			exportDir := filepath.Join(mm.config.StoragePath, "exports")
+			err = os.MkdirAll(exportDir, 0755)
+			if err != nil {
+				fmt.Printf("Error creating export directory: %v\n", err)
+				return
+			}
+			
+			// Create export file
+			exportPath := filepath.Join(exportDir, "export_"+date+".txt")
+			file, err := os.Create(exportPath)
+			if err != nil {
+				fmt.Printf("Error creating export file: %v\n", err)
+				return
+			}
+			defer file.Close()
+			
+			// Write header
+			file.WriteString(fmt.Sprintf("# Command Export for %s\n", date))
+			file.WriteString(fmt.Sprintf("# Total Commands: %d\n\n", len(entries)))
+			
+			// Write each command
+			for i, entry := range entries {
+				file.WriteString(fmt.Sprintf("## Command %d\n", i+1))
+				file.WriteString(fmt.Sprintf("Time: %s\n", entry.Timestamp.Format(time.RFC3339)))
+				file.WriteString(fmt.Sprintf("Directory: %s\n", entry.Directory))
+				file.WriteString(fmt.Sprintf("Command: %s\n", entry.Command))
+				file.WriteString(fmt.Sprintf("Exit Code: %d\n", entry.ExitCode))
+				file.WriteString(fmt.Sprintf("Duration: %d ms\n", entry.Duration))
+				
+				if entry.PrevCommand != "" {
+					file.WriteString(fmt.Sprintf("Previous Command: %s\n", entry.PrevCommand))
+				}
+				
+				if len(entry.Environment) > 0 {
+					file.WriteString("Environment:\n")
+					for k, v := range entry.Environment {
+						file.WriteString(fmt.Sprintf("  %s: %s\n", k, v))
+					}
+				}
+				
+				file.WriteString("\n")
+			}
+			
+			fmt.Printf("Exported %d commands to %s\n", len(entries), exportPath)
+			return
+		}
+	}
+
+	// Use the enhanced export system for everything else
+	exportPath, err := mm.ExportMemory(options)
+	if err != nil {
+		fmt.Printf("Error exporting memory data: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Memory data exported to: %s\n", exportPath)
+}
+
+// importMemoryData imports memory data from an export
+func importMemoryData(mm *MemoryManager, args []string) {
+	if len(args) == 0 {
+		fmt.Println("Please specify the path to the export directory")
+		return
+	}
+
+	importPath := args[0]
+	options := make(map[string]bool)
+
+	// Parse options
+	for _, arg := range args[1:] {
+		if arg == "--with-config" {
+			options["import_config"] = true
+		}
+	}
+
+	// Validate import path
+	if _, err := os.Stat(importPath); os.IsNotExist(err) {
+		fmt.Printf("Error: Import path does not exist: %s\n", importPath)
+		return
+	}
+
+	// Confirm import
+	fmt.Println("Warning: Importing may overwrite existing data.")
+	fmt.Print("Do you want to continue? (y/n): ")
+	var confirm string
+	fmt.Scanln(&confirm)
+	if strings.ToLower(confirm) != "y" {
+		fmt.Println("Import cancelled")
+		return
+	}
+
+	// Perform import
+	err := mm.ImportMemory(importPath, options)
+	if err != nil {
+		fmt.Printf("Error importing memory data: %v\n", err)
+		return
+	}
+
+	fmt.Println("Memory data imported successfully")
 }
 
 // showTrainingStatus displays the current training status

@@ -9,6 +9,15 @@ import (
 	"time"
 )
 
+// AIPredictionConfig contains configuration for AI prediction system
+type AIPredictionConfig struct {
+	Enabled       bool   `json:"enabled"`        // Whether AI prediction is enabled
+	ModelName     string `json:"model_name"`     // Model name to use (e.g., phi4:latest)
+	ServerURL     string `json:"server_url"`     // Ollama server URL
+	MaxHistory    int    `json:"max_history"`    // Maximum history entries to keep
+	ContextPrompt string `json:"context_prompt"` // Base prompt for AI
+}
+
 // AIPredictionManager manages the AI predictions and context
 type AIPredictionManager struct {
 	ollamaClient      *OllamaClient
@@ -27,6 +36,7 @@ type AIPredictionManager struct {
 		prediction string
 		timestamp  time.Time
 	}
+	config            AIPredictionConfig // Configuration for AI prediction
 }
 
 // NewAIPredictionManager creates a new AI prediction manager
@@ -46,6 +56,13 @@ func NewAIPredictionManager(ollamaURL string, modelName string) (*AIPredictionMa
 		isInitialized:     false,
 		predictionEnabled: false,
 		cancelFunc:        cancel,
+		config: AIPredictionConfig{
+			Enabled:       false,
+			ModelName:     modelName,
+			ServerURL:     ollamaURL,
+			MaxHistory:    10,
+			ContextPrompt: "You are Delta, an AI assistant for the command line. Analyze the user's commands and provide a short, helpful thought or prediction.",
+		},
 	}, nil
 }
 
@@ -98,11 +115,13 @@ func (m *AIPredictionManager) IsEnabled() bool {
 // EnablePredictions enables AI predictions
 func (m *AIPredictionManager) EnablePredictions() {
 	m.predictionEnabled = true
+	m.config.Enabled = true
 }
 
 // DisablePredictions disables AI predictions
 func (m *AIPredictionManager) DisablePredictions() {
 	m.predictionEnabled = false
+	m.config.Enabled = false
 }
 
 // AddCommand adds a command to the history and updates predictions

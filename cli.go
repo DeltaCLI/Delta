@@ -592,6 +592,10 @@ func handleInternalCommand(command string) bool {
 		return HandleKnowledgeCommand(args)
 	case "agent":
 		return HandleAgentCommand(args)
+	case "config":
+		return HandleConfigCommand(args)
+	case "spellcheck", "spell":
+		return HandleSpellCheckCommand(args)
 	case "feedback":
 		// Shorthand for inference feedback
 		if im := GetInferenceManager(); im != nil {
@@ -615,8 +619,34 @@ func handleInternalCommand(command string) bool {
 	case "init":
 		return handleInitCommand()
 	default:
-		fmt.Printf("Unknown command: %s\n", command)
-		fmt.Println("Type :help for a list of available commands.")
+		// Check for typos and suggest corrections
+		if sc := GetSpellChecker(); sc != nil && sc.IsEnabled() {
+			// Check for spelling errors and get suggestions
+			suggestions := sc.CheckCommand(command)
+
+			if len(suggestions) > 0 {
+				fmt.Printf("Unknown command: %s\n", command)
+				fmt.Println(sc.GetCorrectionText(command, suggestions))
+
+				// Auto-correct if enabled and confidence is high enough
+				if sc.ShouldAutoCorrect(suggestions) {
+					correctedCmd := ":" + suggestions[0].Command
+					fmt.Printf("Auto-correcting to: %s\n", correctedCmd)
+
+					// Record the correction
+					sc.RecordCorrection(command, correctedCmd)
+
+					// Execute the corrected command
+					return handleInternalCommand(correctedCmd)
+				}
+			} else {
+				fmt.Printf("Unknown command: %s\n", command)
+				fmt.Println("Type :help for a list of available commands.")
+			}
+		} else {
+			fmt.Printf("Unknown command: %s\n", command)
+			fmt.Println("Type :help for a list of available commands.")
+		}
 		return true
 	}
 }
@@ -722,6 +752,28 @@ func handleInitCommand() bool {
 			fmt.Println("Agent manager initialized")
 		} else {
 			fmt.Printf("Warning: Failed to initialize agent manager: %v\n", err)
+		}
+	}
+
+	// Initialize Config Manager
+	cm := GetConfigManager()
+	if cm != nil {
+		err := cm.Initialize()
+		if err == nil {
+			fmt.Println("Configuration manager initialized")
+		} else {
+			fmt.Printf("Warning: Failed to initialize configuration manager: %v\n", err)
+		}
+	}
+
+	// Initialize spell checker
+	sc := GetSpellChecker()
+	if sc != nil {
+		err := sc.Initialize()
+		if err == nil {
+			fmt.Println("Spell checker initialized")
+		} else {
+			fmt.Printf("Warning: Failed to initialize spell checker: %v\n", err)
 		}
 	}
 
@@ -1002,6 +1054,22 @@ func main() {
 		fmt.Println("\033[33m[∆ Agent system enabled: Task automation active]\033[0m")
 	}
 
+	// Initialize config manager
+	cm := GetConfigManager()
+	if cm != nil {
+		cm.Initialize()
+		fmt.Println("\033[33m[∆ Configuration system enabled: Centralized settings management]\033[0m")
+	}
+
+	// Initialize spell checker
+	sc := GetSpellChecker()
+	if sc != nil {
+		sc.Initialize()
+		if sc.config.Enabled {
+			fmt.Println("\033[33m[∆ Spell checking enabled: Command correction active]\033[0m")
+		}
+	}
+
 	// Set up cleanup for AI resources on exit
 	defer func() {
 		if ai != nil && ai.cancelFunc != nil {
@@ -1038,6 +1106,9 @@ func main() {
 		"knowledge":  {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "help"},
 		"know":       {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "help"},
 		"agent":      {"enable", "disable", "list", "show", "run", "create", "edit", "delete", "learn", "docker", "stats", "help"},
+		"config":     {"status", "list", "export", "import", "edit", "reset", "help"},
+		"spellcheck": {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
+		"spell":      {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
 		"init":       {},
 	}
 
