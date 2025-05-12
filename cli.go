@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/chzyer/readline"
 )
@@ -596,6 +597,8 @@ func handleInternalCommand(command string) bool {
 		return HandleConfigCommand(args)
 	case "spellcheck", "spell":
 		return HandleSpellCheckCommand(args)
+	case "history", "hist":
+		return HandleHistoryCommand(args)
 	case "feedback":
 		// Shorthand for inference feedback
 		if im := GetInferenceManager(); im != nil {
@@ -774,6 +777,17 @@ func handleInitCommand() bool {
 			fmt.Println("Spell checker initialized")
 		} else {
 			fmt.Printf("Warning: Failed to initialize spell checker: %v\n", err)
+		}
+	}
+
+	// Initialize history analyzer
+	ha := GetHistoryAnalyzer()
+	if ha != nil {
+		err := ha.Initialize()
+		if err == nil {
+			fmt.Println("History analyzer initialized")
+		} else {
+			fmt.Printf("Warning: Failed to initialize history analyzer: %v\n", err)
 		}
 	}
 
@@ -1070,6 +1084,15 @@ func main() {
 		}
 	}
 
+	// Initialize history analyzer
+	ha := GetHistoryAnalyzer()
+	if ha != nil {
+		ha.Initialize()
+		if ha.config.Enabled {
+			fmt.Println("\033[33m[∆ History analysis enabled: Command suggestion active]\033[0m")
+		}
+	}
+
 	// Set up cleanup for AI resources on exit
 	defer func() {
 		if ai != nil && ai.cancelFunc != nil {
@@ -1109,6 +1132,8 @@ func main() {
 		"config":     {"status", "list", "export", "import", "edit", "reset", "help"},
 		"spellcheck": {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
 		"spell":      {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
+		"history":    {"show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
+		"hist":       {"show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
 		"init":       {},
 	}
 
@@ -1246,15 +1271,47 @@ func main() {
 		}
 
 		// Process the command in a subshell and pass our signal channel
-		runCommand(command, c)
+		exitCode, duration := runCommand(command, c)
+
+		// Record command in history analyzer if enabled
+		if ha := GetHistoryAnalyzer(); ha != nil && ha.IsEnabled() {
+			// Get the current directory for context
+			dir, err := os.Getwd()
+			if err != nil {
+				dir = ""
+			}
+
+			// Create command context
+			ctx := CommandContext{
+				Directory:   dir,
+				Environment: map[string]string{}, // Minimal environment info for privacy
+				Timestamp:   time.Now(),
+				ExitCode:    exitCode,
+				Duration:    duration,
+			}
+
+			// Record the command (this happens asynchronously)
+			go ha.AddCommand(command, ctx)
+
+			// Check if auto-suggest is enabled and show suggestions
+			if ha.config.AutoSuggest {
+				// Get suggestions for next command
+				suggestions := ha.GetSuggestions(dir)
+				if len(suggestions) > 0 && suggestions[0].Confidence > ha.config.MinConfidenceThreshold {
+					// Format suggestion
+					suggestion := suggestions[0]
+					fmt.Printf("\033[2m[Suggestion: %s]\033[0m\n", suggestion.Command)
+				}
+			}
+		}
 	}
 }
 
-func runCommand(command string, sigChan chan os.Signal) {
+func runCommand(command string, sigChan chan os.Signal) (int, time.Duration) {
 	// Parse the command to get the executable
 	cmdParts := strings.Fields(command)
 	if len(cmdParts) == 0 {
-		return
+		return 0, 0
 	}
 
 	// Check for built-in `jump` command to override external jump.sh
@@ -1264,12 +1321,24 @@ func runCommand(command string, sigChan chan os.Signal) {
 		if len(cmdParts) > 1 {
 			args = cmdParts[1:]
 		}
-		HandleJumpCommand(args)
-		return
+		// Start timing
+		startTime := time.Now()
+		result := HandleJumpCommand(args)
+		duration := time.Since(startTime)
+
+		// Return 0 for success, 1 for failure
+		exitCode := 0
+		if !result {
+			exitCode = 1
+		}
+
+		return exitCode, duration
 	}
 
 	// Handle cd command directly to change our own working directory
 	if cmdParts[0] == "cd" {
+		startTime := time.Now()
+
 		// Default to home directory if no argument is given
 		targetDir := ""
 		if len(cmdParts) > 1 {
@@ -1279,7 +1348,7 @@ func runCommand(command string, sigChan chan os.Signal) {
 			targetDir, err = os.UserHomeDir()
 			if err != nil {
 				fmt.Println("Error getting home directory:", err)
-				return
+				return 1, time.Since(startTime)
 			}
 		}
 
@@ -1289,13 +1358,13 @@ func runCommand(command string, sigChan chan os.Signal) {
 			targetDir, err = os.UserHomeDir()
 			if err != nil {
 				fmt.Println("Error getting home directory:", err)
-				return
+				return 1, time.Since(startTime)
 			}
 		} else if strings.HasPrefix(targetDir, "~/") {
 			home, err := os.UserHomeDir()
 			if err != nil {
 				fmt.Println("Error getting home directory:", err)
-				return
+				return 1, time.Since(startTime)
 			}
 			targetDir = filepath.Join(home, targetDir[2:])
 		}
@@ -1306,7 +1375,7 @@ func runCommand(command string, sigChan chan os.Signal) {
 			pwd, err := os.Getwd()
 			if err != nil {
 				fmt.Println("Error getting current directory:", err)
-				return
+				return 1, time.Since(startTime)
 			}
 			targetDir = filepath.Dir(pwd)
 		}
@@ -1317,7 +1386,7 @@ func runCommand(command string, sigChan chan os.Signal) {
 			pwd, err := os.Getwd()
 			if err != nil {
 				fmt.Println("Error getting current directory:", err)
-				return
+				return 1, time.Since(startTime)
 			}
 			targetDir = filepath.Join(pwd, targetDir)
 		}
@@ -1326,21 +1395,23 @@ func runCommand(command string, sigChan chan os.Signal) {
 		err := os.Chdir(targetDir)
 		if err != nil {
 			fmt.Printf("cd: %v\n", err)
-			return
+			return 1, time.Since(startTime)
 		}
 
-		return
+		return 0, time.Since(startTime)
 	}
 
 	// Handle pwd command directly
 	if cmdParts[0] == "pwd" {
+		startTime := time.Now()
+
 		pwd, err := os.Getwd()
 		if err != nil {
 			fmt.Println("Error getting current directory:", err)
-			return
+			return 1, time.Since(startTime)
 		}
 		fmt.Println(pwd)
-		return
+		return 0, time.Since(startTime)
 	}
 
 	// Get the user's shell from environment
@@ -1360,8 +1431,7 @@ func runCommand(command string, sigChan chan os.Signal) {
 		homeDir = os.Getenv("HOME")
 		if homeDir == "" {
 			// If we can't determine home directory, just run command directly
-			err = runDirectCommand(shell, command, sigChan)
-			return
+			return runDirectCommand(shell, command, sigChan)
 		}
 	}
 
@@ -1384,7 +1454,7 @@ func runCommand(command string, sigChan chan os.Signal) {
 	}
 
 	// Now run the command
-	runShellCommand(shell, shellCmd, sigChan)
+	return runShellCommand(shell, shellCmd, sigChan)
 }
 
 // ZSH special handling to properly load functions and aliases
@@ -1471,31 +1541,59 @@ func buildFishCommand(homeDir string, command string) string {
 }
 
 // Execute a command directly without any profile sourcing
-func runDirectCommand(shell string, command string, sigChan chan os.Signal) error {
+func runDirectCommand(shell string, command string, sigChan chan os.Signal) (int, time.Duration) {
 	// Create the command with default arguments
 	shellArgs := []string{"-c", command}
 	cmd := exec.Command(shell, shellArgs...)
-	
+
 	// Connect standard I/O
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
-	return executeCommand(cmd, sigChan)
+
+	startTime := time.Now()
+	err := executeCommand(cmd, sigChan)
+	duration := time.Since(startTime)
+
+	// Extract exit code if available
+	exitCode := 0
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			exitCode = 1 // Generic error
+		}
+	}
+
+	return exitCode, duration
 }
 
 // Execute a shell command with profile sourcing
-func runShellCommand(shell string, shellCmd string, sigChan chan os.Signal) error {
+func runShellCommand(shell string, shellCmd string, sigChan chan os.Signal) (int, time.Duration) {
 	// Create command with the -c flag for all shells
 	shellArgs := []string{"-c", shellCmd}
 	cmd := exec.Command(shell, shellArgs...)
-	
+
 	// Connect standard I/O
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
-	return executeCommand(cmd, sigChan)
+
+	startTime := time.Now()
+	err := executeCommand(cmd, sigChan)
+	duration := time.Since(startTime)
+
+	// Extract exit code if available
+	exitCode := 0
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			exitCode = 1 // Generic error
+		}
+	}
+
+	return exitCode, duration
 }
 
 // Actually execute the command with proper signal handling

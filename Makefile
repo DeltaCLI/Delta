@@ -35,7 +35,8 @@ build: $(OUTPUT_BINARY)
 		knowledge_extractor.go knowledge_commands.go \
 		agent_manager.go agent_commands.go \
 		config_manager.go config_commands.go \
-		spellcheck.go spellcheck_commands.go
+		spellcheck.go spellcheck_commands.go \
+		history_analysis.go history_commands.go
 	@echo "Successfully built $(BINARY_NAME) for $(TARGET)"
 
 clean:

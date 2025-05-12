@@ -131,6 +131,19 @@ func showEnhancedHelp() {
 	fmt.Println("  :spellcheck test <cmd> - Test spell checking on a command")
 	fmt.Println("  :spell                 - Shorthand for spellcheck commands")
 
+	// History Analysis Commands
+	fmt.Println("")
+	fmt.Println("  History Analysis:")
+	fmt.Println("  :history               - Show recent command history")
+	fmt.Println("  :history show [limit]  - Show history with limit")
+	fmt.Println("  :history search <query> - Search command history")
+	fmt.Println("  :history suggest       - Show command suggestions")
+	fmt.Println("  :history stats         - Show detailed statistics")
+	fmt.Println("  :history patterns      - Show command patterns")
+	fmt.Println("  :history info <cmd>    - Show info about a command")
+	fmt.Println("  :history config        - Configure history analysis")
+	fmt.Println("  :hist                  - Shorthand for history commands")
+
 	// Other Commands
 	fmt.Println("")
 	fmt.Println("  System:")
