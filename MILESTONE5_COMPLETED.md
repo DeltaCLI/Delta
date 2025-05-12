@@ -165,6 +165,16 @@ The groundwork has been laid for further enhancements:
    - Measure performance improvements
    - Track memory and CPU usage
 
+5. **Autonomous Agent System**
+   - Implement task-specific agents for automation
+   - Add Docker integration for build environments
+   - Create intelligent caching for build acceleration
+   - Design agent configuration and management interface
+
+Preliminary designs for the agent system have been documented in:
+- `/home/bleepbloop/deltacli/AGENT_SYSTEM_PLAN.md` - Overall architecture
+- `/home/bleepbloop/deltacli/milestone_artifacts/DEEPFRY_AGENT_SPEC.md` - DeepFry-specific implementation
+
 ## Conclusion
 
 Milestone 5 represents a significant advancement in Delta CLI's AI capabilities, with substantial performance improvements and new functionality. The vector database and speculative decoding implementations provide the foundation for more intelligent and responsive AI assistance in the terminal.

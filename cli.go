@@ -588,6 +588,8 @@ func handleInternalCommand(command string) bool {
 		return HandleEmbeddingCommand(args)
 	case "speculative", "specd":
 		return HandleSpeculativeCommand(args)
+	case "knowledge", "know":
+		return HandleKnowledgeCommand(args)
 	case "feedback":
 		// Shorthand for inference feedback
 		if im := GetInferenceManager(); im != nil {
@@ -696,6 +698,17 @@ func handleInitCommand() bool {
 			fmt.Println("Speculative decoding initialized")
 		} else {
 			fmt.Printf("Warning: Failed to initialize speculative decoding: %v\n", err)
+		}
+	}
+
+	// Initialize Knowledge Extractor
+	ke := GetKnowledgeExtractor()
+	if ke != nil {
+		err := ke.Initialize()
+		if err == nil {
+			fmt.Println("Knowledge extractor initialized")
+		} else {
+			fmt.Printf("Warning: Failed to initialize knowledge extractor: %v\n", err)
 		}
 	}
 
@@ -1002,6 +1015,8 @@ func main() {
 		"embedding":  {"enable", "disable", "status", "stats", "generate", "config", "help"},
 		"speculative": {"enable", "disable", "status", "stats", "draft", "reset", "config", "help"},
 		"specd":      {"enable", "disable", "status", "stats", "draft", "reset", "config", "help"},
+		"knowledge":  {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "help"},
+		"know":       {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "help"},
 		"init":       {},
 	}
 

@@ -31,7 +31,8 @@ build: $(OUTPUT_BINARY)
 		inference.go inference_commands.go \
 		vector_db.go vector_commands.go \
 		embedding_manager.go embedding_commands.go \
-		speculative_decoding.go speculative_commands.go
+		speculative_decoding.go speculative_commands.go \
+		knowledge_extractor.go knowledge_commands.go
 	@echo "Successfully built $(BINARY_NAME) for $(TARGET)"
 
 clean:
