@@ -26,6 +26,10 @@ func HandleKnowledgeCommand(args []string) bool {
 
 	// Handle subcommands
 	switch args[0] {
+	case "agent":
+		// Agent-related knowledge commands
+		return HandleKnowledgeExtractorAgentCommand(args[1:])
+
 	case "enable":
 		// Initialize and enable the knowledge extractor
 		err := ke.Initialize()
@@ -634,7 +638,16 @@ func showKnowledgeHelp() {
 	fmt.Println("  :knowledge clear        - Clear all knowledge entities")
 	fmt.Println("  :knowledge export <file> - Export knowledge to file")
 	fmt.Println("  :knowledge import <file> - Import knowledge from file")
+	fmt.Println("  :knowledge agent        - Agent-related knowledge commands")
 	fmt.Println("  :knowledge help         - Show this help message")
+
+	fmt.Println("\nKnowledge Agent Commands:")
+	fmt.Println("  :knowledge agent suggest    - Suggest agents based on knowledge")
+	fmt.Println("  :knowledge agent learn      - Learn patterns from existing agents")
+	fmt.Println("  :knowledge agent optimize   - Optimize agents using knowledge")
+	fmt.Println("  :knowledge agent create     - Create agents from knowledge")
+	fmt.Println("  :knowledge agent discover   - Discover potential agents")
+	fmt.Println("  :knowledge agent help       - Show agent-specific help")
 }
 
 // Helper functions

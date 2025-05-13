@@ -1,0 +1,96 @@
+/* Custom CSS for Delta CLI Documentation */
+
+:root {
+  --sl-color-accent-low: #131620;
+  --sl-color-accent: #2e3d66;
+  --sl-color-accent-high: #b3c6ff;
+  --sl-font-system-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: #e0e8ff;
+  --sl-color-accent: #4863b5;
+  --sl-color-accent-high: #1a2548;
+}
+
+/* Terminal examples */
+.terminal-example {
+  background-color: #1a1b26;
+  border-radius: 8px;
+  padding: 1rem;
+  color: #c0caf5;
+  font-family: var(--sl-font-system-mono);
+  margin: 1.5rem 0;
+  overflow-x: auto;
+}
+
+.terminal-prompt::before {
+  content: "[deltacli] ∆ ";
+  color: #7aa2f7;
+  font-weight: bold;
+}
+
+.terminal-output {
+  color: #a9b1d6;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Feature box */
+.feature-box {
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1.5rem 0;
+  background-color: var(--sl-color-gray-1);
+}
+
+.feature-box h3 {
+  margin-top: 0;
+  color: var(--sl-color-accent);
+}
+
+/* Command reference */
+.command-ref {
+  background-color: var(--sl-color-gray-2);
+  border-left: 4px solid var(--sl-color-accent);
+  padding: 0.5rem 1rem;
+  margin: 1rem 0;
+  font-family: var(--sl-font-system-mono);
+}
+
+.command-ref code {
+  color: var(--sl-color-accent-high);
+}
+
+/* Note box */
+.note-box {
+  background-color: var(--sl-color-gray-1);
+  border-left: 4px solid #7aa2f7;
+  padding: 0.75rem 1rem;
+  margin: 1.5rem 0;
+}
+
+.note-box p:first-child {
+  margin-top: 0;
+}
+
+.note-box p:last-child {
+  margin-bottom: 0;
+}
+
+/* Warning box */
+.warning-box {
+  background-color: var(--sl-color-gray-1);
+  border-left: 4px solid #f7768e;
+  padding: 0.75rem 1rem;
+  margin: 1.5rem 0;
+}
+
+.warning-box p:first-child {
+  margin-top: 0;
+}
+
+.warning-box p:last-child {
+  margin-bottom: 0;
+}

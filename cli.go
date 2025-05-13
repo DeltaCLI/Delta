@@ -444,6 +444,28 @@ func (c *DeltaCompleter) completeInternalCommand(input string) []string {
 		cmd := parts[0]
 		subCmd := parts[1]
 
+		// Special handling for multi-level commands
+		if len(parts) >= 3 && (cmd == "knowledge" || cmd == "know") && subCmd == "agent" {
+			// We're completing a third-level command
+			subSubCmd := parts[2]
+
+			// Check if the multi-level command exists
+			multiCmd := cmd + " " + subCmd
+			if subSubCmds, ok := c.internalCmds[multiCmd]; ok {
+				// Find matching subcommands
+				var matches []string
+				matchPrefix := ":" + cmd + " " + subCmd + " "
+
+				for _, ssc := range subSubCmds {
+					if strings.HasPrefix(ssc, subSubCmd) {
+						matches = append(matches, matchPrefix+ssc)
+					}
+				}
+				sort.Strings(matches)
+				return matches
+			}
+		}
+
 		// Special handling for jump commands
 		if cmd == "jump" || cmd == "j" {
 			// Get locations from JumpManager
@@ -1126,8 +1148,10 @@ func main() {
 		"embedding":  {"enable", "disable", "status", "stats", "generate", "config", "help"},
 		"speculative": {"enable", "disable", "status", "stats", "draft", "reset", "config", "help"},
 		"specd":      {"enable", "disable", "status", "stats", "draft", "reset", "config", "help"},
-		"knowledge":  {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "help"},
-		"know":       {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "help"},
+		"knowledge":  {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "agent", "help"},
+		"know":       {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "agent", "help"},
+		"knowledge agent": {"suggest", "learn", "optimize", "create", "extract", "context", "triggers", "discover", "help"},
+		"know agent":      {"suggest", "learn", "optimize", "create", "extract", "context", "triggers", "discover", "help"},
 		"agent":      {"enable", "disable", "list", "show", "run", "create", "edit", "delete", "learn", "docker", "stats", "help"},
 		"config":     {"status", "list", "export", "import", "edit", "reset", "help"},
 		"spellcheck": {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
