@@ -31,10 +31,10 @@ func getEncryptionKey() []byte {
 	if username == "" {
 		username = "delta-user"
 	}
-	
+
 	// Create a unique key based on hostname and username
 	keyString := hostname + "-" + username + "-delta-history-key"
-	
+
 	// Hash the key string to get 32 bytes (AES-256)
 	hash := sha256.Sum256([]byte(keyString))
 	return hash[:]
@@ -58,43 +58,43 @@ func (h *EncryptedHistory) ReadHistory() ([]string, error) {
 	if _, err := os.Stat(h.filePath); os.IsNotExist(err) {
 		return []string{}, nil
 	}
-	
+
 	// Read encrypted file
 	data, err := ioutil.ReadFile(h.filePath)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// If file is empty, return empty history
 	if len(data) == 0 {
 		return []string{}, nil
 	}
-	
+
 	// Decrypt the data
 	block, err := aes.NewCipher(h.key)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// First 16 bytes are the IV
 	if len(data) < aes.BlockSize {
 		return []string{}, nil // Not enough data for IV
 	}
-	
+
 	iv := data[:aes.BlockSize]
 	data = data[aes.BlockSize:]
-	
+
 	stream := cipher.NewCFBDecrypter(block, iv)
 	stream.XORKeyStream(data, data) // decrypt in place
-	
+
 	// Convert to string and split by lines
 	history := strings.Split(string(data), "\n")
-	
+
 	// Remove empty last line if present
 	if len(history) > 0 && history[len(history)-1] == "" {
 		history = history[:len(history)-1]
 	}
-	
+
 	return history, nil
 }
 
@@ -104,33 +104,33 @@ func (h *EncryptedHistory) WriteHistory(history []string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	
+
 	// Convert history to string
 	data := []byte(strings.Join(history, "\n"))
 	if len(data) == 0 {
 		// If empty, just create empty file
 		return ioutil.WriteFile(h.filePath, []byte{}, 0600)
 	}
-	
+
 	// Encrypt the data
 	block, err := aes.NewCipher(h.key)
 	if err != nil {
 		return err
 	}
-	
+
 	// Create IV and prepend to output
 	ciphertext := make([]byte, aes.BlockSize+len(data))
 	iv := ciphertext[:aes.BlockSize]
-	
+
 	// Fill IV with random data
 	if _, err := io.ReadFull(strings.NewReader(strings.Repeat("delta", 4)), iv); err != nil {
 		return err
 	}
-	
+
 	// Encrypt the data
 	stream := cipher.NewCFBEncrypter(block, iv)
 	stream.XORKeyStream(ciphertext[aes.BlockSize:], data)
-	
+
 	// Write encrypted data to file
 	return ioutil.WriteFile(h.filePath, ciphertext, 0600)
 }
@@ -148,7 +148,7 @@ func NewEncryptedHistoryHandler(filePath string, maxSize int) (*EncryptedHistory
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &EncryptedHistoryHandler{
 		eh:      eh,
 		history: history,
@@ -161,19 +161,19 @@ func (h *EncryptedHistoryHandler) Write(line string) error {
 	if strings.TrimSpace(line) == "" {
 		return nil
 	}
-	
+
 	// Don't add duplicates of the most recent entry
 	if len(h.history) > 0 && h.history[len(h.history)-1] == line {
 		return nil
 	}
-	
+
 	h.history = append(h.history, line)
-	
+
 	// Trim history if it exceeds max size
 	if h.maxSize > 0 && len(h.history) > h.maxSize {
 		h.history = h.history[len(h.history)-h.maxSize:]
 	}
-	
+
 	return h.eh.WriteHistory(h.history)
 }
 
@@ -186,32 +186,32 @@ func (h *EncryptedHistoryHandler) GetHistory(limit int) ([]string, error) {
 
 // DeltaCompleter implements the readline.AutoCompleter interface
 type DeltaCompleter struct {
-	historyHandler *EncryptedHistoryHandler        // For history-based completion
-	cmdCache       map[string]bool                 // Cache of executable commands
-	cmdCacheMutex  sync.RWMutex                    // Mutex for thread-safe access to cmdCache
-	cmdCacheInit   sync.Once                       // Used to initialize the command cache once
-	cmdDirs        []string                        // Directories in PATH
+	historyHandler *EncryptedHistoryHandler // For history-based completion
+	cmdCache       map[string]bool          // Cache of executable commands
+	cmdCacheMutex  sync.RWMutex             // Mutex for thread-safe access to cmdCache
+	cmdCacheInit   sync.Once                // Used to initialize the command cache once
+	cmdDirs        []string                 // Directories in PATH
 
 	// Special command completions
-	internalCmds map[string][]string               // Map of internal commands to their subcommands
+	internalCmds map[string][]string // Map of internal commands to their subcommands
 }
 
 // NewDeltaCompleter creates a new tab completer with the given history handler
 func NewDeltaCompleter(historyHandler *EncryptedHistoryHandler) *DeltaCompleter {
 	// Initialize internal commands for completion
 	internalCmds := map[string][]string{
-		"ai":       {"on", "off", "model", "status"},
-		"help":     {},
-		"jump":     {"add", "remove", "rm", "import", "list"},
-		"j":        {},
-		"memory":   {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
-		"mem":      {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
+		"ai":        {"on", "off", "model", "status"},
+		"help":      {},
+		"jump":      {"add", "remove", "rm", "import", "list"},
+		"j":         {},
+		"memory":    {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
+		"mem":       {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
 		"tokenizer": {"status", "stats", "process", "vocab", "test", "help"},
-		"tok":      {"status", "stats", "process", "vocab", "test", "help"},
+		"tok":       {"status", "stats", "process", "vocab", "test", "help"},
 		"inference": {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
-		"inf":      {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
-		"feedback": {"helpful", "unhelpful", "correction"},
-		"init":     {},
+		"inf":       {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
+		"feedback":  {"helpful", "unhelpful", "correction"},
+		"init":      {},
 	}
 
 	return &DeltaCompleter{
@@ -238,9 +238,9 @@ func (c *DeltaCompleter) Do(line []rune, pos int) (newLine [][]rune, length int)
 	// Check for internal command completion (starts with colon)
 	if strings.HasPrefix(lineStr, ":") {
 		completions = c.completeInternalCommand(lineStr)
-	// Check if it's a file path (starts with ./ or / or ~/)
+		// Check if it's a file path (starts with ./ or / or ~/)
 	} else if strings.HasPrefix(word, "./") || strings.HasPrefix(word, "/") ||
-	   strings.HasPrefix(word, "~/") || strings.HasPrefix(word, "$HOME/") {
+		strings.HasPrefix(word, "~/") || strings.HasPrefix(word, "$HOME/") {
 		// File path completion
 		completions = c.completeFilePath(word)
 	} else if isCommand {
@@ -1080,7 +1080,7 @@ func main() {
 		infMgr.Initialize()
 		fmt.Println("\033[33m[∆ Learning system enabled: " +
 			fmt.Sprintf("%d training examples collected]\033[0m",
-			infMgr.learningConfig.AccumulatedTrainingExamples))
+				infMgr.learningConfig.AccumulatedTrainingExamples))
 	}
 
 	// Initialize agent manager
@@ -1133,32 +1133,32 @@ func main() {
 
 	// Create our completer with extended commands
 	internalCmds := map[string][]string{
-		"ai":         {"on", "off", "model", "custom", "default", "status", "feedback", "help"},
-		"help":       {},
-		"jump":       {"add", "remove", "rm", "import", "list"},
-		"j":          {},
-		"memory":     {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
-		"mem":        {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
-		"tokenizer":  {"status", "stats", "process", "vocab", "test", "help"},
-		"tok":        {"status", "stats", "process", "vocab", "test", "help"},
-		"inference":  {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
-		"inf":        {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
-		"feedback":   {"helpful", "unhelpful", "correction"},
-		"vector":     {"enable", "disable", "status", "stats", "search", "embed", "config", "help"},
-		"embedding":  {"enable", "disable", "status", "stats", "generate", "config", "help"},
-		"speculative": {"enable", "disable", "status", "stats", "draft", "reset", "config", "help"},
-		"specd":      {"enable", "disable", "status", "stats", "draft", "reset", "config", "help"},
-		"knowledge":  {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "agent", "help"},
-		"know":       {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "agent", "help"},
+		"ai":              {"on", "off", "model", "custom", "default", "status", "feedback", "help"},
+		"help":            {},
+		"jump":            {"add", "remove", "rm", "import", "list"},
+		"j":               {},
+		"memory":          {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
+		"mem":             {"enable", "disable", "status", "stats", "clear", "config", "list", "export", "train"},
+		"tokenizer":       {"status", "stats", "process", "vocab", "test", "help"},
+		"tok":             {"status", "stats", "process", "vocab", "test", "help"},
+		"inference":       {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
+		"inf":             {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
+		"feedback":        {"helpful", "unhelpful", "correction"},
+		"vector":          {"enable", "disable", "status", "stats", "search", "embed", "config", "help"},
+		"embedding":       {"enable", "disable", "status", "stats", "generate", "config", "help"},
+		"speculative":     {"enable", "disable", "status", "stats", "draft", "reset", "config", "help"},
+		"specd":           {"enable", "disable", "status", "stats", "draft", "reset", "config", "help"},
+		"knowledge":       {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "agent", "help"},
+		"know":            {"enable", "disable", "status", "stats", "query", "context", "scan", "project", "extract", "clear", "export", "import", "agent", "help"},
 		"knowledge agent": {"suggest", "learn", "optimize", "create", "extract", "context", "triggers", "discover", "help"},
 		"know agent":      {"suggest", "learn", "optimize", "create", "extract", "context", "triggers", "discover", "help"},
-		"agent":      {"enable", "disable", "list", "show", "run", "create", "edit", "delete", "learn", "docker", "stats", "help"},
-		"config":     {"status", "list", "export", "import", "edit", "reset", "help"},
-		"spellcheck": {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
-		"spell":      {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
-		"history":    {"show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
-		"hist":       {"show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
-		"init":       {},
+		"agent":           {"enable", "disable", "list", "show", "run", "create", "edit", "delete", "learn", "docker", "stats", "help"},
+		"config":          {"status", "list", "export", "import", "edit", "reset", "help"},
+		"spellcheck":      {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
+		"spell":           {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
+		"history":         {"show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
+		"hist":            {"show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
+		"init":            {},
 	}
 
 	completer := NewDeltaCompleter(historyHandler)
@@ -1238,7 +1238,7 @@ func main() {
 		}
 
 		// Read input from the user with history support
-		input, err := rl.Readline()
+		command, err := readInputWithContinuation(rl)
 		if err != nil {
 			if err == readline.ErrInterrupt {
 				// Ctrl+C at prompt just clears the line
@@ -1251,9 +1251,6 @@ func main() {
 			fmt.Println("Error reading input:", err)
 			continue
 		}
-
-		// Trim any whitespace from the input
-		command := strings.TrimSpace(input)
 
 		// Save command to encrypted history
 		if command != "" && historyHandler != nil {
@@ -1485,31 +1482,31 @@ func runCommand(command string, sigChan chan os.Signal) (int, time.Duration) {
 func buildZshCommand(homeDir string, command string) string {
 	zshrcFile := filepath.Join(homeDir, ".zshrc")
 	zshenvFile := filepath.Join(homeDir, ".zshenv")
-	
+
 	// Start with an empty command
 	shellCmd := ""
-	
+
 	// Source zshenv if it exists
 	if _, err := os.Stat(zshenvFile); err == nil {
 		shellCmd += "source " + zshenvFile + " 2>/dev/null || true; "
 	}
-	
+
 	// Source zshrc if it exists - this contains most user functions and aliases
 	if _, err := os.Stat(zshrcFile); err == nil {
 		shellCmd += "source " + zshrcFile + " 2>/dev/null || true; "
 	}
-	
+
 	// Parse the command to get just the command name (no arguments)
 	cmdName := command
 	cmdArgs := ""
-	
+
 	if len(strings.Fields(command)) > 0 {
 		cmdName = strings.Fields(command)[0]
-		
+
 		if len(strings.Fields(command)) > 1 {
 			cmdArgs = strings.Join(strings.Fields(command)[1:], " ")
 		}
-		
+
 		// Special handling for common commands that might be functions or aliases
 		shellCmd += "if typeset -f " + cmdName + " > /dev/null 2>&1; then\n" +
 			"  # It's a shell function, run it\n" +
@@ -1526,7 +1523,7 @@ func buildZshCommand(homeDir string, command string) string {
 		// Empty command, just return it
 		shellCmd += command
 	}
-	
+
 	return shellCmd
 }
 
@@ -1534,32 +1531,32 @@ func buildZshCommand(homeDir string, command string) string {
 func buildBashCommand(homeDir string, command string) string {
 	profileFile := filepath.Join(homeDir, ".bash_profile")
 	rcFile := filepath.Join(homeDir, ".bashrc")
-	
+
 	// Start with an empty command
 	shellCmd := ""
-	
+
 	// Source bash_profile or bashrc if they exist
 	if _, err := os.Stat(profileFile); err == nil {
 		shellCmd += "source " + profileFile + " 2>/dev/null || true; "
 	} else if _, err := os.Stat(rcFile); err == nil {
 		shellCmd += "source " + rcFile + " 2>/dev/null || true; "
 	}
-	
+
 	// Append the user's command
 	shellCmd += command
-	
+
 	return shellCmd
 }
 
 // Fish shell profile loading
 func buildFishCommand(homeDir string, command string) string {
 	configFile := filepath.Join(homeDir, ".config/fish/config.fish")
-	
+
 	// If config.fish exists, source it
 	if _, err := os.Stat(configFile); err == nil {
 		return "source " + configFile + " 2>/dev/null || true; " + command
 	}
-	
+
 	// Otherwise just return the original command
 	return command
 }
@@ -1620,6 +1617,67 @@ func runShellCommand(shell string, shellCmd string, sigChan chan os.Signal) (int
 	return exitCode, duration
 }
 
+// readInputWithContinuation reads user input and handles backslash continuation for multi-line commands
+func readInputWithContinuation(rl *readline.Instance) (string, error) {
+	var lines []string
+	var err error
+
+	// Save the original prompt to restore it later
+	originalPrompt := rl.Config.Prompt
+
+	// Read the first line
+	line, err := rl.Readline()
+	if err != nil {
+		return "", err
+	}
+
+	// Check if the line ends with a backslash (continuation)
+	continuationMode := false
+	for strings.HasSuffix(strings.TrimSpace(line), "\\") {
+		// We're now in continuation mode
+		continuationMode = true
+
+		// Remove the trailing backslash
+		line = strings.TrimSpace(line)
+		line = line[:len(line)-1]
+
+		// Add the line to our collection
+		lines = append(lines, line)
+
+		// Change prompt to indicate continuation using the pentagon symbol
+		rl.SetPrompt("⬠ ")
+
+		// Read the next line
+		nextLine, nextErr := rl.Readline()
+		if nextErr != nil {
+			// If there's an error, return what we have so far
+			if len(lines) > 0 {
+				// Make sure to restore the original prompt before returning
+				rl.SetPrompt(originalPrompt)
+				return strings.Join(lines, " "), nil
+			}
+			return "", nextErr
+		}
+
+		// Update line for the next iteration
+		line = nextLine
+	}
+
+	// Add the final line
+	lines = append(lines, strings.TrimSpace(line))
+
+	// Restore the original prompt if we were in continuation mode
+	if continuationMode {
+		rl.SetPrompt(originalPrompt)
+	}
+
+	// Join all lines with spaces
+	fullCommand := strings.Join(lines, " ")
+
+	// Trim any whitespace from the input
+	return strings.TrimSpace(fullCommand), nil
+}
+
 // Actually execute the command with proper signal handling
 func executeCommand(cmd *exec.Cmd, sigChan chan os.Signal) error {
 	// Start the command
@@ -1628,26 +1686,26 @@ func executeCommand(cmd *exec.Cmd, sigChan chan os.Signal) error {
 		fmt.Println("Error starting command:", err)
 		return err
 	}
-	
+
 	// Set up channel for command completion
 	done := make(chan error, 1)
 	go func() {
 		done <- cmd.Wait()
 	}()
-	
+
 	// Set up temporary signal handling for this subprocess
 	subprocSigChan := make(chan os.Signal, 1)
-	
+
 	// Temporarily disable our main shell signal handling
 	signal.Reset(os.Interrupt, syscall.SIGTERM)
-	
+
 	// Set up subprocess-specific signal handling
 	signal.Notify(subprocSigChan, os.Interrupt, syscall.SIGTERM)
-	
+
 	// Create a context that can be cancelled
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	
+
 	// Set up a goroutine to handle signals during subprocess execution
 	go func() {
 		select {
@@ -1661,19 +1719,19 @@ func executeCommand(cmd *exec.Cmd, sigChan chan os.Signal) error {
 			return
 		}
 	}()
-	
+
 	// Wait for the command to complete
 	err = <-done
-	
+
 	// Reset all signal handling
 	signal.Reset(os.Interrupt, syscall.SIGTERM)
-	
+
 	// Close our subprocess signal channel by stopping notification
 	signal.Stop(subprocSigChan)
-	
+
 	// Re-establish the main shell's signal handling
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	
+
 	// Process completed, check for errors
 	if err != nil {
 		// Only show error message for non-interrupt exits
@@ -1686,6 +1744,6 @@ func executeCommand(cmd *exec.Cmd, sigChan chan os.Signal) error {
 			fmt.Println("Command failed:", err)
 		}
 	}
-	
+
 	return err
 }
