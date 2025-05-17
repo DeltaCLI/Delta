@@ -1,0 +1,121 @@
+{
+  "version": "1.0",
+  "updated_at": "2025-05-17",
+  "commands": [
+    {
+      "command": "docker build -t ${IMAGE_NAME} .",
+      "description": "Build a Docker image from the current directory",
+      "category": "docker"
+    },
+    {
+      "command": "docker-compose up -d",
+      "description": "Start Docker Compose services in detached mode",
+      "category": "docker"
+    },
+    {
+      "command": "docker-compose down",
+      "description": "Stop Docker Compose services",
+      "category": "docker"
+    },
+    {
+      "command": "git clone ${REPO_URL}",
+      "description": "Clone a Git repository",
+      "category": "git"
+    },
+    {
+      "command": "git pull origin ${BRANCH}",
+      "description": "Pull changes from a Git branch",
+      "category": "git"
+    },
+    {
+      "command": "git push origin ${BRANCH}",
+      "description": "Push changes to a Git branch",
+      "category": "git"
+    },
+    {
+      "command": "npm install",
+      "description": "Install Node.js dependencies",
+      "category": "nodejs"
+    },
+    {
+      "command": "npm run build",
+      "description": "Build a Node.js project",
+      "category": "nodejs"
+    },
+    {
+      "command": "npm run start",
+      "description": "Start a Node.js application",
+      "category": "nodejs"
+    },
+    {
+      "command": "pip install -r requirements.txt",
+      "description": "Install Python dependencies",
+      "category": "python"
+    },
+    {
+      "command": "python -m venv venv",
+      "description": "Create a Python virtual environment",
+      "category": "python"
+    },
+    {
+      "command": "source venv/bin/activate",
+      "description": "Activate a Python virtual environment",
+      "category": "python"
+    },
+    {
+      "command": "go mod init ${MODULE_NAME}",
+      "description": "Initialize a new Go module",
+      "category": "golang"
+    },
+    {
+      "command": "go build",
+      "description": "Build a Go project",
+      "category": "golang"
+    },
+    {
+      "command": "go test ./...",
+      "description": "Run all Go tests",
+      "category": "golang"
+    },
+    {
+      "command": "make",
+      "description": "Build a project using Make",
+      "category": "build"
+    },
+    {
+      "command": "make install",
+      "description": "Install a project using Make",
+      "category": "build"
+    },
+    {
+      "command": "make clean",
+      "description": "Clean a project using Make",
+      "category": "build"
+    },
+    {
+      "command": "ssh ${USER}@${HOST}",
+      "description": "Connect to a remote server via SSH",
+      "category": "system"
+    },
+    {
+      "command": "scp ${LOCAL_FILE} ${USER}@${HOST}:${REMOTE_PATH}",
+      "description": "Copy a file to a remote server",
+      "category": "system"
+    },
+    {
+      "command": "tar -czvf ${ARCHIVE_NAME}.tar.gz ${DIRECTORY}",
+      "description": "Create a compressed tar archive",
+      "category": "system"
+    },
+    {
+      "command": "tar -xzvf ${ARCHIVE_NAME}.tar.gz",
+      "description": "Extract a compressed tar archive",
+      "category": "system"
+    },
+    {
+      "command": "find . -name \"${PATTERN}\"",
+      "description": "Find files matching a pattern",
+      "category": "system"
+    }
+  ]
+}

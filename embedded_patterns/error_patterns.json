@@ -1,0 +1,105 @@
+{
+  "version": "1.0",
+  "updated_at": "2025-05-17",
+  "patterns": [
+    {
+      "pattern": "fatal error: .+: No such file or directory",
+      "solution": "apt-get update && apt-get install -y build-essential",
+      "description": "Missing build essentials",
+      "category": "c_cpp"
+    },
+    {
+      "pattern": "error: unknown type name 'uint'",
+      "solution": "sed -i 's/uint/unsigned int/g' ${FILE}",
+      "description": "Type definition error",
+      "file_pattern": "*.c",
+      "category": "c_cpp"
+    },
+    {
+      "pattern": "command not found",
+      "solution": "apt-get update && apt-get install -y ${MISSING_COMMAND}",
+      "description": "Missing command",
+      "category": "system"
+    },
+    {
+      "pattern": "permission denied",
+      "solution": "chmod +x ${FILE}",
+      "description": "Permission denied",
+      "file_pattern": "*.sh",
+      "category": "permissions"
+    },
+    {
+      "pattern": "make\\[\\d+\\]: \\*\\*\\* \\[.+\\] Error \\d+",
+      "solution": "make clean && make",
+      "description": "Make build error requiring clean",
+      "category": "build"
+    },
+    {
+      "pattern": "npm ERR! code ENOENT",
+      "solution": "npm install",
+      "description": "Missing npm dependencies",
+      "category": "nodejs"
+    },
+    {
+      "pattern": "npm ERR! missing script:",
+      "solution": "npm init -y",
+      "description": "Missing package.json or script",
+      "category": "nodejs"
+    },
+    {
+      "pattern": "ModuleNotFoundError: No module named",
+      "solution": "pip install -r requirements.txt || pip install --upgrade -e .",
+      "description": "Missing Python module",
+      "category": "python"
+    },
+    {
+      "pattern": "SyntaxError: invalid syntax",
+      "solution": "2to3 -w ${FILE}",
+      "description": "Python syntax error, possibly Python 2 code",
+      "file_pattern": "*.py",
+      "category": "python"
+    },
+    {
+      "pattern": "Error response from daemon: No such container:",
+      "solution": "docker-compose up -d",
+      "description": "Docker container not running",
+      "category": "docker"
+    },
+    {
+      "pattern": "Error response from daemon: conflict:",
+      "solution": "docker-compose down && docker-compose up -d",
+      "description": "Docker container conflict",
+      "category": "docker"
+    },
+    {
+      "pattern": "failed to solve: rpc error: code = Unknown",
+      "solution": "docker builder prune -f",
+      "description": "Docker builder cache issue",
+      "category": "docker"
+    },
+    {
+      "pattern": "go: cannot find main module",
+      "solution": "go mod init ${PWD##*/}",
+      "description": "Missing Go module",
+      "category": "golang"
+    },
+    {
+      "pattern": "cannot find package",
+      "solution": "go get -u ./...",
+      "description": "Missing Go package",
+      "category": "golang"
+    },
+    {
+      "pattern": "Permission denied",
+      "solution": "sudo chown -R $(whoami) .",
+      "description": "Incorrect file ownership",
+      "category": "permissions"
+    },
+    {
+      "pattern": "no space left on device",
+      "solution": "docker system prune -f",
+      "description": "No space left on device",
+      "category": "system"
+    }
+  ]
+}

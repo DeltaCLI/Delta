@@ -604,53 +604,227 @@ func importMemoryData(mm *MemoryManager, args []string) {
 
 // showTrainingStatus displays the current training status
 func showTrainingStatus(mm *MemoryManager) {
-	stats, err := mm.GetStats()
+	// Get memory stats
+	memStats, err := mm.GetStats()
 	if err != nil {
-		fmt.Printf("Error getting stats: %v\n", err)
+		fmt.Printf("Error getting memory stats: %v\n", err)
 		return
 	}
+	
+	// Get inference manager to get training status
+	im := GetInferenceManager()
+	if im == nil {
+		fmt.Println("Inference manager not available")
+		return
+	}
+	
+	// Get inference stats
+	infStats := im.GetInferenceStats()
 	
 	fmt.Println("Training Status")
 	fmt.Println("==============")
 	fmt.Printf("Training Enabled: %v\n", mm.config.TrainingEnabled)
 	
-	if !stats.LastTraining.IsZero() {
-		fmt.Printf("Last Training: %s\n", stats.LastTraining.Format(time.RFC1123))
-		fmt.Printf("Time Since Training: %s\n", formatDuration(time.Since(stats.LastTraining)))
+	// Show learning system status
+	fmt.Printf("Learning System: %s\n", getBoolStatus(infStats["learning_enabled"].(bool)))
+	fmt.Printf("Feedback Collection: %s\n", getBoolStatus(infStats["feedback_collection"].(bool)))
+	
+	// Show last training info
+	if !memStats.LastTraining.IsZero() {
+		fmt.Printf("Last Training: %s\n", memStats.LastTraining.Format(time.RFC1123))
+		fmt.Printf("Time Since Training: %s\n", formatDuration(time.Since(memStats.LastTraining)))
 	} else {
 		fmt.Println("No training has been performed yet")
 	}
 	
-	if len(stats.ModelVersions) > 0 {
+	// Show model information
+	fmt.Println("\nModel Information:")
+	fmt.Printf("  Custom Model: %s\n", getBoolStatus(infStats["custom_model_enabled"].(bool)))
+	if infStats["custom_model_enabled"].(bool) {
+		fmt.Printf("  Model Path: %s\n", infStats["model_path"])
+		
+		if infStats["custom_model_available"].(bool) {
+			fmt.Println("  Model Status: Available")
+		} else {
+			fmt.Println("  Model Status: Not found")
+		}
+	}
+	
+	// Show available models
+	if len(memStats.ModelVersions) > 0 {
 		fmt.Println("\nAvailable Models:")
-		for _, model := range stats.ModelVersions {
+		for _, model := range memStats.ModelVersions {
 			fmt.Printf("  - %s\n", model)
 		}
 	} else {
 		fmt.Println("\nNo models available")
 	}
 	
+	// Show training data
 	fmt.Println("\nTraining Data:")
-	fmt.Printf("  Commands Available: %d\n", stats.TotalEntries)
+	fmt.Printf("  Commands Available: %d\n", memStats.TotalEntries)
+	fmt.Printf("  Training Examples: %d\n", infStats["training_examples"].(int))
+	fmt.Printf("  Feedback Entries: %d\n", infStats["feedback_count"].(int))
+	fmt.Printf("  Accumulated Examples: %d\n", infStats["accumulated_examples"].(int))
 	
-	// This will be implemented in later milestones
+	// Show next steps based on training status
 	fmt.Println("\nNext Steps:")
-	fmt.Println("  Training functionality will be implemented in future milestones")
+	if im.ShouldTrain() {
+		fmt.Println("  ✓ Ready for training! Run ':memory train start' to train a new model")
+		fmt.Println("  ✓ Enough data has been collected for effective training")
+	} else if infStats["accumulated_examples"].(int) < 100 {
+		remaining := 100 - infStats["accumulated_examples"].(int)
+		fmt.Printf("  ✗ Need %d more examples before training can begin\n", remaining)
+		fmt.Println("  ✓ Use ':memory train add' or ':inference feedback' to add more data")
+	} else {
+		// We have enough examples but not yet due for periodic training
+		if infStats["periodic_training"].(bool) {
+			fmt.Println("  ✓ Enough data has been collected for training")
+			fmt.Println("  ✗ Not yet due for periodic training (it's too soon since last training)")
+			fmt.Println("  ✓ Use ':memory train start --force' to train anyway")
+		} else {
+			fmt.Println("  ✓ Enough data has been collected for training")
+			fmt.Println("  ✓ Run ':memory train start' to train a new model")
+		}
+	}
+}
+
+// getBoolStatus returns a string representation of a boolean status
+func getBoolStatus(enabled bool) string {
+	if enabled {
+		return "Enabled"
+	}
+	return "Disabled"
 }
 
 // addTrainingExample adds a manual training example
 func addTrainingExample(mm *MemoryManager, pattern, explanation string) {
-	// This will be implemented in a future milestone
-	fmt.Println("Training example storage will be implemented in a future milestone")
-	fmt.Printf("Recorded pattern: %s\n", pattern)
+	// Get the inference manager to store the training example
+	im := GetInferenceManager()
+	if im == nil {
+		fmt.Println("Inference manager not available")
+		return
+	}
+
+	if !im.IsEnabled() {
+		fmt.Println("Learning system is not enabled")
+		fmt.Println("Enable with ':inference enable'")
+		return
+	}
+
+	// Create a synthetic feedback entry for the training example
+	err := im.AddFeedback(pattern, explanation, "helpful", "", mm.config.StoragePath)
+	if err != nil {
+		fmt.Printf("Error adding training example: %v\n", err)
+		return
+	}
+
+	fmt.Println("✅ Training example added successfully")
+	fmt.Printf("Command Pattern: %s\n", pattern)
 	fmt.Printf("Explanation: %s\n", explanation)
+	
+	// Show training data stats
+	stats := im.GetInferenceStats()
+	fmt.Printf("\nTotal training examples: %d\n", stats["training_examples"].(int))
+	fmt.Printf("Accumulated examples: %d\n", stats["accumulated_examples"].(int))
+	
+	// Suggest training if enough examples accumulated
+	if im.ShouldTrain() {
+		fmt.Println("\n💡 Training is due. Run ':memory train start' to improve AI predictions.")
+	}
 }
 
 // addTrainingFeedback adds feedback for the AI
 func addTrainingFeedback(mm *MemoryManager, feedback string) {
-	// This will be implemented in a future milestone
-	fmt.Printf("Feedback recorded: %s\n", feedback)
-	fmt.Println("Feedback storage will be implemented in a future milestone")
+	// Get the inference manager to store the feedback
+	im := GetInferenceManager()
+	if im == nil {
+		fmt.Println("Inference manager not available")
+		return
+	}
+
+	if !im.IsEnabled() {
+		fmt.Println("Learning system is not enabled")
+		fmt.Println("Enable with ':inference enable'")
+		return
+	}
+
+	// Get the AI manager to get the last prediction
+	ai := GetAIManager()
+	if ai == nil {
+		fmt.Println("AI manager not available")
+		return
+	}
+
+	// Get last prediction
+	lastCommand, lastThought, timestamp := ai.GetLastPrediction()
+
+	// Validate the prediction data
+	if lastThought == "" {
+		fmt.Println("No recent predictions to provide feedback for")
+		return
+	}
+
+	if lastCommand == "" {
+		// Fall back to command history if needed
+		if len(ai.commandHistory) > 0 {
+			lastCommand = ai.commandHistory[len(ai.commandHistory)-1]
+		} else {
+			fmt.Println("No recent commands to provide feedback for")
+			return
+		}
+	}
+
+	// Normalize feedback type
+	feedbackType := strings.ToLower(feedback)
+	if feedbackType == "good" || feedbackType == "positive" {
+		feedbackType = "helpful"
+	} else if feedbackType == "bad" || feedbackType == "negative" {
+		feedbackType = "unhelpful"
+	}
+
+	// Validate feedback type
+	if feedbackType != "helpful" && feedbackType != "unhelpful" {
+		fmt.Printf("Invalid feedback type: %s\n", feedback)
+		fmt.Println("Valid types: helpful, unhelpful")
+		return
+	}
+
+	// Get current working directory for context
+	pwd, err := os.Getwd()
+	if err != nil {
+		pwd = "unknown"
+	}
+
+	// Display what we're giving feedback on
+	fmt.Println("\nProviding feedback on:")
+	fmt.Printf("Command: %s\n", lastCommand)
+	fmt.Printf("AI thought: %s\n", lastThought)
+
+	// Add feedback
+	err = im.AddFeedback(lastCommand, lastThought, feedbackType, "", pwd)
+	if err != nil {
+		fmt.Printf("Error adding feedback: %v\n", err)
+		return
+	}
+
+	// Display confirmation
+	switch feedbackType {
+	case "helpful":
+		fmt.Println("✅ Marked as helpful")
+	case "unhelpful":
+		fmt.Println("❌ Marked as unhelpful")
+	}
+
+	// Show training status
+	stats := im.GetInferenceStats()
+	fmt.Printf("\nTotal training examples: %d\n", stats["training_examples"].(int))
+	fmt.Printf("Accumulated examples: %d\n", stats["accumulated_examples"].(int))
+
+	// Suggest training if enough examples accumulated
+	if im.ShouldTrain() {
+		fmt.Println("\n💡 Training is due. Run ':memory train start' to improve AI predictions.")
+	}
 }
 
 // runTrainingContainer launches the Docker training environment
@@ -659,6 +833,29 @@ func runTrainingContainer(mm *MemoryManager, args []string) {
 	_, err := exec.LookPath("docker")
 	if err != nil {
 		fmt.Println("Docker not found. Please install Docker to use the training environment.")
+		return
+	}
+	
+	// Get inference manager to track training progress
+	im := GetInferenceManager()
+	if im == nil {
+		fmt.Println("Inference manager not available")
+		return
+	}
+	
+	// Parse options from args
+	forceTraining := false
+	for _, arg := range args {
+		if arg == "--force" || arg == "-f" {
+			forceTraining = true
+		}
+	}
+	
+	// Check if training is due, unless forcing
+	if !forceTraining && !im.ShouldTrain() && im.learningConfig.AccumulatedTrainingExamples < 100 {
+		fmt.Println("⚠️ Training is not yet due. Not enough training examples collected.")
+		fmt.Printf("Currently have %d examples, need at least 100.\n", im.learningConfig.AccumulatedTrainingExamples)
+		fmt.Println("Use ':memory train start --force' to train anyway.")
 		return
 	}
 
@@ -670,6 +867,67 @@ func runTrainingContainer(mm *MemoryManager, args []string) {
 	err = os.MkdirAll(trainingDir, 0755)
 	if err != nil {
 		fmt.Printf("Error creating training directory: %v\n", err)
+		return
+	}
+	
+	// Create training data directory if it doesn't exist
+	trainingDataDir := filepath.Join(trainingDir, "data")
+	err = os.MkdirAll(trainingDataDir, 0755)
+	if err != nil {
+		fmt.Printf("Error creating training data directory: %v\n", err)
+		return
+	}
+	
+	// Prepare training data
+	fmt.Println("Preparing training data...")
+	
+	// Export training examples from inference manager
+	examples, err := im.GetTrainingExamples(0) // Get all examples
+	if err != nil {
+		fmt.Printf("Error getting training examples: %v\n", err)
+		return
+	}
+	
+	if len(examples) == 0 {
+		fmt.Println("No training examples found. Add examples using:")
+		fmt.Println("  :memory train add <pattern> <explanation>")
+		fmt.Println("  :inference feedback <helpful|unhelpful|correction>")
+		return
+	}
+	
+	// Write training examples to files
+	trainingDataPath := filepath.Join(trainingDataDir, "training_examples.json")
+	examplesJSON, err := json.MarshalIndent(examples, "", "  ")
+	if err != nil {
+		fmt.Printf("Error encoding training examples: %v\n", err)
+		return
+	}
+	
+	err = os.WriteFile(trainingDataPath, examplesJSON, 0644)
+	if err != nil {
+		fmt.Printf("Error writing training examples: %v\n", err)
+		return
+	}
+	
+	// Export command history data for context
+	fmt.Println("Exporting command history data...")
+	// Get last 30 days of commands
+	startDate := time.Now().AddDate(0, 0, -30)
+	endDate := time.Now()
+	
+	// Create command entries file to export the data
+	exportOptions := ExportOptions{
+		Format:     "json",
+		StartDate:  startDate,
+		EndDate:    endDate,
+		IncludeAll: false,
+		Destination: trainingDataDir,
+	}
+	
+	// Export memory data to the training data directory
+	_, err = mm.ExportMemory(exportOptions)
+	if err != nil {
+		fmt.Printf("Error exporting memory data: %v\n", err)
 		return
 	}
 
@@ -744,6 +1002,32 @@ func runTrainingContainer(mm *MemoryManager, args []string) {
 			return
 		}
 	}
+	
+	// Create configuration for the training run
+	trainingConfig := map[string]interface{}{
+		"model_type": "onnx",
+		"training_epochs": 10,
+		"batch_size": 32,
+		"learning_rate": 5e-5,
+		"input_data_path": "/data",
+		"examples_file": "training_examples.json",
+		"output_model_name": fmt.Sprintf("delta_model_%s", time.Now().Format("20060102")),
+		"use_gpu": true,
+	}
+	
+	// Write configuration to file
+	configPath := filepath.Join(trainingDataDir, "config.json")
+	configJSON, err := json.MarshalIndent(trainingConfig, "", "  ")
+	if err != nil {
+		fmt.Printf("Error encoding training configuration: %v\n", err)
+		return
+	}
+	
+	err = os.WriteFile(configPath, configJSON, 0644)
+	if err != nil {
+		fmt.Printf("Error writing training configuration: %v\n", err)
+		return
+	}
 
 	// Check if Docker Compose is available
 	composeCommand := "docker-compose"
@@ -764,7 +1048,7 @@ func runTrainingContainer(mm *MemoryManager, args []string) {
 		return
 	}
 
-	// Run the training container
+	// Run the training container with data volume mapped
 	fmt.Println("Starting training container...")
 	runCmd := exec.Command("bash", "-c", fmt.Sprintf("cd %s && %s up", trainingDir, composeCommand))
 	runCmd.Stdout = os.Stdout
@@ -776,7 +1060,51 @@ func runTrainingContainer(mm *MemoryManager, args []string) {
 		return
 	}
 
-	fmt.Println("Training completed.")
+	// Check if training produced a model file
+	modelsDir := filepath.Join(trainingDir, "models")
+	modelsFound := false
+	
+	if files, err := os.ReadDir(modelsDir); err == nil {
+		for _, file := range files {
+			if !file.IsDir() && (strings.HasSuffix(file.Name(), ".onnx") || strings.HasSuffix(file.Name(), ".bin")) {
+				modelsFound = true
+				
+				// Copy the model to the memory models directory
+				srcPath := filepath.Join(modelsDir, file.Name())
+				dstPath := filepath.Join(mm.config.ModelPath, file.Name())
+				
+				data, err := os.ReadFile(srcPath)
+				if err != nil {
+					fmt.Printf("Error reading model file: %v\n", err)
+					continue
+				}
+				
+				err = os.WriteFile(dstPath, data, 0644)
+				if err != nil {
+					fmt.Printf("Error copying model file: %v\n", err)
+					continue
+				}
+				
+				fmt.Printf("Model saved to: %s\n", dstPath)
+			}
+		}
+	}
+	
+	if modelsFound {
+		// Update last training timestamp in memory stats
+		lastTrainingFile := filepath.Join(mm.config.ModelPath, "last_training.txt")
+		nowTime := time.Now().Format(time.RFC3339)
+		os.WriteFile(lastTrainingFile, []byte(nowTime), 0644)
+		
+		// Update inference manager
+		im.RecordTrainingCompletion()
+		
+		fmt.Println("✅ Training completed successfully!")
+		fmt.Println("Use ':inference model use <model_name>' to use the new model")
+	} else {
+		fmt.Println("⚠️ Training completed but no model files were produced.")
+		fmt.Println("Check the training logs for errors.")
+	}
 }
 
 // Helper functions
