@@ -330,6 +330,12 @@ func (am *AgentManager) Initialize() error {
 	if am.aiManager == nil {
 		fmt.Printf("Warning: Failed to initialize AI manager\n")
 	}
+	
+	// Initialize error learning manager
+	errorLearningMgr := GetErrorLearningManager()
+	if errorLearningMgr == nil {
+		fmt.Printf("Warning: Failed to initialize error learning manager\n")
+	}
 
 	am.isInitialized = true
 	return nil
@@ -2100,9 +2106,14 @@ type ErrorSolution struct {
 // tryFixError attempts to fix an error based on its pattern
 func (am *AgentManager) tryFixError(agent *Agent, cmd AgentCommand, pattern, output string, options map[string]string) (bool, string, error) {
 	var fixOutput strings.Builder
-	
-	// Look for solutions for this error pattern
 	var solutions []ErrorSolution
+	var learnedSolutions []SolutionEffectiveness
+	
+	// Get working directory for context
+	workDir := cmd.WorkingDir
+	if workDir == "" {
+		workDir = "."
+	}
 	
 	// First check agent's error handling patterns
 	if agent.DockerConfig != nil && agent.DockerConfig.Waterfall.Stages != nil {
@@ -2143,31 +2154,99 @@ func (am *AgentManager) tryFixError(agent *Agent, cmd AgentCommand, pattern, out
 		}
 	}
 	
-	// If we didn't find any solutions, try AI-assisted error solving
-	if len(solutions) == 0 && am.config.UseAIAssistance && am.aiManager != nil {
-		fixOutput.WriteString("No pre-defined solutions found. Looking for AI-assisted solution...\n")
-		
-		// Use AI to analyze the error and suggest solutions
-		fixed, aiSolution, err := am.analyzeErrorWithAI(agent, cmd, pattern, output, options)
-		if err != nil {
-			fixOutput.WriteString(fmt.Sprintf("AI-assisted error analysis failed: %v\n", err))
-			return false, fixOutput.String(), nil
+	// Check for learned solutions from the error learning manager
+	errorLearningMgr := GetErrorLearningManager()
+	if errorLearningMgr != nil {
+		learnedSolutions = errorLearningMgr.GetBestSolutions(pattern, 3)
+		fixOutput.WriteString(fmt.Sprintf("Found %d learned solutions from previous errors\n", len(learnedSolutions)))
+	}
+	
+	// If we have learned solutions, try them first
+	if len(learnedSolutions) > 0 {
+		for i, solution := range learnedSolutions {
+			fixOutput.WriteString(fmt.Sprintf("\nTrying learned solution %d: %s\n", i+1, solution.Description))
+			fixOutput.WriteString(fmt.Sprintf("Command: %s (Success rate: %d/%d)\n", 
+				solution.Solution, 
+				solution.SuccessCount, 
+				solution.SuccessCount+solution.FailureCount))
+			
+			// Execute the solution
+			solutionCmd := solution.Solution
+			
+			// Execute the solution command
+			var execCmd *exec.Cmd
+			if agent.DockerConfig != nil && options["use_docker"] != "false" {
+				// Execute in Docker
+				dockerCmd := fmt.Sprintf("docker run --rm")
+				
+				// Add volumes
+				for _, volume := range agent.DockerConfig.Volumes {
+					dockerCmd += fmt.Sprintf(" -v %s", volume)
+				}
+				
+				// Add working directory
+				if cmd.WorkingDir != "" {
+					dockerCmd += fmt.Sprintf(" -w %s", cmd.WorkingDir)
+				}
+				
+				// Add image and command
+				dockerCmd += fmt.Sprintf(" %s:%s /bin/bash -c \"%s\"", 
+					agent.DockerConfig.Image, agent.DockerConfig.Tag, solutionCmd)
+				
+				execCmd = exec.Command("bash", "-c", dockerCmd)
+			} else {
+				// Execute directly
+				execCmd = exec.Command("bash", "-c", solutionCmd)
+				
+				// Set working directory
+				if cmd.WorkingDir != "" {
+					execCmd.Dir = cmd.WorkingDir
+				}
+			}
+			
+			// Capture output
+			var stdout, stderr bytes.Buffer
+			execCmd.Stdout = &stdout
+			execCmd.Stderr = &stderr
+			
+			// Execute command
+			err := execCmd.Run()
+			
+			// Get output
+			cmdOutput := stdout.String()
+			if stderr.Len() > 0 {
+				cmdOutput += "\n" + stderr.String()
+			}
+			
+			// Log output
+			fixOutput.WriteString("Solution output:\n")
+			fixOutput.WriteString(cmdOutput)
+			
+			// Check if solution succeeded
+			if err != nil {
+				fixOutput.WriteString(fmt.Sprintf("\nSolution failed: %v\n", err))
+				
+				// Record the failure in the learning system
+				if errorLearningMgr != nil {
+					errorLearningMgr.AddErrorSolution(pattern, solution.Solution, solution.Description, workDir, false, solution.Source)
+				}
+				
+				continue
+			}
+			
+			// Solution succeeded
+			fixOutput.WriteString("\nSolution succeeded\n")
+			
+			// Record the success in the learning system
+			if errorLearningMgr != nil {
+				errorLearningMgr.AddErrorSolution(pattern, solution.Solution, solution.Description, workDir, true, solution.Source)
+			}
+			
+			return true, fixOutput.String(), nil
 		}
-		
-		fixOutput.WriteString(aiSolution)
-		return fixed, fixOutput.String(), nil
 	}
 	
-	// If we still don't have solutions, return without fixing
-	if len(solutions) == 0 {
-		fixOutput.WriteString("No solutions found for this error pattern\n")
-		return false, fixOutput.String(), nil
-	}
-	
-	// Log found solutions
-	fixOutput.WriteString(fmt.Sprintf("Found %d potential solutions:\n", len(solutions)))
-	
-	// Try each solution in order
+	// Try each predefined solution in order
 	for i, solution := range solutions {
 		fixOutput.WriteString(fmt.Sprintf("\nTrying solution %d: %s\n", i+1, solution.Description))
 		fixOutput.WriteString(fmt.Sprintf("Command: %s\n", solution.Solution))
@@ -2247,12 +2326,39 @@ func (am *AgentManager) tryFixError(agent *Agent, cmd AgentCommand, pattern, out
 		// Check if solution succeeded
 		if err != nil {
 			fixOutput.WriteString(fmt.Sprintf("\nSolution failed: %v\n", err))
+			
+			// Record the failure in the learning system
+			if errorLearningMgr != nil {
+				errorLearningMgr.AddErrorSolution(pattern, solutionCmd, solution.Description, workDir, false, "system")
+			}
+			
 			continue
 		}
 		
 		// Solution succeeded
 		fixOutput.WriteString("\nSolution succeeded\n")
+		
+		// Record the success in the learning system
+		if errorLearningMgr != nil {
+			errorLearningMgr.AddErrorSolution(pattern, solutionCmd, solution.Description, workDir, true, "system")
+		}
+		
 		return true, fixOutput.String(), nil
+	}
+	
+	// If we didn't find any solutions or they all failed, try AI-assisted error solving
+	if (len(solutions) == 0 || solutions == nil) && am.config.UseAIAssistance && am.aiManager != nil {
+		fixOutput.WriteString("No pre-defined solutions found or all failed. Looking for AI-assisted solution...\n")
+		
+		// Use AI to analyze the error and suggest solutions
+		fixed, aiSolution, err := am.analyzeErrorWithAI(agent, cmd, pattern, output, options)
+		if err != nil {
+			fixOutput.WriteString(fmt.Sprintf("AI-assisted error analysis failed: %v\n", err))
+			return false, fixOutput.String(), nil
+		}
+		
+		fixOutput.WriteString(aiSolution)
+		return fixed, fixOutput.String(), nil
 	}
 	
 	// If we reach here, none of the solutions worked
@@ -2422,6 +2528,16 @@ Common fix categories include missing dependencies, configuration issues, permis
 				"agent_id":      agent.ID,
 				"context":       workDir,
 			})
+		}
+		
+		// Record the success in the error learning system
+		errorLearningMgr := GetErrorLearningManager()
+		if errorLearningMgr != nil {
+			description := "AI-suggested fix for: " + pattern
+			if len(pattern) > 50 {
+				description = "AI-suggested fix for: " + pattern[:50] + "..."
+			}
+			errorLearningMgr.AddErrorSolution(pattern, fixCmd, description, workDir, true, "ai")
 		}
 		
 		return true, analysisOutput.String(), nil

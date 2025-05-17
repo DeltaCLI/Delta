@@ -141,6 +141,11 @@ func HandleAgentCommand(args []string) bool {
 			// Show help
 			showAgentHelp()
 			return true
+			
+		case "errors":
+			// Handle error solution commands
+			handleErrorCommands(am, args[1:])
+			return true
 
 		default:
 			fmt.Printf("Unknown agent command: %s\n", cmd)
@@ -888,6 +893,10 @@ func showAgentHelp() {
 	fmt.Println("  :agent docker cache prune    - Prune Docker cache")
 	fmt.Println("  :agent docker build <id>     - Build Docker image for agent")
 	fmt.Println("")
+	fmt.Println("Error Management Commands:")
+	fmt.Println("  :agent errors list           - List learned error solutions")
+	fmt.Println("  :agent errors export         - Export learned solutions to pattern file")
+	fmt.Println("")
 	fmt.Println("Agent Templates:")
 	fmt.Println("  :agent create <name> --template=build    - Create a build agent")
 	fmt.Println("  :agent create <name> --template=test     - Create a test agent")
@@ -926,4 +935,52 @@ func getBoolText(value bool, trueText, falseText string) string {
 func checkDockerAvailability() error {
 	// For now, just return success
 	return nil
+}
+
+// handleErrorCommands handles error solution commands
+func handleErrorCommands(am *AgentManager, args []string) {
+	if !am.IsEnabled() {
+		fmt.Println("Agent manager not enabled")
+		fmt.Println("Run ':agent enable' to enable agent manager")
+		return
+	}
+
+	// Get error learning manager
+	errorLearningMgr := GetErrorLearningManager()
+	if errorLearningMgr == nil {
+		fmt.Println("Error learning system not available")
+		return
+	}
+
+	if len(args) == 0 {
+		fmt.Println("Usage: :agent errors <subcommand>")
+		fmt.Println("Available subcommands:")
+		fmt.Println("  list      - List learned error solutions")
+		fmt.Println("  export    - Export learned error solutions to patterns file")
+		return
+	}
+
+	cmd := args[0]
+	switch cmd {
+	case "list":
+		// For now, just show a placeholder
+		fmt.Println("Listing learned error solutions is not yet implemented")
+		fmt.Println("Use ':agent errors export' to export learned solutions to the patterns file")
+		return
+
+	case "export":
+		// Export learned error solutions to patterns file
+		err := errorLearningMgr.ExportToErrorPatterns()
+		if err != nil {
+			fmt.Printf("Error exporting learned solutions: %v\n", err)
+			return
+		}
+		fmt.Println("Learned error solutions exported to patterns file")
+		return
+
+	default:
+		fmt.Printf("Unknown errors command: %s\n", cmd)
+		fmt.Println("Available commands: list, export")
+		return
+	}
 }
