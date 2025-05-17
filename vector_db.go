@@ -163,14 +163,37 @@ func (vm *VectorDBManager) initializeSchema() error {
 
 	// Create a virtual table for vector search if SQLite has the vector extension
 	// Note: This requires SQLite with vector extension to be installed
-	_, err = vm.db.Exec(`
+	createVectorTableSQL := fmt.Sprintf(`
 		CREATE VIRTUAL TABLE IF NOT EXISTS vector_index USING vectorx(
-			embedding(${dimension})
+			embedding(%d)
 		)
-	`)
+	`, vm.config.EmbeddingDimension)
 	
-	// If virtual table creation fails, it might be because the vector extension is not available
-	// We will fall back to a standard implementation that does vector distance calculation in Go
+	_, err = vm.db.Exec(createVectorTableSQL)
+	
+	// Check if the vectorx extension is available
+	if err != nil {
+		fmt.Printf("Warning: SQLite vectorx extension not available - falling back to in-memory search: %v\n", err)
+		fmt.Println("To enable vectorx, install the SQLite vectorx extension")
+		
+		// Log information about how to install the vectorx extension
+		fmt.Println("Installation tips:")
+		fmt.Println("  1. Download vectorx extension from https://github.com/asg017/sqlite-vectorx/releases")
+		fmt.Println("  2. Place the extension file in your library path")
+		fmt.Println("  3. Load the extension with SQLite's .load directive")
+		
+		// We will fall back to a standard implementation that does vector distance calculation in Go
+	} else {
+		fmt.Println("SQLite vectorx extension detected and enabled")
+		
+		// Insert any existing embeddings into the index
+		rowsAffected, err := vm.rebuildVectorIndex()
+		if err != nil {
+			fmt.Printf("Warning: Failed to build initial vector index: %v\n", err)
+		} else if rowsAffected > 0 {
+			fmt.Printf("Built vector index with %d embeddings\n", rowsAffected)
+		}
+	}
 
 	return nil
 }
@@ -318,29 +341,59 @@ func (vm *VectorDBManager) rebuildIndex() {
 	vm.mutex.Lock()
 	defer vm.mutex.Unlock()
 
-	// Check if the vector extension is available
-	_, err := vm.db.Exec("SELECT * FROM vector_index LIMIT 1")
-	
-	if err == nil {
-		// Vector extension is available, rebuild the index
-		_, err = vm.db.Exec("DELETE FROM vector_index")
-		if err != nil {
-			fmt.Printf("Error clearing vector index: %v\n", err)
-			return
-		}
-
-		// Insert embeddings into vector index
-		_, err = vm.db.Exec(`
-			INSERT INTO vector_index (rowid, embedding)
-			SELECT rowid, embedding FROM command_embeddings
-		`)
-		if err != nil {
-			fmt.Printf("Error rebuilding vector index: %v\n", err)
-			return
-		}
+	rowsAffected, err := vm.rebuildVectorIndex()
+	if err != nil {
+		fmt.Printf("Error rebuilding vector index: %v\n", err)
+	} else if rowsAffected > 0 {
+		fmt.Printf("Rebuilt vector index with %d embeddings\n", rowsAffected)
 	}
 
 	vm.lastIndexBuild = time.Now()
+}
+
+// rebuildVectorIndex rebuilds the vector index and returns the number of rows affected
+func (vm *VectorDBManager) rebuildVectorIndex() (int64, error) {
+	// Check if the vector extension is available
+	_, err := vm.db.Exec("SELECT * FROM vector_index LIMIT 1")
+	if err != nil {
+		return 0, fmt.Errorf("vector extension not available: %v", err)
+	}
+	
+	// Vector extension is available, rebuild the index
+	_, err = vm.db.Exec("DELETE FROM vector_index")
+	if err != nil {
+		return 0, fmt.Errorf("failed to clear vector index: %v", err)
+	}
+
+	// Get the count of embeddings
+	var count int64
+	err = vm.db.QueryRow("SELECT COUNT(*) FROM command_embeddings").Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count embeddings: %v", err)
+	}
+	
+	// If no embeddings, just return
+	if count == 0 {
+		return 0, nil
+	}
+
+	// Insert embeddings into vector index
+	// We need to convert BLOB to proper vector format for vectorx
+	result, err := vm.db.Exec(`
+		INSERT INTO vector_index (rowid, embedding)
+		SELECT rowid, json_extract(embedding, '$') FROM command_embeddings
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to insert into vector index: %v", err)
+	}
+	
+	// Get the number of rows affected
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected: %v", err)
+	}
+	
+	return rowsAffected, nil
 }
 
 // SearchSimilarCommands searches for similar commands
@@ -355,42 +408,86 @@ func (vm *VectorDBManager) SearchSimilarCommands(query []float32, context string
 	var commands []CommandEmbedding
 
 	// Check if the vector extension is available
-	_, err := vm.db.Exec("SELECT * FROM vector_index LIMIT 1")
+	hasVectorX := vm.hasVectorExtension()
 	
-	if err == nil {
+	if hasVectorX {
 		// Vector extension is available, use it for search
 		// Convert query to JSON
 		queryJSON, err := json.Marshal(query)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to marshal query: %v", err)
 		}
 
 		// Prepare context filter if provided
 		contextFilter := ""
-		args := []interface{}{queryJSON, limit}
+		var args []interface{}
 		
 		if context != "" {
-			contextFilter = "AND directory LIKE ?"
+			contextFilter = "AND ce.directory LIKE ?"
 			args = append(args, "%"+context+"%")
 		}
-
-		// Query using vector index
-		rows, err := vm.db.Query(`
+		
+		// Determine which similarity function to use based on config
+		var similarityFunc string
+		switch vm.config.DistanceMetric {
+		case "cosine":
+			similarityFunc = "cosine_similarity"
+		case "dot":
+			similarityFunc = "dot_product"
+		case "euclidean":
+			similarityFunc = "euclidean_distance"
+			// For euclidean, smaller is better, so we use ASC instead of DESC
+		default:
+			similarityFunc = "cosine_similarity"
+		}
+		
+		// Build the query string
+		var queryStr strings.Builder
+		queryStr.WriteString(`
 			SELECT ce.command_id, ce.command, ce.directory, ce.timestamp, ce.exit_code, 
-				   ce.embedding, ce.metadata, ce.frequency, ce.last_used, ce.success_rate
+				   ce.embedding, ce.metadata, ce.frequency, ce.last_used, ce.success_rate,
+				   vectorx_`)
+		queryStr.WriteString(similarityFunc)
+		
+		// For euclidean distance, smaller is better
+		var orderDir string
+		if similarityFunc == "euclidean_distance" {
+			orderDir = "ASC"
+		} else {
+			orderDir = "DESC"
+		}
+		
+		queryStr.WriteString(`(vi.embedding, json(?)) AS similarity
 			FROM command_embeddings ce
 			JOIN vector_index vi ON ce.rowid = vi.rowid
-			WHERE `+contextFilter+`
-			ORDER BY vi.embedding <=> ?
-			LIMIT ?
-		`, args...)
-
+			WHERE 1=1 `)
+		queryStr.WriteString(contextFilter)
+		queryStr.WriteString(`
+			ORDER BY similarity `)
+		queryStr.WriteString(orderDir)
+		queryStr.WriteString(`
+			LIMIT ?`)
+		
+		// Add args
+		args = append([]interface{}{string(queryJSON)}, args...)
+		args = append(args, limit)
+		
+		// Execute query
+		rows, err := vm.db.Query(queryStr.String(), args...)
 		if err != nil {
-			return nil, err
+			// If the query fails, it might be because the vectorx extension doesn't have the function we want
+			// or there's a syntax error in our query. Fall back to in-memory search.
+			fmt.Printf("Vector search failed, falling back to in-memory: %v\n", err)
+		} else {
+			defer rows.Close()
+			// We have 11 columns in the result (10 from command + similarity)
+			commands, err := vm.scanCommandRowsWithSimilarity(rows)
+			if err != nil {
+				fmt.Printf("Error scanning vector search results: %v\n", err)
+			} else {
+				return commands, nil
+			}
 		}
-		defer rows.Close()
-
-		return vm.scanCommandRows(rows)
 	}
 
 	// Fall back to in-memory search
@@ -494,6 +591,77 @@ func (vm *VectorDBManager) scanCommandRows(rows *sql.Rows) ([]CommandEmbedding, 
 	return commands, nil
 }
 
+// scanCommandRowsWithSimilarity scans rows from a vector search query including similarity scores
+func (vm *VectorDBManager) scanCommandRowsWithSimilarity(rows *sql.Rows) ([]CommandEmbedding, error) {
+	var commands []CommandEmbedding
+
+	for rows.Next() {
+		var (
+			commandID   string
+			command     string
+			directory   string
+			timestamp   int64
+			exitCode    int
+			embeddingJSON []byte
+			metadata    string
+			frequency   int
+			lastUsed    int64
+			successRate float32
+			similarity  float32 // Additional column from vector search
+		)
+
+		err := rows.Scan(
+			&commandID, &command, &directory, &timestamp, &exitCode,
+			&embeddingJSON, &metadata, &frequency, &lastUsed, &successRate,
+			&similarity,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning row with similarity: %v", err)
+		}
+
+		// Parse embedding
+		var embedding []float32
+		err = json.Unmarshal(embeddingJSON, &embedding)
+		if err != nil {
+			return nil, fmt.Errorf("error unmarshaling embedding: %v", err)
+		}
+
+		// Store similarity in metadata if not empty
+		metadataMap := make(map[string]interface{})
+		if metadata != "" {
+			// Try to parse existing metadata
+			if err := json.Unmarshal([]byte(metadata), &metadataMap); err != nil {
+				// If it fails, just create a new map
+				metadataMap = make(map[string]interface{})
+			}
+		}
+		
+		// Add similarity to metadata
+		metadataMap["similarity"] = similarity
+		
+		// Marshal back to JSON
+		metadataBytes, err := json.Marshal(metadataMap)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling metadata: %v", err)
+		}
+
+		commands = append(commands, CommandEmbedding{
+			CommandID:   commandID,
+			Command:     command,
+			Directory:   directory,
+			Timestamp:   time.Unix(timestamp, 0),
+			ExitCode:    exitCode,
+			Embedding:   embedding,
+			Metadata:    string(metadataBytes),
+			Frequency:   frequency,
+			LastUsed:    time.Unix(lastUsed, 0),
+			SuccessRate: successRate,
+		})
+	}
+
+	return commands, nil
+}
+
 // GetStats returns statistics about the vector database
 func (vm *VectorDBManager) GetStats() map[string]interface{} {
 	vm.mutex.RLock()
@@ -525,9 +693,38 @@ func (vm *VectorDBManager) GetStats() map[string]interface{} {
 			stats["db_size_mb"] = float64(fileInfo.Size()) / (1024 * 1024)
 		}
 
-		// Get most frequent commands
-		stats["has_vector_extension"] = vm.hasVectorExtension()
+		// Check if vectorx extension is available
+		hasVectorX := vm.hasVectorExtension()
+		stats["has_vector_extension"] = hasVectorX
 		stats["last_index_build"] = vm.lastIndexBuild
+		
+		// Get vectorx extension version and details if available
+		if hasVectorX {
+			// Check which vectorx functions are available
+			vectorxFunctions := []string{
+				"vectorx_cosine_similarity",
+				"vectorx_dot_product", 
+				"vectorx_euclidean_distance",
+				"vectorx_version"
+			}
+			
+			availableFunctions := make(map[string]bool)
+			for _, fn := range vectorxFunctions {
+				var result string
+				err := vm.db.QueryRow("SELECT " + fn + "(1, 1)").Scan(&result)
+				availableFunctions[fn] = (err == nil)
+			}
+			
+			stats["vectorx_functions"] = availableFunctions
+			
+			// Get vector index statistics
+			var indexCount int
+			err := vm.db.QueryRow("SELECT COUNT(*) FROM vector_index").Scan(&indexCount)
+			if err == nil {
+				stats["vector_index_count"] = indexCount
+				stats["vector_index_sync"] = (indexCount == count)
+			}
+		}
 	}
 
 	return stats
