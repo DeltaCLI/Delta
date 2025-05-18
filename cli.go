@@ -1341,7 +1341,10 @@ func main() {
 				if len(suggestions) > 0 && suggestions[0].Confidence > ha.config.MinConfidenceThreshold {
 					// Format suggestion
 					suggestion := suggestions[0]
-					fmt.Printf("\033[2m[Suggestion: %s]\033[0m\n", suggestion.Command)
+					// Only display suggestion if it's not empty
+					if suggestion.Command != "" {
+						fmt.Printf("\033[2m[Suggestion: %s]\033[0m\n", suggestion.Command)
+					}
 				}
 			}
 		}
