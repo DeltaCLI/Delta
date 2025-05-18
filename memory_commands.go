@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -757,7 +758,7 @@ func addTrainingFeedback(mm *MemoryManager, feedback string) {
 	}
 
 	// Get last prediction
-	lastCommand, lastThought, timestamp := ai.GetLastPrediction()
+	lastCommand, lastThought, _ := ai.GetLastPrediction()
 
 	// Validate the prediction data
 	if lastThought == "" {

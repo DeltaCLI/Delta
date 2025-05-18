@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
 	"time"
 )
@@ -571,7 +573,7 @@ func showCurrentContext(ke *KnowledgeExtractor) {
 	
 	// Package managers
 	packageManagerCount := 0
-	for pm, installed := range context.PackageManagers {
+	for _, installed := range context.PackageManagers {
 		if installed {
 			packageManagerCount++
 		}
@@ -580,9 +582,9 @@ func showCurrentContext(ke *KnowledgeExtractor) {
 	if packageManagerCount > 0 {
 		fmt.Println("\nPackage Managers:")
 		count := 0
-		for pm, installed := range context.PackageManagers {
+		for pkgName, installed := range context.PackageManagers {
 			if installed {
-				fmt.Printf("  %s\n", pm)
+				fmt.Printf("  %s\n", pkgName)
 				count++
 				if count >= 5 {
 					break

@@ -1,7 +1,11 @@
 package main
 
+// agent_types.go is included in the build and provides key type definitions for agents.
+// This file is referenced from agent_manager.go, knowledge_extractor_agent_command.go, and others.
+
 import (
 	"context"
+	"sync"
 	"time"
 )
 
@@ -23,6 +27,7 @@ type Agent struct {
 	Tags            []string               `json:"tags"`
 	AIPrompt        string                 `json:"ai_prompt"`
 	Enabled         bool                   `json:"enabled"`
+	ErrorHandling   *ErrorHandlingConfig   `json:"error_handling,omitempty"`
 }
 
 // AgentCommand represents a command sequence for an agent
@@ -65,6 +70,19 @@ type WaterfallConfig struct {
 	Dependencies    map[string][]string    `json:"dependencies"`
 	ComposeFile     string                 `json:"compose_file,omitempty"`
 	ProjectName     string                 `json:"project_name,omitempty"`
+}
+
+// ErrorHandlingConfig represents agent-specific error handling configuration
+type ErrorHandlingConfig struct {
+	Patterns        []ErrorPatternConfig   `json:"patterns"`
+}
+
+// ErrorPatternConfig represents an error pattern and its solution
+type ErrorPatternConfig struct {
+	Pattern         string                 `json:"pattern"`
+	Solution        string                 `json:"solution"`
+	Description     string                 `json:"description"`
+	FilePattern     string                 `json:"file_pattern,omitempty"`
 }
 
 // AgentErrorHandling contains error handling configuration for an agent
@@ -123,6 +141,96 @@ type AgentInterface interface {
 	
 	// GetID returns the agent ID
 	GetID() string
+}
+
+// ErrorHandler defines the interface for agent error handlers
+type ErrorHandler interface {
+	SolveError(ctx context.Context, output string, err error, config CommandConfig) (bool, string, error)
+}
+
+// DockerManager manages Docker operations for agents
+type DockerManager struct {
+	available       bool
+	cacheDir        string
+	mutex           sync.RWMutex
+}
+
+// AgentManagerConfig contains configuration for the agent manager
+type AgentManagerConfig struct {
+	Enabled            bool               `json:"enabled"`
+	AgentStoragePath   string             `json:"agent_storage_path"`
+	CacheStoragePath   string             `json:"cache_storage_path"`
+	MaxCacheSize       int64              `json:"max_cache_size"`
+	CacheRetention     int                `json:"cache_retention"`
+	MaxAgentRuns       int                `json:"max_agent_runs"`
+	DefaultTimeout     int                `json:"default_timeout"`
+	DefaultRetryCount  int                `json:"default_retry_count"`
+	DefaultRetryDelay  int                `json:"default_retry_delay"`
+	UseDockerBuilds    bool               `json:"use_docker_builds"`
+	UseAIAssistance    bool               `json:"use_ai_assistance"`
+	AIPromptTemplate   string             `json:"ai_prompt_template"`
+}
+
+// AgentRunResult represents the result of an agent run
+type AgentRunResult struct {
+	AgentID         string               `json:"agent_id"`
+	StartTime       time.Time            `json:"start_time"`
+	EndTime         time.Time            `json:"end_time"`
+	Success         bool                 `json:"success"`
+	ExitCode        int                  `json:"exit_code"`
+	Output          string               `json:"output"`
+	Errors          []string             `json:"errors"`
+	CommandsRun     int                  `json:"commands_run"`
+	ArtifactsPaths  []string             `json:"artifacts_paths"`
+	PerformanceData map[string]float64   `json:"performance_data"`
+}
+
+// BuildCacheConfig represents cache configuration for a specific build
+type BuildCacheConfig struct {
+	Name            string               `json:"name"`
+	Stages          []string             `json:"stages"`
+	DependsOn       []string             `json:"depends_on"`
+	CacheVolume     string               `json:"cache_volume"`
+	BuildArgs       map[string]string    `json:"build_args"`
+	LastBuiltAt     time.Time            `json:"last_built_at"`
+	CacheSize       int64                `json:"cache_size"`
+	CacheHits       int                  `json:"cache_hits"`
+	CacheMisses     int                  `json:"cache_misses"`
+}
+
+// DockerBuildCache manages build caching for Docker-based agents
+type DockerBuildCache struct {
+	CacheDir        string               `json:"cache_dir"`
+	CacheSize       int64                `json:"cache_size"`
+	MaxCacheAge     time.Duration        `json:"max_cache_age"`
+	BuildConfigs    map[string]*BuildCacheConfig `json:"build_configs"`
+}
+
+// AgentManager handles the creation, execution, and management of agents
+type AgentManager struct {
+	// Configuration
+	config            AgentManagerConfig
+	configPath        string
+	storageDir        string
+	
+	// Agent management
+	agents            map[string]*Agent
+	runningAgents     map[string]AgentInterface
+	errorHandlers     map[string]ErrorHandler
+	runHistory        []AgentRunResult
+	
+	// Docker support
+	dockerManager     *DockerManager
+	dockerCache       *DockerBuildCache
+	
+	// AI integration
+	aiManager         *AIPredictionManager
+	knowledgeExtractor *KnowledgeExtractor
+	
+	// Runtime settings
+	maxConcurrent     int
+	mutex             sync.RWMutex
+	isInitialized     bool
 }
 
 // AgentStatus represents the current status of an agent

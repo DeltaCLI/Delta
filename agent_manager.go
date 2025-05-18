@@ -1,14 +1,10 @@
 package main
 
-//go:embed embedded_patterns/*
-var embeddedPatterns embed.FS
-
 import (
 	"bytes"
 	"embed"
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,118 +16,30 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// AgentCommand represents a command sequence for an agent
-type AgentCommand struct {
-	Command         string              `json:"command"`
-	WorkingDir      string              `json:"working_dir"`
-	ExpectedOutput  string              `json:"expected_output,omitempty"`
-	ErrorPatterns   []string            `json:"error_patterns,omitempty"`
-	SuccessPatterns []string            `json:"success_patterns,omitempty"`
-	Timeout         int                 `json:"timeout"`
-	RetryCount      int                 `json:"retry_count"`
-	RetryDelay      int                 `json:"retry_delay"`
-	IsInteractive   bool                `json:"is_interactive"`
-	Environment     map[string]string   `json:"environment,omitempty"`
-}
+//go:embed embedded_patterns/*
+var embeddedPatterns embed.FS
 
-// AgentDockerConfig represents Docker configuration for an agent
-type AgentDockerConfig struct {
-	Image           string              `json:"image"`
-	Tag             string              `json:"tag"`
-	BuildContext    string              `json:"build_context,omitempty"`
-	Dockerfile      string              `json:"dockerfile,omitempty"`
-	Volumes         []string            `json:"volumes,omitempty"`
-	Networks        []string            `json:"networks,omitempty"`
-	Ports           []string            `json:"ports,omitempty"`
-	Environment     map[string]string   `json:"environment,omitempty"`
-	CacheFrom       []string            `json:"cache_from,omitempty"`
-	BuildArgs       map[string]string   `json:"build_args,omitempty"`
-	UseCache        bool                `json:"use_cache"`
-}
+// AgentCommand is defined in agent_types.go
 
-// Agent represents a task-specific autonomous agent
-type Agent struct {
-	ID              string               `json:"id"`
-	Name            string               `json:"name"`
-	Description     string               `json:"description"`
-	TaskTypes       []string             `json:"task_types"`
-	Commands        []AgentCommand       `json:"commands"`
-	DockerConfig    *AgentDockerConfig   `json:"docker_config,omitempty"`
-	TriggerPatterns []string             `json:"trigger_patterns"`
-	Context         map[string]string    `json:"context"`
-	CreatedAt       time.Time            `json:"created_at"`
-	UpdatedAt       time.Time            `json:"updated_at"`
-	LastRunAt       time.Time            `json:"last_run_at"`
-	RunCount        int                  `json:"run_count"`
-	SuccessRate     float64              `json:"success_rate"`
-	Tags            []string             `json:"tags"`
-	AIPrompt        string               `json:"ai_prompt"`
-	Enabled         bool                 `json:"enabled"`
-}
+// AgentDockerConfig is defined in agent_types.go
+
+// Agent struct is defined in agent_types.go
 
 // BuildCacheConfig represents cache configuration for a specific build
-type BuildCacheConfig struct {
-	Name            string               `json:"name"`
-	Stages          []string             `json:"stages"`
-	DependsOn       []string             `json:"depends_on"`
-	CacheVolume     string               `json:"cache_volume"`
-	BuildArgs       map[string]string    `json:"build_args"`
-	LastBuiltAt     time.Time            `json:"last_built_at"`
-	CacheSize       int64                `json:"cache_size"`
-	CacheHits       int                  `json:"cache_hits"`
-	CacheMisses     int                  `json:"cache_misses"`
-}
+// BuildCacheConfig is defined in agent_types.go
 
 // AgentManagerConfig contains configuration for the agent manager
-type AgentManagerConfig struct {
-	Enabled            bool               `json:"enabled"`
-	AgentStoragePath   string             `json:"agent_storage_path"`
-	CacheStoragePath   string             `json:"cache_storage_path"`
-	MaxCacheSize       int64              `json:"max_cache_size"`
-	CacheRetention     int                `json:"cache_retention"`
-	MaxAgentRuns       int                `json:"max_agent_runs"`
-	DefaultTimeout     int                `json:"default_timeout"`
-	DefaultRetryCount  int                `json:"default_retry_count"`
-	DefaultRetryDelay  int                `json:"default_retry_delay"`
-	UseDockerBuilds    bool               `json:"use_docker_builds"`
-	UseAIAssistance    bool               `json:"use_ai_assistance"`
-	AIPromptTemplate   string             `json:"ai_prompt_template"`
-}
+// AgentManagerConfig is defined in agent_types.go
+// AgentManager is defined in agent_types.go
 
 // AgentRunResult represents the result of an agent run
-type AgentRunResult struct {
-	AgentID         string               `json:"agent_id"`
-	StartTime       time.Time            `json:"start_time"`
-	EndTime         time.Time            `json:"end_time"`
-	Success         bool                 `json:"success"`
-	ExitCode        int                  `json:"exit_code"`
-	Output          string               `json:"output"`
-	Errors          []string             `json:"errors"`
-	CommandsRun     int                  `json:"commands_run"`
-	ArtifactsPaths  []string             `json:"artifacts_paths"`
-	PerformanceData map[string]float64   `json:"performance_data"`
-}
+// AgentRunResult is defined in agent_types.go
 
 // DockerBuildCache manages build caching for Docker-based agents
-type DockerBuildCache struct {
-	CacheDir        string               `json:"cache_dir"`
-	CacheSize       int64                `json:"cache_size"`
-	MaxCacheAge     time.Duration        `json:"max_cache_age"`
-	BuildConfigs    map[string]*BuildCacheConfig `json:"build_configs"`
-}
+// DockerBuildCache is defined in agent_types.go
 
 // AgentManager handles the creation, execution, and management of agents
-type AgentManager struct {
-	config           AgentManagerConfig
-	configPath       string
-	agents           map[string]*Agent
-	dockerCache      *DockerBuildCache
-	runHistory       []AgentRunResult
-	mutex            sync.RWMutex
-	isInitialized    bool
-	knowledgeExtractor *KnowledgeExtractor
-	aiManager        *AIPredictionManager
-}
+// AgentManager is defined in agent_types.go
 
 // AgentYAMLConfig represents the YAML configuration for an agent
 type AgentYAMLConfig struct {
@@ -732,9 +640,9 @@ func (am *AgentManager) RunAgent(agentID string, options map[string]string) (*Ag
 		
 		// Check for command error
 		if cmdErr != nil {
-			errorMsg := fmt.Sprintf("Command %d failed: %v", i+1, cmdErr)
+			errorMsg := fmt.Sprintf("Command %d failed with exit code %d: %v", i+1, exitCode, cmdErr)
 			result.Errors = append(result.Errors, errorMsg)
-			commandOutput.WriteString(fmt.Sprintf("\nError: %v\n", cmdErr))
+			commandOutput.WriteString(fmt.Sprintf("\nError: %v (exit code: %d)\n", cmdErr, exitCode))
 			
 			// Add command output
 			commandOutput.WriteString("\nCommand output:\n")
@@ -762,9 +670,11 @@ func (am *AgentManager) RunAgent(agentID string, options map[string]string) (*Ag
 								
 								// Retry the command
 								var retryCmdErr error
-								cmdOutput, exitCode, retryCmdErr = useDocker ? 
-									am.executeDockerCommand(agent, cmd, options) :
-									am.executeCommand(cmd, options)
+								if useDocker {
+									cmdOutput, exitCode, retryCmdErr = am.executeDockerCommand(agent, cmd, options)
+								} else {
+									cmdOutput, exitCode, retryCmdErr = am.executeCommand(cmd, options)
+								}
 								
 								// Check if retry succeeded
 								if retryCmdErr == nil {
@@ -1246,7 +1156,7 @@ func (am *AgentManager) executeWaterfallBuild(agent *Agent, result *AgentRunResu
 		// Record stage duration
 		stageDuration := time.Since(stageStartTime)
 		status.StageDuration[stage] = stageDuration
-		buildOutput.WriteString(fmt.Sprintf("Stage %s completed in %s\n", stage, formatDuration(stageDuration)))
+		buildOutput.WriteString(fmt.Sprintf("Stage %s completed in %s\n", stage, formatAgentDuration(stageDuration)))
 		
 		// Check if build failed
 		if err != nil {
@@ -1269,7 +1179,7 @@ func (am *AgentManager) executeWaterfallBuild(agent *Agent, result *AgentRunResu
 	status.Success = true
 	
 	totalDuration := status.EndTime.Sub(status.StartTime)
-	buildOutput.WriteString(fmt.Sprintf("Waterfall build completed in %s\n", formatDuration(totalDuration)))
+	buildOutput.WriteString(fmt.Sprintf("Waterfall build completed in %s\n", formatAgentDuration(totalDuration)))
 	
 	// Tag the final image if required
 	if agent.DockerConfig.Image != "" && agent.DockerConfig.Tag != "" {
@@ -1530,7 +1440,7 @@ func countPattern(text, pattern string) int {
 }
 
 // formatDuration formats a duration in a human-readable format
-func formatDuration(d time.Duration) string {
+func formatAgentDuration(d time.Duration) string {
 	seconds := int(d.Seconds())
 	minutes := seconds / 60
 	hours := minutes / 60
@@ -2134,7 +2044,7 @@ func (am *AgentManager) tryFixError(agent *Agent, cmd AgentCommand, pattern, out
 	}
 	
 	// Check for agent-specific error handling
-	if agent.ErrorHandling.Patterns != nil && len(agent.ErrorHandling.Patterns) > 0 {
+	if agent.ErrorHandling != nil && agent.ErrorHandling.Patterns != nil && len(agent.ErrorHandling.Patterns) > 0 {
 		for _, errPattern := range agent.ErrorHandling.Patterns {
 			if strings.Contains(pattern, errPattern.Pattern) || strings.Contains(output, errPattern.Pattern) {
 				solutions = append(solutions, ErrorSolution{
@@ -2522,12 +2432,7 @@ Common fix categories include missing dependencies, configuration issues, permis
 		// Record this as a successful AI-assisted fix if possible
 		// Also add to the inference system for learning
 		if am.knowledgeExtractor != nil {
-			am.knowledgeExtractor.RecordAction("ai_fix", map[string]string{
-				"error_pattern": pattern,
-				"solution":      fixCmd,
-				"agent_id":      agent.ID,
-				"context":       workDir,
-			})
+			am.knowledgeExtractor.AddCommand("ai_fix " + fixCmd, workDir, 0)
 		}
 		
 		// Record the success in the error learning system
@@ -2582,7 +2487,7 @@ func extractCommandsFromAnalysis(analysis string) []string {
 	// If we still don't have commands, try to extract code blocks
 	if len(commands) == 0 {
 		lines := strings.Split(analysis, "\n")
-		for i, line := range lines {
+		for _, line := range lines {
 			// Look for lines that look like shell commands
 			if isLikelyShellCommand(line) && !strings.HasPrefix(line, "#") {
 				commands = append(commands, strings.TrimSpace(line))
@@ -2684,11 +2589,11 @@ type PatternEntry struct {
 type CommandLibrary struct {
 	Version   string          `json:"version"`
 	UpdatedAt string          `json:"updated_at"`
-	Commands  []CommandEntry  `json:"commands"`
+	Commands  []AgentCommandEntry  `json:"commands"`
 }
 
-// CommandEntry represents an entry in the command library
-type CommandEntry struct {
+// AgentCommandEntry represents an entry in the command library
+type AgentCommandEntry struct {
 	Command     string `json:"command"`
 	Description string `json:"description"`
 	Category    string `json:"category"`

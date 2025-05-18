@@ -772,19 +772,7 @@ func showKnowledgeAgentHelp() {
 // Helper functions for agent creation
 
 // createBuildAgent creates a build agent
-func createBuildAgent(agent *Agent, workingDir string, projectInfo struct {
-	Type          string
-	Path          string
-	Name          string
-	Version       string
-	Dependencies  []string
-	Languages     []string
-	BuildSystem   string
-	TestFramework string
-	Config        map[string]string
-	RepoURL       string
-	Branch        string
-}) {
+func createBuildAgent(agent *Agent, workingDir string, projectInfo ProjectInfo) {
 	// Add build command based on project type
 	buildCmd := "make"
 	if projectInfo.BuildSystem != "" {
@@ -831,19 +819,7 @@ func createBuildAgent(agent *Agent, workingDir string, projectInfo struct {
 }
 
 // createTestAgent creates a test agent
-func createTestAgent(agent *Agent, workingDir string, projectInfo struct {
-	Type          string
-	Path          string
-	Name          string
-	Version       string
-	Dependencies  []string
-	Languages     []string
-	BuildSystem   string
-	TestFramework string
-	Config        map[string]string
-	RepoURL       string
-	Branch        string
-}) {
+func createTestAgent(agent *Agent, workingDir string, projectInfo ProjectInfo) {
 	// Add test command based on project type
 	testCmd := "make test"
 	if projectInfo.TestFramework != "" {
@@ -893,19 +869,7 @@ func createTestAgent(agent *Agent, workingDir string, projectInfo struct {
 }
 
 // createDeployAgent creates a deployment agent
-func createDeployAgent(agent *Agent, workingDir string, projectInfo struct {
-	Type          string
-	Path          string
-	Name          string
-	Version       string
-	Dependencies  []string
-	Languages     []string
-	BuildSystem   string
-	TestFramework string
-	Config        map[string]string
-	RepoURL       string
-	Branch        string
-}) {
+func createDeployAgent(agent *Agent, workingDir string, projectInfo ProjectInfo) {
 	// Add deploy command based on project type
 	deployCmd := "make deploy"
 	if projectInfo.BuildSystem != "" {
@@ -936,19 +900,7 @@ func createDeployAgent(agent *Agent, workingDir string, projectInfo struct {
 }
 
 // createDockerAgent creates a Docker agent
-func createDockerAgent(agent *Agent, workingDir string, projectInfo struct {
-	Type          string
-	Path          string
-	Name          string
-	Version       string
-	Dependencies  []string
-	Languages     []string
-	BuildSystem   string
-	TestFramework string
-	Config        map[string]string
-	RepoURL       string
-	Branch        string
-}) {
+func createDockerAgent(agent *Agent, workingDir string, projectInfo ProjectInfo) {
 	// Add Docker build command
 	imageName := "app"
 	if projectInfo.Name != "" {
@@ -987,19 +939,7 @@ func createDockerAgent(agent *Agent, workingDir string, projectInfo struct {
 }
 
 // createProjectAgent creates a project-specific agent
-func createProjectAgent(agent *Agent, workingDir string, projectInfo struct {
-	Type          string
-	Path          string
-	Name          string
-	Version       string
-	Dependencies  []string
-	Languages     []string
-	BuildSystem   string
-	TestFramework string
-	Config        map[string]string
-	RepoURL       string
-	Branch        string
-}) {
+func createProjectAgent(agent *Agent, workingDir string, projectInfo ProjectInfo) {
 	// Add commands based on project type
 	if projectInfo.BuildSystem != "" {
 		switch projectInfo.BuildSystem {
@@ -1112,19 +1052,7 @@ func createDeepFryAgent(agent *Agent, workingDir string) {
 }
 
 // createGeneralAgent creates a general-purpose agent
-func createGeneralAgent(agent *Agent, workingDir string, projectInfo struct {
-	Type          string
-	Path          string
-	Name          string
-	Version       string
-	Dependencies  []string
-	Languages     []string
-	BuildSystem   string
-	TestFramework string
-	Config        map[string]string
-	RepoURL       string
-	Branch        string
-}) {
+func createGeneralAgent(agent *Agent, workingDir string, projectInfo ProjectInfo) {
 	// Add a simple command to echo environment
 	agent.Commands = append(agent.Commands, AgentCommand{
 		Command:       "echo 'Agent executed successfully'",

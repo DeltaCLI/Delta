@@ -30,13 +30,15 @@ build: $(OUTPUT_BINARY)
 		tokenizer.go tokenizer_commands.go \
 		inference.go inference_commands.go \
 		vector_db.go vector_commands.go \
+		onnx_runtime.go onnx_runtime_test.go \
 		embedding_manager.go embedding_commands.go \
 		speculative_decoding.go speculative_commands.go \
 		knowledge_extractor.go knowledge_commands.go knowledge_extractor_agent_command.go \
-		agent_manager.go agent_commands.go \
+		agent_types.go agent_manager.go agent_commands.go \
 		config_manager.go config_commands.go \
 		spellcheck.go spellcheck_commands.go \
-		history_analysis.go history_commands.go
+		history_analysis.go history_commands.go \
+		error_learning.go
 	@echo "Successfully built $(BINARY_NAME) for $(TARGET)"
 
 clean:

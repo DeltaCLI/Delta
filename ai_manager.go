@@ -30,6 +30,7 @@ type AIPredictionManager struct {
 	isInitialized     bool
 	waitGroup         sync.WaitGroup
 	predictionEnabled bool
+	errorPrinted      bool    // Track whether error messages have been printed
 	cancelFunc        context.CancelFunc // Used to cancel pending requests
 	lastPrediction    struct {           // Tracking for feedback
 		command    string
@@ -68,22 +69,36 @@ func NewAIPredictionManager(ollamaURL string, modelName string) (*AIPredictionMa
 
 // Initialize initializes the AI manager and checks Ollama availability
 func (m *AIPredictionManager) Initialize() bool {
+	// Check if already initialized
+	if m.isInitialized {
+		return m.predictionEnabled
+	}
+	
 	// Check if Ollama is available
 	if !m.ollamaClient.IsAvailable() {
-		fmt.Println("\033[2m[AI features disabled: Cannot connect to Ollama server]\033[0m")
+		if !m.errorPrinted {
+			fmt.Println("\033[2m[AI features disabled: Cannot connect to Ollama server]\033[0m")
+			m.errorPrinted = true
+		}
 		return false
 	}
 
 	// Check if the model is available
 	available, err := m.ollamaClient.CheckModelAvailability()
 	if err != nil {
-		fmt.Println("\033[2m[AI features disabled: Error checking model availability]\033[0m")
+		if !m.errorPrinted {
+			fmt.Println("\033[2m[AI features disabled: Error checking model availability]\033[0m")
+			m.errorPrinted = true
+		}
 		return false
 	}
 
 	if !available {
-		fmt.Printf("\033[2m[AI features disabled: Model %s not available. Run Ollama and download the model first.]\033[0m\n",
-			m.ollamaClient.ModelName)
+		if !m.errorPrinted {
+			fmt.Printf("\033[2m[AI features disabled: Model %s not available. Run Ollama and download the model first.]\033[0m\n",
+				m.ollamaClient.ModelName)
+			m.errorPrinted = true
+		}
 		return false
 	}
 
@@ -408,4 +423,41 @@ func (m *AIPredictionManager) UpdateModel(modelName string, customModel bool) er
 
 		return nil
 	}
+}
+
+// GenerateEmbedding generates an embedding for a text string using the embedding manager
+func (m *AIPredictionManager) GetAIResponse(prompt string) (string, error) {
+	// This is a simple wrapper around Ollama API - in a real implementation, this would
+	// use the Ollama API to get a response
+	if !m.IsEnabled() {
+		return "", fmt.Errorf("AI prediction manager is not enabled")
+	}
+	
+	// For now, just return a simple fixed response for error analysis
+	// In a full implementation, this would call Ollama or another LLM service
+	return "Try running 'make clean' followed by 'make build' to resolve the issue.", nil
+}
+
+func (m *AIPredictionManager) GenerateEmbedding(text string) ([]float32, error) {
+	// Get the embedding manager
+	em := GetEmbeddingManager()
+	if em == nil {
+		return nil, fmt.Errorf("embedding manager not available")
+	}
+
+	// Create an embedding request with just the text
+	request := EmbeddingRequest{
+		Command:   text,
+		Directory: "",
+		Context:   make(map[string]string),
+		Timestamp: time.Now(),
+	}
+
+	// Generate the embedding
+	response, err := em.GenerateEmbedding(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.Embedding, nil
 }

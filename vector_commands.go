@@ -613,7 +613,7 @@ func exportVectorDatabase(vm *VectorDBManager, filePath string) {
 	
 	fmt.Printf("Export completed successfully to %s\n", filePath)
 	fmt.Printf("  Size: %.2f MB\n", fileSizeMB)
-	fmt.Printf("  Duration: %s\n", formatDuration(duration))
+	fmt.Printf("  Duration: %s\n", formatVectorDuration(duration))
 	
 	// Get the number of embeddings
 	stats := vm.GetStats()
@@ -686,7 +686,7 @@ func importVectorDatabase(vm *VectorDBManager, filePath string, mergeStrategy st
 	duration := time.Since(startTime)
 	
 	fmt.Printf("Import completed successfully\n")
-	fmt.Printf("  Duration: %s\n", formatDuration(duration))
+	fmt.Printf("  Duration: %s\n", formatVectorDuration(duration))
 	fmt.Printf("  Embeddings before: %d\n", countBefore)
 	fmt.Printf("  Embeddings after: %d\n", countAfter)
 	fmt.Printf("  Net change: %+d\n", countAfter - countBefore)
@@ -709,8 +709,8 @@ func formatTimeSince(d time.Duration) string {
 	}
 }
 
-// formatDuration formats a duration in a more precise way
-func formatDuration(d time.Duration) string {
+// formatVectorDuration formats a duration in a more precise way
+func formatVectorDuration(d time.Duration) string {
 	if d.Hours() >= 1 {
 		return fmt.Sprintf("%.1f hours", d.Hours())
 	} else if d.Minutes() >= 1 {

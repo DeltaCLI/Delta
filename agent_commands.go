@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"os/exec"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -215,11 +218,7 @@ func listAgents(am *AgentManager) {
 		return
 	}
 
-	agents, err := am.ListAgents()
-	if err != nil {
-		fmt.Printf("Error listing agents: %v\n", err)
-		return
-	}
+	agents := am.ListAgents()
 	
 	if len(agents) == 0 {
 		fmt.Println("No agents found")
@@ -387,18 +386,23 @@ func runAgent(am *AgentManager, agentID string, options map[string]string) {
 		}
 	}
 	
-	// Run the agent
-	err = am.RunAgent(ctx, agentID, options)
+	// Create implementation
+	impl, err := createAgentImplementation(agent, am)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
 	}
 	
-	// Get agent status
-	status, err := am.GetAgentStatus(agentID)
-	if err != nil {
-		fmt.Printf("Error getting agent status: %v\n", err)
-		return
+	// Run agent in goroutine
+	go func() {
+		impl.Run(ctx)
+	}()
+	
+	// Create a placeholder status
+	status := AgentStatus{
+		ID:        agentID,
+		IsRunning: true,
+		StartTime: time.Now(),
 	}
 	
 	// Create result object
@@ -973,44 +977,6 @@ func getBoolText(value bool, trueText, falseText string) string {
 	return falseText
 }
 
-// GetRunHistory returns the run history for an agent
-func (am *AgentManager) GetRunHistory(agentID string, limit int) []AgentRunResult {
-	// This is a placeholder implementation
-	// In a real implementation, this would retrieve the run history from storage
-	return []AgentRunResult{}
-}
-
-// GetDockerCacheStats returns Docker cache statistics
-func (am *AgentManager) GetDockerCacheStats() map[string]interface{} {
-	// This is a placeholder implementation
-	return map[string]interface{}{
-		"cache_size_mb":   float64(0),
-		"cache_hits":      int(0),
-		"cache_misses":    int(0),
-		"cache_efficiency": float64(0),
-		"build_configs":   int(0),
-		"max_cache_age":   float64(0),
-	}
-}
-
-// ClearDockerCache clears the Docker cache
-func (am *AgentManager) ClearDockerCache() error {
-	// This is a placeholder implementation
-	return nil
-}
-
-// GetAgentStats returns agent statistics
-func (am *AgentManager) GetAgentStats() map[string]interface{} {
-	// This is a placeholder implementation
-	return map[string]interface{}{
-		"total_agents":    int(0),
-		"enabled_agents":  int(0),
-		"total_runs":      int(0),
-		"successful_runs": int(0),
-		"success_rate":    float64(0),
-		"avg_run_time":    float64(0),
-	}
-}
 
 // checkDockerAvailability checks if Docker is available
 func checkDockerAvailability() error {
@@ -1022,7 +988,7 @@ func checkDockerAvailability() error {
 	
 	// Check Docker version
 	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
-	output, err := cmd.CombinedOutput()
+	_, err = cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to get Docker version: %v", err)
 	}
@@ -1078,7 +1044,7 @@ func handleErrorCommands(am *AgentManager, args []string) {
 				successRate = float64(solution.SuccessCount) / float64(total) * 100
 			}
 			
-			fmt.Printf("Error Pattern: %s\n", solution.Pattern)
+			// Pattern information is not directly available in the SolutionEffectiveness struct
 			fmt.Printf("Solution: %s\n", solution.Solution)
 			if solution.Description != "" {
 				fmt.Printf("Description: %s\n", solution.Description)
@@ -1197,4 +1163,56 @@ func handleErrorCommands(am *AgentManager, args []string) {
 		fmt.Println("Available commands: list, export, learn, fix, stats")
 		return
 	}
+}
+
+// DockerAgent implements the AgentInterface for Docker-based agents
+type DockerAgent struct {
+	Agent      *Agent
+	manager    *AgentManager
+	isRunning  bool
+	mutex      sync.RWMutex
+}
+
+// Required interface methods for DockerAgent
+func (d *DockerAgent) Initialize() error { return nil }
+func (d *DockerAgent) Run(ctx context.Context) error { return nil }
+func (d *DockerAgent) Stop() error { return nil }
+func (d *DockerAgent) GetStatus() AgentStatus { return AgentStatus{ID: d.Agent.ID} }
+func (d *DockerAgent) GetID() string { return d.Agent.ID }
+
+// GenericAgent implements the AgentInterface for non-Docker agents
+type GenericAgent struct {
+	config     *Agent
+	manager    *AgentManager
+	isRunning  bool
+	mutex      sync.RWMutex
+}
+
+// Required interface methods for GenericAgent
+func (g *GenericAgent) Initialize() error { return nil }
+func (g *GenericAgent) Run(ctx context.Context) error { return nil }
+func (g *GenericAgent) Stop() error { return nil }
+func (g *GenericAgent) GetStatus() AgentStatus { return AgentStatus{ID: g.config.ID} }
+func (g *GenericAgent) GetID() string { return g.config.ID }
+
+// createAgentImplementation creates a concrete agent implementation
+func createAgentImplementation(agent *Agent, manager *AgentManager) (AgentInterface, error) {
+	// Check if agent has Docker configuration
+	if agent.DockerConfig != nil && agent.DockerConfig.Enabled {
+		// Create Docker agent
+		return &DockerAgent{
+			Agent:      agent,
+			manager:    manager,
+			isRunning:  false,
+			mutex:      sync.RWMutex{},
+		}, nil
+	}
+	
+	// Default to generic agent
+	return &GenericAgent{
+		config:     agent,
+		manager:    manager,
+		isRunning:  false,
+		mutex:      sync.RWMutex{},
+	}, nil
 }

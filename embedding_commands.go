@@ -375,7 +375,7 @@ func updateEmbeddingConfig(em *EmbeddingManager, setting, value string) {
 		config.EmbbedingSize = size
 
 	case "use_ollama":
-		config.UseOllama = parseBool(value)
+		config.UseOllama = parseEmbeddingBool(value)
 
 	case "ollama_model":
 		config.OllamaModel = value
@@ -389,7 +389,7 @@ func updateEmbeddingConfig(em *EmbeddingManager, setting, value string) {
 		config.BatchSize = size
 
 	case "cache_enabled":
-		config.CacheEnabled = parseBool(value)
+		config.CacheEnabled = parseEmbeddingBool(value)
 
 	case "cache_size":
 		size, err := strconv.Atoi(value)
@@ -400,10 +400,10 @@ func updateEmbeddingConfig(em *EmbeddingManager, setting, value string) {
 		config.CacheSize = size
 
 	case "context_included":
-		config.ContextIncluded = parseBool(value)
+		config.ContextIncluded = parseEmbeddingBool(value)
 
 	case "directory_included":
-		config.DirectoryIncluded = parseBool(value)
+		config.DirectoryIncluded = parseEmbeddingBool(value)
 
 	case "model_url":
 		// Update model URL for downloading
@@ -523,7 +523,7 @@ func downloadEmbeddingModel(em *EmbeddingManager) {
 }
 
 // parseBool parses a string as a boolean value
-func parseBool(value string) bool {
+func parseEmbeddingBool(value string) bool {
 	value = strings.ToLower(strings.TrimSpace(value))
 	return value == "true" || value == "yes" || value == "1" || value == "on" || value == "enabled"
 }

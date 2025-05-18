@@ -537,35 +537,34 @@ func (vm *VectorDBManager) SearchSimilarCommands(query []float32, context string
 			args = append(args, "%"+context+"%")
 		}
 		
-		// Determine which similarity function to use based on config
-		var similarityFunc string
+		// Determine which similarity function and metrics to use based on config
 		var vectorxFuncName string
 		var isDistanceMetric bool // If true, smaller is better (ASC), if false, larger is better (DESC)
 
 		switch vm.config.DistanceMetric {
 		case "cosine":
-			similarityFunc = "cosine_similarity"
+			// similarityType = "cosine_similarity"
 			vectorxFuncName = "vectorx_cosine_similarity"
 			isDistanceMetric = false // Higher is better
 		case "dot":
-			similarityFunc = "dot_product"
+			// similarityType = "dot_product"
 			vectorxFuncName = "vectorx_dot_product"
 			isDistanceMetric = false // Higher is better
 		case "euclidean":
-			similarityFunc = "euclidean_distance"
+			// similarityType = "euclidean_distance"
 			vectorxFuncName = "vectorx_euclidean_distance"
 			isDistanceMetric = true // Lower is better
 		case "manhattan":
-			similarityFunc = "manhattan_distance"
+			// similarityType = "manhattan_distance"
 			vectorxFuncName = "vectorx_manhattan_distance"
 			isDistanceMetric = true // Lower is better
 		case "jaccard":
-			similarityFunc = "jaccard_similarity"
+			// similarityType = "jaccard_similarity"
 			vectorxFuncName = "vectorx_jaccard_similarity"
 			isDistanceMetric = false // Higher is better
 		default:
 			// Default to cosine similarity if the metric isn't recognized
-			similarityFunc = "cosine_similarity"
+			// similarityType = "cosine_similarity"
 			vectorxFuncName = "vectorx_cosine_similarity"
 			isDistanceMetric = false
 		}
@@ -654,6 +653,25 @@ func (vm *VectorDBManager) SearchSimilarCommands(query []float32, context string
 	
 	distances := make([]distanceEntry, len(allCommands))
 
+	// Determine which similarity function to use based on config
+	var similarityFuncType string
+	
+	switch vm.config.DistanceMetric {
+	case "cosine":
+		similarityFuncType = "cosine_similarity"
+	case "dot":
+		similarityFuncType = "dot_product"
+	case "euclidean":
+		similarityFuncType = "euclidean_distance"
+	case "manhattan":
+		similarityFuncType = "manhattan_distance"
+	case "jaccard":
+		similarityFuncType = "jaccard_similarity"
+	default:
+		// Default to cosine similarity if the metric isn't recognized
+		similarityFuncType = "cosine_similarity"
+	}
+	
 	// Calculate similarity based on the selected metric
 	for i, cmd := range allCommands {
 		distances[i].cmd = cmd
@@ -661,30 +679,31 @@ func (vm *VectorDBManager) SearchSimilarCommands(query []float32, context string
 		var score float32
 		var rawScore float32
 		
-		switch vm.config.DistanceMetric {
-		case "cosine":
+		// Use the appropriate similarity function based on the config
+		switch similarityFuncType {
+		case "cosine_similarity":
 			// For cosine similarity, higher is better
 			score = cosineSimilarity(query, cmd.Embedding)
 			rawScore = score
-		case "dot":
+		case "dot_product":
 			// For dot product, higher is better
 			score = dotProduct(query, cmd.Embedding)
 			rawScore = score
-		case "euclidean":
+		case "euclidean_distance":
 			// For euclidean distance, lower is better, so invert for scoring
 			distance := euclideanDistance(query, cmd.Embedding)
 			if distance > 0 {
 				score = 1.0 / distance  // Invert so higher means more similar
 			}
 			rawScore = distance  // Store the actual distance for reference
-		case "manhattan":
+		case "manhattan_distance":
 			// For manhattan distance, lower is better, so invert for scoring
 			distance := manhattanDistance(query, cmd.Embedding)
 			if distance > 0 {
 				score = 1.0 / distance  // Invert so higher means more similar
 			}
 			rawScore = distance  // Store the actual distance for reference
-		case "jaccard":
+		case "jaccard_similarity":
 			// For jaccard similarity, higher is better
 			score = jaccardSimilarity(query, cmd.Embedding, vm.config.JaccardThreshold)
 			rawScore = score
@@ -900,7 +919,7 @@ func (vm *VectorDBManager) GetStats() map[string]interface{} {
 				"vectorx_euclidean_distance",
 				"vectorx_manhattan_distance",
 				"vectorx_jaccard_similarity",
-				"vectorx_version"
+				"vectorx_version",
 			}
 			
 			availableFunctions := make(map[string]bool)

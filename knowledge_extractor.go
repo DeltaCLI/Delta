@@ -1953,7 +1953,7 @@ func checkCommandExists(command string) bool {
 	
 	for _, dir := range dirs {
 		fullPath := filepath.Join(dir, command)
-		if fileExists(fullPath) || fileExists(fullPath+".exe") {
+		if knowledgeFileExists(fullPath) || knowledgeFileExists(fullPath+".exe") {
 			return true
 		}
 	}
@@ -1962,7 +1962,7 @@ func checkCommandExists(command string) bool {
 }
 
 // fileExists checks if a file exists
-func fileExists(path string) bool {
+func knowledgeFileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
@@ -2260,7 +2260,7 @@ func detectProjectLanguages(context Context) []string {
 // detectBuildSystem determines the build system used in a project
 func detectBuildSystem(context Context) string {
 	// Check if Makefile exists
-	if _, ok := context.FileExtensions[".mk"]; ok || fileExists(filepath.Join(context.CurrentDir, "Makefile")) {
+	if _, ok := context.FileExtensions[".mk"]; ok || knowledgeFileExists(filepath.Join(context.CurrentDir, "Makefile")) {
 		return "make"
 	}
 	
@@ -2269,35 +2269,35 @@ func detectBuildSystem(context Context) string {
 	case "go":
 		return "go build"
 	case "javascript", "typescript":
-		if fileExists(filepath.Join(context.CurrentDir, "package.json")) {
+		if knowledgeFileExists(filepath.Join(context.CurrentDir, "package.json")) {
 			// Check for yarn.lock
-			if fileExists(filepath.Join(context.CurrentDir, "yarn.lock")) {
+			if knowledgeFileExists(filepath.Join(context.CurrentDir, "yarn.lock")) {
 				return "yarn"
 			}
 			return "npm"
 		}
 	case "java":
-		if fileExists(filepath.Join(context.CurrentDir, "pom.xml")) {
+		if knowledgeFileExists(filepath.Join(context.CurrentDir, "pom.xml")) {
 			return "maven"
 		}
-		if fileExists(filepath.Join(context.CurrentDir, "build.gradle")) {
+		if knowledgeFileExists(filepath.Join(context.CurrentDir, "build.gradle")) {
 			return "gradle"
 		}
 	case "python":
-		if fileExists(filepath.Join(context.CurrentDir, "setup.py")) {
+		if knowledgeFileExists(filepath.Join(context.CurrentDir, "setup.py")) {
 			return "setup.py"
 		}
-		if fileExists(filepath.Join(context.CurrentDir, "requirements.txt")) {
+		if knowledgeFileExists(filepath.Join(context.CurrentDir, "requirements.txt")) {
 			return "pip"
 		}
 	case "rust":
 		return "cargo"
 	case "ruby":
-		if fileExists(filepath.Join(context.CurrentDir, "Gemfile")) {
+		if knowledgeFileExists(filepath.Join(context.CurrentDir, "Gemfile")) {
 			return "bundle"
 		}
 	case "php":
-		if fileExists(filepath.Join(context.CurrentDir, "composer.json")) {
+		if knowledgeFileExists(filepath.Join(context.CurrentDir, "composer.json")) {
 			return "composer"
 		}
 	}
@@ -2339,7 +2339,7 @@ func detectProjectVersion(dir string, projectType string) string {
 	switch projectType {
 	case "go":
 		// Try to read version from go.mod
-		if fileExists(filepath.Join(dir, "go.mod")) {
+		if knowledgeFileExists(filepath.Join(dir, "go.mod")) {
 			content, err := os.ReadFile(filepath.Join(dir, "go.mod"))
 			if err == nil {
 				// Simple version extraction, could be improved
@@ -2357,7 +2357,7 @@ func detectProjectVersion(dir string, projectType string) string {
 		}
 	case "javascript", "typescript":
 		// Try to read version from package.json
-		if fileExists(filepath.Join(dir, "package.json")) {
+		if knowledgeFileExists(filepath.Join(dir, "package.json")) {
 			content, err := os.ReadFile(filepath.Join(dir, "package.json"))
 			if err == nil {
 				// Simple version extraction, could be improved
@@ -2381,7 +2381,7 @@ func detectDependencies(dir string, projectType string) []string {
 	switch projectType {
 	case "go":
 		// Read from go.mod
-		if fileExists(filepath.Join(dir, "go.mod")) {
+		if knowledgeFileExists(filepath.Join(dir, "go.mod")) {
 			content, err := os.ReadFile(filepath.Join(dir, "go.mod"))
 			if err == nil {
 				lines := strings.Split(string(content), "\n")
@@ -2400,7 +2400,7 @@ func detectDependencies(dir string, projectType string) []string {
 		}
 	case "javascript", "typescript":
 		// Read from package.json
-		if fileExists(filepath.Join(dir, "package.json")) {
+		if knowledgeFileExists(filepath.Join(dir, "package.json")) {
 			content, err := os.ReadFile(filepath.Join(dir, "package.json"))
 			if err == nil {
 				var packageJSON map[string]interface{}
@@ -2446,7 +2446,7 @@ func findReadmeContent(dir string) string {
 	
 	for _, name := range readmeFiles {
 		path := filepath.Join(dir, name)
-		if fileExists(path) {
+		if knowledgeFileExists(path) {
 			content, err := os.ReadFile(path)
 			if err == nil {
 				// Limit readme content length

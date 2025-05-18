@@ -198,7 +198,25 @@ func (elm *ErrorLearningManager) AddErrorSolution(errorPattern, solution, descri
 	elm.saveHistory()
 }
 
-// GetBestSolutions returns the best solutions for a given error pattern
+// ListSolutions returns all error solutions
+func (elm *ErrorLearningManager) ListSolutions() []SolutionEffectiveness {
+	if !elm.isInitialized {
+		return nil
+	}
+	
+	elm.history.mutex.RLock()
+	defer elm.history.mutex.RUnlock()
+	
+	// Return all solutions
+	solutions := []SolutionEffectiveness{}
+	for _, entry := range elm.history.ErrorEntries {
+		for _, solution := range entry.Solutions {
+			solutions = append(solutions, solution)
+		}
+	}
+	return solutions
+}
+
 func (elm *ErrorLearningManager) GetBestSolutions(errorPattern string, limit int) []SolutionEffectiveness {
 	if !elm.isInitialized {
 		return nil

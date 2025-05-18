@@ -122,17 +122,10 @@ func NewEmbeddingManager() (*EmbeddingManager, error) {
 		MaxTokenLength:    128,
 	}
 
-	// Try to get configuration from ConfigManager first
+	// Start with default configuration
+	// Note: We don't load from ConfigManager here to avoid circular dependencies
+	// The ConfigManager will update this manager's config after initialization
 	config := defaultConfig
-	configManager := GetConfigManager()
-	if configManager != nil {
-		if embeddingConfig := configManager.GetEmbeddingConfig(); embeddingConfig != nil {
-			config = *embeddingConfig
-		} else {
-			// If no config in ConfigManager, update it with our default
-			configManager.UpdateEmbeddingConfig(&defaultConfig)
-		}
-	}
 
 	// Create the manager
 	manager := &EmbeddingManager{
@@ -143,14 +136,8 @@ func NewEmbeddingManager() (*EmbeddingManager, error) {
 		isInitialized: false,
 	}
 
-	// Try to load existing configuration from local file as fallback
-	if configManager == nil {
-		err = manager.loadConfig()
-		if err != nil {
-			// Save the default configuration if loading fails
-			manager.saveConfig()
-		}
-	}
+	// No need to load configuration here anymore
+	// The ConfigManager will handle this after initialization
 
 	return manager, nil
 }

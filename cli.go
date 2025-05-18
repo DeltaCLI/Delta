@@ -1065,13 +1065,26 @@ func main() {
 	fmt.Println("Welcome to Delta! 🔼")
 	fmt.Println()
 
+	// Now that all components have been created with default configs,
+	// we can update them with the configuration from the config manager
+	configManager := GetConfigManager()
+	if configManager != nil && configManager.isInitialized {
+		// Full initialization to update component configs
+		if err := configManager.Initialize(); err != nil {
+			fmt.Printf("Warning: Error updating component configurations: %v\n", err)
+		}
+	}
+	
 	// Initialize AI features
 	// Use GetAIManager to ensure we have a single instance
 	ai := GetAIManager()
 
-	// Try to initialize AI first, showing enabled message
-	if ai != nil && ai.Initialize() {
-		fmt.Println("\033[33m[∆ AI features enabled: Using " + ai.ollamaClient.ModelName + " model]\033[0m")
+	// Try to initialize AI with the updated config, showing enabled message only if successful
+	if ai != nil {
+		// Initialize will now handle displaying errors only once
+		if ai.Initialize() {
+			fmt.Println("\033[33m[∆ AI features enabled: Using " + ai.ollamaClient.ModelName + " model]\033[0m")
+		}
 	}
 
 	// Initialize inference system for learning capabilities
@@ -1090,14 +1103,21 @@ func main() {
 		fmt.Println("\033[33m[∆ Agent system enabled: Task automation active]\033[0m")
 	}
 
-	// Initialize config manager
+	// Initialize all components first with default configurations
+	// Then we'll update them with configs from the config manager
+	
+	// Initialize config manager (base only) to prevent circular dependencies
 	cm := GetConfigManager()
 	if cm != nil {
-		cm.Initialize()
-		fmt.Println("\033[33m[∆ Configuration system enabled: Centralized settings management]\033[0m")
+		// Initialize config manager without updating components
+		if err := cm.InitializeBase(); err != nil {
+			fmt.Printf("Warning: Could not initialize configuration system: %v\n", err)
+		} else {
+			fmt.Println("\033[33m[∆ Configuration system enabled: Centralized settings management]\033[0m")
+		}
 	}
-
-	// Initialize spell checker
+	
+	// Initialize spell checker with default config
 	sc := GetSpellChecker()
 	if sc != nil {
 		sc.Initialize()

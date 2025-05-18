@@ -10,6 +10,20 @@ import (
 	"time"
 )
 
+// Helper function to list Delta environment variables
+func listDeltaEnvVars() map[string]string {
+	envVars := make(map[string]string)
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "DELTA_") {
+			parts := strings.SplitN(e, "=", 2)
+			if len(parts) == 2 {
+				envVars[parts[0]] = parts[1]
+			}
+		}
+	}
+	return envVars
+}
+
 // HandleConfigCommand processes config-related commands
 func HandleConfigCommand(args []string) bool {
 	// Get the ConfigManager instance

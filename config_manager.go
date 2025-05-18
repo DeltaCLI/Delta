@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -70,27 +71,100 @@ func NewConfigManager() (*ConfigManager, error) {
 }
 
 // Initialize the configuration manager
-func (cm *ConfigManager) Initialize() error {
+// InitializeBase initializes the configuration manager without updating components
+// This avoids circular dependencies during startup
+func (cm *ConfigManager) InitializeBase() error {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
 	// Try to load existing configuration
 	if err := cm.loadConfig(); err != nil {
-		// If loading fails, collect configs from individual components
-		if err := cm.collectConfigs(); err != nil {
-			return fmt.Errorf("failed to collect component configurations: %v", err)
-		}
-
-		// Save the consolidated configuration
+		// If loading fails, create minimal config without collecting from components
+		// to avoid circular dependencies
+		
+		// Save an empty configuration
 		if err := cm.saveConfig(); err != nil {
 			return fmt.Errorf("failed to save initial configuration: %v", err)
 		}
 	}
 
-	// Apply environment variable overrides
-	cm.applyEnvironmentOverrides()
+	// Apply just environment variables without updating components
+	cm.applyEnvironmentVariables()
 
 	cm.isInitialized = true
+	return nil
+}
+
+// applyEnvironmentVariables applies settings from environment variables without updating components
+func (cm *ConfigManager) applyEnvironmentVariables() {
+	// Only apply environment variables if the component configs exist
+	
+	// Memory config overrides
+	if cm.memoryConfig != nil {
+		cm.memoryConfig.Enabled = getEnvBool("DELTA_MEMORY_ENABLED", cm.memoryConfig.Enabled)
+		cm.memoryConfig.CollectCommands = getEnvBool("DELTA_MEMORY_COLLECT_COMMANDS", cm.memoryConfig.CollectCommands)
+		cm.memoryConfig.MaxEntries = getEnvInt("DELTA_MEMORY_MAX_ENTRIES", cm.memoryConfig.MaxEntries)
+		cm.memoryConfig.StoragePath = getEnvString("DELTA_MEMORY_STORAGE_PATH", cm.memoryConfig.StoragePath)
+	}
+	
+	// AI config overrides
+	if cm.aiConfig != nil {
+		cm.aiConfig.Enabled = getEnvBool("DELTA_AI_ENABLED", cm.aiConfig.Enabled)
+		cm.aiConfig.ModelName = getEnvString("DELTA_AI_MODEL", cm.aiConfig.ModelName)
+		cm.aiConfig.ServerURL = getEnvString("DELTA_AI_SERVER_URL", cm.aiConfig.ServerURL)
+	}
+	
+	// Vector DB config overrides
+	if cm.vectorConfig != nil {
+		cm.vectorConfig.Enabled = getEnvBool("DELTA_VECTOR_ENABLED", cm.vectorConfig.Enabled)
+		cm.vectorConfig.DistanceMetric = getEnvString("DELTA_VECTOR_DISTANCE_METRIC", cm.vectorConfig.DistanceMetric)
+		cm.vectorConfig.DBPath = getEnvString("DELTA_VECTOR_DB_PATH", cm.vectorConfig.DBPath)
+	}
+	
+	// Embedding config overrides
+	if cm.embeddingConfig != nil {
+		cm.embeddingConfig.Enabled = getEnvBool("DELTA_EMBEDDING_ENABLED", cm.embeddingConfig.Enabled)
+		cm.embeddingConfig.ModelPath = getEnvString("DELTA_EMBEDDING_MODEL_PATH", cm.embeddingConfig.ModelPath)
+		cm.embeddingConfig.ModelURL = getEnvString("DELTA_EMBEDDING_MODEL_URL", cm.embeddingConfig.ModelURL)
+	}
+	
+	// Inference config overrides
+	if cm.inferenceConfig != nil {
+		cm.inferenceConfig.Enabled = getEnvBool("DELTA_INFERENCE_ENABLED", cm.inferenceConfig.Enabled)
+		cm.inferenceConfig.UseLocalInference = getEnvBool("DELTA_INFERENCE_USE_LOCAL", cm.inferenceConfig.UseLocalInference)
+		cm.inferenceConfig.ModelPath = getEnvString("DELTA_INFERENCE_MODEL_PATH", cm.inferenceConfig.ModelPath)
+		cm.inferenceConfig.Temperature = getEnvFloat("DELTA_INFERENCE_TEMPERATURE", cm.inferenceConfig.Temperature)
+	}
+}
+
+func (cm *ConfigManager) Initialize() error {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
+	// If not already initialized, do the base initialization
+	if !cm.isInitialized {
+		// Try to load existing configuration
+		if err := cm.loadConfig(); err != nil {
+			// If loading fails, collect configs from individual components
+			if err := cm.collectConfigs(); err != nil {
+				return fmt.Errorf("failed to collect component configurations: %v", err)
+			}
+
+			// Save the consolidated configuration
+			if err := cm.saveConfig(); err != nil {
+				return fmt.Errorf("failed to save initial configuration: %v", err)
+			}
+		}
+
+		// Apply environment variable overrides
+		cm.applyEnvironmentOverrides()
+
+		cm.isInitialized = true
+	} else {
+		// Already initialized, just update components
+		cm.updateComponentConfigs()
+	}
+	
 	return nil
 }
 
@@ -528,6 +602,58 @@ func (cm *ConfigManager) updateComponentConfigs() {
 
 // Global ConfigManager instance
 var globalConfigManager *ConfigManager
+
+// Helper functions for environment variables
+func getEnvBool(key string, defaultValue bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	
+	val, err := strconv.ParseBool(value)
+	if err != nil {
+		return defaultValue
+	}
+	
+	return val
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	
+	val, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+	
+	return val
+}
+
+func getEnvString(key string, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	
+	return value
+}
+
+func getEnvFloat(key string, defaultValue float64) float64 {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	
+	val, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return defaultValue
+	}
+	
+	return val
+}
 
 // GetConfigManager returns the global ConfigManager instance
 func GetConfigManager() *ConfigManager {
