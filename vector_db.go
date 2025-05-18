@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"math"
 	"sort"
@@ -19,11 +20,12 @@ type VectorDBConfig struct {
 	Enabled            bool     `json:"enabled"`
 	DBPath             string   `json:"db_path"`
 	EmbeddingDimension int      `json:"embedding_dimension"`
-	DistanceMetric     string   `json:"distance_metric"` // "cosine" or "dot" or "euclidean"
+	DistanceMetric     string   `json:"distance_metric"` // "cosine", "dot", "euclidean", "manhattan", "jaccard"
 	MaxEntries         int      `json:"max_entries"`
 	IndexBuildInterval int      `json:"index_build_interval"` // in minutes
 	CommandTypes       []string `json:"command_types"`       // Specific types of commands to embed
 	InMemoryMode       bool     `json:"in_memory_mode"`     // Whether to keep vectors in memory
+	JaccardThreshold   float32  `json:"jaccard_threshold"`  // Threshold for Jaccard similarity (default 0.1)
 }
 
 // CommandEmbedding represents a single command with its embedding
@@ -78,6 +80,7 @@ func NewVectorDBManager() (*VectorDBManager, error) {
 			MaxEntries:         10000,
 			IndexBuildInterval: 60,    // 1 hour
 			CommandTypes:       []string{"shell", "git", "docker", "npm", "python"},
+			JaccardThreshold:   0.1,   // Default threshold for Jaccard similarity
 		},
 		configPath:     configPath,
 		mutex:          sync.RWMutex{},
@@ -161,8 +164,47 @@ func (vm *VectorDBManager) initializeSchema() error {
 		return err
 	}
 
-	// Create a virtual table for vector search if SQLite has the vector extension
-	// Note: This requires SQLite with vector extension to be installed
+	// Try to load the vectorx extension first
+	_, err = vm.db.Exec(`SELECT load_extension('vectorx')`)
+	
+	// If the extension load fails, try a few common paths where it might be installed
+	if err != nil {
+		commonPaths := []string{
+			"libvectorx", // System might find it in library path
+			"/usr/lib/sqlite3/vectorx",
+			"/usr/local/lib/sqlite3/vectorx",
+			"./vectorx", // Current directory
+			"/usr/lib/libvectorx",
+			"/usr/local/lib/libvectorx",
+		}
+		
+		extensionLoaded := false
+		for _, path := range commonPaths {
+			_, loadErr := vm.db.Exec(fmt.Sprintf(`SELECT load_extension('%s')`, path))
+			if loadErr == nil {
+				extensionLoaded = true
+				fmt.Printf("Successfully loaded vectorx extension from %s\n", path)
+				break
+			}
+		}
+		
+		if !extensionLoaded {
+			fmt.Printf("Warning: SQLite vectorx extension not available - falling back to in-memory search: %v\n", err)
+			fmt.Println("To enable vectorx, install the SQLite vectorx extension")
+			
+			// Log information about how to install the vectorx extension
+			fmt.Println("Installation tips:")
+			fmt.Println("  1. Download vectorx extension from https://github.com/asg017/sqlite-vectorx/releases")
+			fmt.Println("  2. Place the extension file in your library path")
+			fmt.Println("  3. Load the extension with SQLite's .load directive")
+			
+			// We will fall back to a standard implementation that does vector distance calculation in Go
+		}
+	} else {
+		fmt.Println("SQLite vectorx extension loaded successfully")
+	}
+	
+	// Try to create the vector index table
 	createVectorTableSQL := fmt.Sprintf(`
 		CREATE VIRTUAL TABLE IF NOT EXISTS vector_index USING vectorx(
 			embedding(%d)
@@ -171,20 +213,12 @@ func (vm *VectorDBManager) initializeSchema() error {
 	
 	_, err = vm.db.Exec(createVectorTableSQL)
 	
-	// Check if the vectorx extension is available
+	// Check if the vector table creation was successful
 	if err != nil {
-		fmt.Printf("Warning: SQLite vectorx extension not available - falling back to in-memory search: %v\n", err)
-		fmt.Println("To enable vectorx, install the SQLite vectorx extension")
-		
-		// Log information about how to install the vectorx extension
-		fmt.Println("Installation tips:")
-		fmt.Println("  1. Download vectorx extension from https://github.com/asg017/sqlite-vectorx/releases")
-		fmt.Println("  2. Place the extension file in your library path")
-		fmt.Println("  3. Load the extension with SQLite's .load directive")
-		
-		// We will fall back to a standard implementation that does vector distance calculation in Go
+		fmt.Printf("Warning: Failed to create vector index table: %v\n", err)
+		fmt.Println("Will use in-memory vector search as fallback")
 	} else {
-		fmt.Println("SQLite vectorx extension detected and enabled")
+		fmt.Println("SQLite vectorx virtual table created successfully")
 		
 		// Insert any existing embeddings into the index
 		rowsAffected, err := vm.rebuildVectorIndex()
@@ -359,41 +393,117 @@ func (vm *VectorDBManager) rebuildVectorIndex() (int64, error) {
 		return 0, fmt.Errorf("vector extension not available: %v", err)
 	}
 	
+	// Start a transaction for improved performance
+	tx, err := vm.db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	
+	// Ensure transaction is either committed or rolled back
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+	
 	// Vector extension is available, rebuild the index
-	_, err = vm.db.Exec("DELETE FROM vector_index")
+	_, err = tx.Exec("DELETE FROM vector_index")
 	if err != nil {
 		return 0, fmt.Errorf("failed to clear vector index: %v", err)
 	}
 
 	// Get the count of embeddings
 	var count int64
-	err = vm.db.QueryRow("SELECT COUNT(*) FROM command_embeddings").Scan(&count)
+	err = tx.QueryRow("SELECT COUNT(*) FROM command_embeddings").Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count embeddings: %v", err)
 	}
 	
-	// If no embeddings, just return
+	// If no embeddings, just commit and return
 	if count == 0 {
+		err = tx.Commit()
+		tx = nil
+		if err != nil {
+			return 0, fmt.Errorf("failed to commit transaction: %v", err)
+		}
 		return 0, nil
 	}
 
-	// Insert embeddings into vector index
+	// Insert embeddings into vector index in batches for performance
 	// We need to convert BLOB to proper vector format for vectorx
-	result, err := vm.db.Exec(`
-		INSERT INTO vector_index (rowid, embedding)
-		SELECT rowid, json_extract(embedding, '$') FROM command_embeddings
+	batchSize := 1000
+	totalInserted := int64(0)
+	
+	// Prepare a statement for better performance
+	stmt, err := tx.Prepare(`
+		INSERT INTO vector_index (rowid, embedding) 
+		VALUES (?, json(?))
 	`)
 	if err != nil {
-		return 0, fmt.Errorf("failed to insert into vector index: %v", err)
+		return 0, fmt.Errorf("failed to prepare insert statement: %v", err)
+	}
+	defer stmt.Close()
+	
+	// Fetch embeddings in chunks
+	offset := 0
+	for {
+		rows, err := tx.Query(`
+			SELECT rowid, embedding
+			FROM command_embeddings
+			ORDER BY rowid
+			LIMIT ? OFFSET ?
+		`, batchSize, offset)
+		
+		if err != nil {
+			return totalInserted, fmt.Errorf("failed to fetch embeddings: %v", err)
+		}
+		
+		// Process the batch
+		rowCount := 0
+		for rows.Next() {
+			var (
+				rowid int64
+				embeddingBlob []byte
+			)
+			
+			err := rows.Scan(&rowid, &embeddingBlob)
+			if err != nil {
+				rows.Close()
+				return totalInserted, fmt.Errorf("failed to scan row: %v", err)
+			}
+			
+			// Insert into vector index
+			_, err = stmt.Exec(rowid, string(embeddingBlob))
+			if err != nil {
+				rows.Close()
+				return totalInserted, fmt.Errorf("failed to insert into vector index: %v", err)
+			}
+			
+			rowCount++
+			totalInserted++
+		}
+		rows.Close()
+		
+		// If we got fewer rows than batch size, we're done
+		if rowCount < batchSize {
+			break
+		}
+		
+		// Increment offset for next batch
+		offset += batchSize
 	}
 	
-	// Get the number of rows affected
-	rowsAffected, err := result.RowsAffected()
+	// Commit the transaction
+	err = tx.Commit()
+	tx = nil
 	if err != nil {
-		return 0, fmt.Errorf("failed to get rows affected: %v", err)
+		return totalInserted, fmt.Errorf("failed to commit transaction: %v", err)
 	}
 	
-	return rowsAffected, nil
+	// Update last index build time
+	vm.lastIndexBuild = time.Now()
+	
+	return totalInserted, nil
 }
 
 // SearchSimilarCommands searches for similar commands
@@ -429,64 +539,87 @@ func (vm *VectorDBManager) SearchSimilarCommands(query []float32, context string
 		
 		// Determine which similarity function to use based on config
 		var similarityFunc string
+		var vectorxFuncName string
+		var isDistanceMetric bool // If true, smaller is better (ASC), if false, larger is better (DESC)
+
 		switch vm.config.DistanceMetric {
 		case "cosine":
 			similarityFunc = "cosine_similarity"
+			vectorxFuncName = "vectorx_cosine_similarity"
+			isDistanceMetric = false // Higher is better
 		case "dot":
 			similarityFunc = "dot_product"
+			vectorxFuncName = "vectorx_dot_product"
+			isDistanceMetric = false // Higher is better
 		case "euclidean":
 			similarityFunc = "euclidean_distance"
-			// For euclidean, smaller is better, so we use ASC instead of DESC
+			vectorxFuncName = "vectorx_euclidean_distance"
+			isDistanceMetric = true // Lower is better
+		case "manhattan":
+			similarityFunc = "manhattan_distance"
+			vectorxFuncName = "vectorx_manhattan_distance"
+			isDistanceMetric = true // Lower is better
+		case "jaccard":
+			similarityFunc = "jaccard_similarity"
+			vectorxFuncName = "vectorx_jaccard_similarity"
+			isDistanceMetric = false // Higher is better
 		default:
+			// Default to cosine similarity if the metric isn't recognized
 			similarityFunc = "cosine_similarity"
+			vectorxFuncName = "vectorx_cosine_similarity"
+			isDistanceMetric = false
 		}
 		
-		// Build the query string
-		var queryStr strings.Builder
-		queryStr.WriteString(`
-			SELECT ce.command_id, ce.command, ce.directory, ce.timestamp, ce.exit_code, 
-				   ce.embedding, ce.metadata, ce.frequency, ce.last_used, ce.success_rate,
-				   vectorx_`)
-		queryStr.WriteString(similarityFunc)
+		// Check if the vectorx function we want is available
+		hasSimilarityFunc := vm.hasVectorFunction(vectorxFuncName)
 		
-		// For euclidean distance, smaller is better
-		var orderDir string
-		if similarityFunc == "euclidean_distance" {
-			orderDir = "ASC"
-		} else {
-			orderDir = "DESC"
-		}
-		
-		queryStr.WriteString(`(vi.embedding, json(?)) AS similarity
-			FROM command_embeddings ce
-			JOIN vector_index vi ON ce.rowid = vi.rowid
-			WHERE 1=1 `)
-		queryStr.WriteString(contextFilter)
-		queryStr.WriteString(`
-			ORDER BY similarity `)
-		queryStr.WriteString(orderDir)
-		queryStr.WriteString(`
-			LIMIT ?`)
-		
-		// Add args
-		args = append([]interface{}{string(queryJSON)}, args...)
-		args = append(args, limit)
-		
-		// Execute query
-		rows, err := vm.db.Query(queryStr.String(), args...)
-		if err != nil {
-			// If the query fails, it might be because the vectorx extension doesn't have the function we want
-			// or there's a syntax error in our query. Fall back to in-memory search.
-			fmt.Printf("Vector search failed, falling back to in-memory: %v\n", err)
-		} else {
-			defer rows.Close()
-			// We have 11 columns in the result (10 from command + similarity)
-			commands, err := vm.scanCommandRowsWithSimilarity(rows)
-			if err != nil {
+		if hasSimilarityFunc {
+			// Build the query string
+			var queryStr strings.Builder
+			queryStr.WriteString(`
+				SELECT ce.command_id, ce.command, ce.directory, ce.timestamp, ce.exit_code, 
+					   ce.embedding, ce.metadata, ce.frequency, ce.last_used, ce.success_rate,
+					   `)
+			queryStr.WriteString(vectorxFuncName)
+			
+			// For distance metrics, smaller is better; for similarity metrics, larger is better
+			var orderDir string
+			if isDistanceMetric {
+				orderDir = "ASC"
+			} else {
+				orderDir = "DESC"
+			}
+			
+			queryStr.WriteString(`(vi.embedding, json(?)) AS similarity
+				FROM command_embeddings ce
+				JOIN vector_index vi ON ce.rowid = vi.rowid
+				WHERE 1=1 `)
+			queryStr.WriteString(contextFilter)
+			queryStr.WriteString(`
+				ORDER BY similarity `)
+			queryStr.WriteString(orderDir)
+			queryStr.WriteString(`
+				LIMIT ?`)
+			
+			// Add args
+			args = append([]interface{}{string(queryJSON)}, args...)
+			args = append(args, limit)
+			
+			// Execute query
+			rows, err := vm.db.Query(queryStr.String(), args...)
+			if err == nil {
+				defer rows.Close()
+				// We have 11 columns in the result (10 from command + similarity)
+				commands, err := vm.scanCommandRowsWithSimilarity(rows)
+				if err == nil {
+					return commands, nil
+				}
 				fmt.Printf("Error scanning vector search results: %v\n", err)
 			} else {
-				return commands, nil
+				fmt.Printf("Vector search with %s failed, trying fallback: %v\n", vectorxFuncName, err)
 			}
+		} else {
+			fmt.Printf("Vector function %s not available, using fallback\n", vectorxFuncName)
 		}
 	}
 
@@ -513,19 +646,79 @@ func (vm *VectorDBManager) SearchSimilarCommands(query []float32, context string
 	}
 
 	// Calculate distances in memory
-	distances := make([]struct {
+	type distanceEntry struct {
 		cmd      CommandEmbedding
-		distance float32
-	}, len(allCommands))
+		score    float32  // Higher means more similar for all metrics (we'll invert distances)
+		rawScore float32  // The actual raw score (for debugging/metadata)
+	}
+	
+	distances := make([]distanceEntry, len(allCommands))
 
+	// Calculate similarity based on the selected metric
 	for i, cmd := range allCommands {
 		distances[i].cmd = cmd
-		distances[i].distance = cosineSimilarity(query, cmd.Embedding)
+		
+		var score float32
+		var rawScore float32
+		
+		switch vm.config.DistanceMetric {
+		case "cosine":
+			// For cosine similarity, higher is better
+			score = cosineSimilarity(query, cmd.Embedding)
+			rawScore = score
+		case "dot":
+			// For dot product, higher is better
+			score = dotProduct(query, cmd.Embedding)
+			rawScore = score
+		case "euclidean":
+			// For euclidean distance, lower is better, so invert for scoring
+			distance := euclideanDistance(query, cmd.Embedding)
+			if distance > 0 {
+				score = 1.0 / distance  // Invert so higher means more similar
+			}
+			rawScore = distance  // Store the actual distance for reference
+		case "manhattan":
+			// For manhattan distance, lower is better, so invert for scoring
+			distance := manhattanDistance(query, cmd.Embedding)
+			if distance > 0 {
+				score = 1.0 / distance  // Invert so higher means more similar
+			}
+			rawScore = distance  // Store the actual distance for reference
+		case "jaccard":
+			// For jaccard similarity, higher is better
+			score = jaccardSimilarity(query, cmd.Embedding, vm.config.JaccardThreshold)
+			rawScore = score
+		default:
+			// Default to cosine similarity
+			score = cosineSimilarity(query, cmd.Embedding)
+			rawScore = score
+		}
+		
+		distances[i].score = score
+		distances[i].rawScore = rawScore
+		
+		// Store the raw score in the command's metadata for reference
+		metadataMap := make(map[string]interface{})
+		if cmd.Metadata != "" {
+			// Try to parse existing metadata
+			if err := json.Unmarshal([]byte(cmd.Metadata), &metadataMap); err != nil {
+				// If it fails, just create a new map
+				metadataMap = make(map[string]interface{})
+			}
+		}
+		
+		metadataMap["similarity"] = rawScore
+		metadataMap["metric"] = vm.config.DistanceMetric
+		
+		metadataBytes, err := json.Marshal(metadataMap)
+		if err == nil {
+			distances[i].cmd.Metadata = string(metadataBytes)
+		}
 	}
 
-	// Sort by distance
+	// Sort by score (higher is better for all metrics after our conversion)
 	sort.Slice(distances, func(i, j int) bool {
-		return distances[i].distance > distances[j].distance
+		return distances[i].score > distances[j].score
 	})
 
 	// Return top results
@@ -705,13 +898,15 @@ func (vm *VectorDBManager) GetStats() map[string]interface{} {
 				"vectorx_cosine_similarity",
 				"vectorx_dot_product", 
 				"vectorx_euclidean_distance",
+				"vectorx_manhattan_distance",
+				"vectorx_jaccard_similarity",
 				"vectorx_version"
 			}
 			
 			availableFunctions := make(map[string]bool)
 			for _, fn := range vectorxFunctions {
 				var result string
-				err := vm.db.QueryRow("SELECT " + fn + "(1, 1)").Scan(&result)
+				err := vm.db.QueryRow("SELECT " + fn + "(json('[1]'), json('[1]'))").Scan(&result)
 				availableFunctions[fn] = (err == nil)
 			}
 			
@@ -737,6 +932,19 @@ func (vm *VectorDBManager) hasVectorExtension() bool {
 	}
 
 	_, err := vm.db.Exec("SELECT * FROM vector_index LIMIT 1")
+	return err == nil
+}
+
+// hasVectorFunction checks if a specific vectorx function is available
+func (vm *VectorDBManager) hasVectorFunction(functionName string) bool {
+	if !vm.isInitialized {
+		return false
+	}
+
+	// Try to call the function with minimal arguments to see if it exists
+	// This will fail if the function doesn't exist, but that's what we want to check
+	queryString := fmt.Sprintf("SELECT %s(json('[1]'), json('[1]')) LIMIT 1", functionName)
+	_, err := vm.db.Exec(queryString)
 	return err == nil
 }
 
@@ -803,6 +1011,81 @@ func cosineSimilarity(a, b []float32) float32 {
 	}
 
 	return dotProduct / (float32(math.Sqrt(float64(magnitudeA))) * float32(math.Sqrt(float64(magnitudeB))))
+}
+
+// dotProduct calculates the dot product similarity between two vectors
+func dotProduct(a, b []float32) float32 {
+	if len(a) != len(b) {
+		return 0
+	}
+
+	var dotProd float32
+	for i := 0; i < len(a); i++ {
+		dotProd += a[i] * b[i]
+	}
+
+	return dotProd
+}
+
+// euclideanDistance calculates the Euclidean distance between two vectors
+// Lower values indicate higher similarity
+func euclideanDistance(a, b []float32) float32 {
+	if len(a) != len(b) {
+		return float32(math.MaxFloat32)
+	}
+
+	var sumSquared float32
+	for i := 0; i < len(a); i++ {
+		diff := a[i] - b[i]
+		sumSquared += diff * diff
+	}
+
+	return float32(math.Sqrt(float64(sumSquared)))
+}
+
+// manhattanDistance calculates the Manhattan (L1) distance between two vectors
+// Lower values indicate higher similarity
+func manhattanDistance(a, b []float32) float32 {
+	if len(a) != len(b) {
+		return float32(math.MaxFloat32)
+	}
+
+	var sum float32
+	for i := 0; i < len(a); i++ {
+		sum += float32(math.Abs(float64(a[i] - b[i])))
+	}
+
+	return sum
+}
+
+// jaccardSimilarity calculates a variant of Jaccard similarity for float vectors
+// by considering values above a threshold as "present"
+// Higher values indicate higher similarity
+func jaccardSimilarity(a, b []float32, threshold float32) float32 {
+	if len(a) != len(b) {
+		return 0
+	}
+
+	var intersection, union float32
+	for i := 0; i < len(a); i++ {
+		// Consider a component "present" if it's above the threshold
+		aPresent := a[i] > threshold
+		bPresent := b[i] > threshold
+		
+		if aPresent && bPresent {
+			intersection++
+		}
+		
+		if aPresent || bPresent {
+			union++
+		}
+	}
+
+	if union == 0 {
+		return 0
+	}
+
+	return intersection / union
 }
 
 // Global VectorDBManager instance

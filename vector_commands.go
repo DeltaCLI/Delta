@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -178,8 +179,35 @@ func showVectorStats(vm *VectorDBManager) {
 	if hasExt, ok := stats["has_vector_extension"].(bool); ok {
 		if hasExt {
 			fmt.Println("Vector Extension: Available (using SQLite with vector search)")
+			
+			// Show available vector functions
+			if functions, ok := stats["vectorx_functions"].(map[string]interface{}); ok {
+				availableMetrics := []string{}
+				
+				// Check which metrics are available
+				if fn, ok := functions["vectorx_cosine_similarity"].(bool); ok && fn {
+					availableMetrics = append(availableMetrics, "cosine")
+				}
+				if fn, ok := functions["vectorx_dot_product"].(bool); ok && fn {
+					availableMetrics = append(availableMetrics, "dot")
+				}
+				if fn, ok := functions["vectorx_euclidean_distance"].(bool); ok && fn {
+					availableMetrics = append(availableMetrics, "euclidean")
+				}
+				if fn, ok := functions["vectorx_manhattan_distance"].(bool); ok && fn {
+					availableMetrics = append(availableMetrics, "manhattan")
+				}
+				if fn, ok := functions["vectorx_jaccard_similarity"].(bool); ok && fn {
+					availableMetrics = append(availableMetrics, "jaccard")
+				}
+				
+				if len(availableMetrics) > 0 {
+					fmt.Printf("Available Metrics: %s\n", strings.Join(availableMetrics, ", "))
+				}
+			}
 		} else {
 			fmt.Println("Vector Extension: Not available (using in-memory search)")
+			fmt.Println("Available Metrics: cosine, dot, euclidean, manhattan, jaccard (all computed in memory)")
 		}
 	}
 
@@ -202,15 +230,115 @@ func searchSimilarCommands(vm *VectorDBManager, query string) {
 		return
 	}
 
-	fmt.Printf("Searching for commands similar to: %s\n", query)
+	// Check if query has a special format to specify metric
+	// Format: "metric:xxx query" e.g. "metric:manhattan git commit"
+	metric := vm.config.DistanceMetric
+	searchQuery := query
+	
+	if strings.HasPrefix(query, "metric:") {
+		parts := strings.SplitN(query, " ", 2)
+		if len(parts) == 2 {
+			metricSpec := strings.TrimPrefix(parts[0], "metric:")
+			searchQuery = parts[1]
+			
+			// Validate metric
+			validMetrics := map[string]bool{
+				"cosine":    true,
+				"dot":       true,
+				"euclidean": true,
+				"manhattan": true,
+				"jaccard":   true,
+			}
+			
+			if validMetrics[metricSpec] {
+				metric = metricSpec
+				fmt.Printf("Using %s distance metric for this search\n", metric)
+			} else {
+				fmt.Printf("Invalid metric: %s, using default (%s)\n", metricSpec, metric)
+			}
+		}
+	}
+
+	fmt.Printf("Searching for commands similar to: %s\n", searchQuery)
 	fmt.Println("------------------------------------------")
 
-	// This is a placeholder since we don't have the actual embedding logic yet
-	// In a real implementation, we would:
-	// 1. Generate an embedding for the query
-	// 2. Search for similar commands using that embedding
-	fmt.Println("Note: This is a placeholder. Actual embedding search will be implemented when model integration is complete.")
-	fmt.Println("")
+	// Get the AI manager for embedding generation
+	ai := GetAIManager()
+	if ai == nil {
+		fmt.Println("AI manager not initialized. Using keyword search fallback.")
+		keywordSearch(vm, searchQuery)
+		return
+	}
+	
+	// Generate embedding for the query
+	embedding, err := ai.GenerateEmbedding(searchQuery)
+	if err != nil {
+		fmt.Printf("Error generating embedding: %v\n", err)
+		fmt.Println("Using keyword search fallback.")
+		keywordSearch(vm, searchQuery)
+		return
+	}
+	
+	// Store original metric
+	originalMetric := vm.config.DistanceMetric
+	
+	// Temporarily set the metric for this search if different
+	if metric != originalMetric {
+		config := vm.config
+		config.DistanceMetric = metric
+		vm.UpdateConfig(config)
+		defer func() {
+			// Restore original metric after search
+			config := vm.config
+			config.DistanceMetric = originalMetric
+			vm.UpdateConfig(config)
+		}()
+	}
+	
+	// Search for similar commands
+	results, err := vm.SearchSimilarCommands(embedding, "", 10) // Empty context to search all
+	if err != nil {
+		fmt.Printf("Error searching for similar commands: %v\n", err)
+		fmt.Println("Using keyword search fallback.")
+		keywordSearch(vm, searchQuery)
+		return
+	}
+	
+	// Display results
+	if len(results) == 0 {
+		fmt.Println("No similar commands found")
+		return
+	}
+	
+	fmt.Printf("Found %d similar commands (metric: %s):\n\n", len(results), metric)
+	
+	for i, result := range results {
+		// Parse metadata to get similarity score if available
+		similarityStr := ""
+		if result.Metadata != "" {
+			var metadata map[string]interface{}
+			if err := json.Unmarshal([]byte(result.Metadata), &metadata); err == nil {
+				if sim, ok := metadata["similarity"].(float64); ok {
+					similarityStr = fmt.Sprintf(" (score: %.4f)", sim)
+				}
+			}
+		}
+		
+		// Calculate time since last used
+		timeSince := formatTimeSince(time.Since(result.LastUsed))
+		
+		fmt.Printf("%d. Command: %s%s\n", i+1, result.Command, similarityStr)
+		fmt.Printf("   Directory: %s\n", result.Directory)
+		fmt.Printf("   Used: %d times, last used %s ago\n", result.Frequency, timeSince)
+		if result.ExitCode != 0 {
+			fmt.Printf("   Note: Last exit code was %d\n", result.ExitCode)
+		}
+		fmt.Println()
+	}
+}
+
+// keywordSearch is a fallback search method that uses SQL LIKE for finding commands
+func keywordSearch(vm *VectorDBManager, query string) {
 	fmt.Println("Results based on keyword matching:")
 	fmt.Println("")
 
@@ -297,16 +425,22 @@ func showVectorConfig(vm *VectorDBManager) {
 	fmt.Printf("Max Entries: %d\n", vm.config.MaxEntries)
 	fmt.Printf("Index Rebuild Interval: %d minutes\n", vm.config.IndexBuildInterval)
 	
+	// Show Jaccard threshold if using Jaccard similarity
+	if vm.config.DistanceMetric == "jaccard" {
+		fmt.Printf("Jaccard Similarity Threshold: %.2f\n", vm.config.JaccardThreshold)
+	}
+	
 	fmt.Println("\nCommand Types:")
 	for _, cmdType := range vm.config.CommandTypes {
 		fmt.Printf("  - %s\n", cmdType)
 	}
 
 	fmt.Println("\nAvailable Settings:")
-	fmt.Println("  dimension      - Embedding dimension (e.g., 384, 768, 1024)")
-	fmt.Println("  metric         - Distance metric (cosine, dot, euclidean)")
-	fmt.Println("  max_entries    - Maximum number of entries to store")
-	fmt.Println("  index_interval - Interval in minutes for index rebuilding")
+	fmt.Println("  dimension        - Embedding dimension (e.g., 384, 768, 1024)")
+	fmt.Println("  metric           - Distance metric (cosine, dot, euclidean, manhattan, jaccard)")
+	fmt.Println("  max_entries      - Maximum number of entries to store")
+	fmt.Println("  index_interval   - Interval in minutes for index rebuilding")
+	fmt.Println("  jaccard_threshold - Threshold for Jaccard similarity (default 0.1)")
 }
 
 // updateVectorConfig updates a vector database configuration setting
@@ -325,8 +459,16 @@ func updateVectorConfig(vm *VectorDBManager, setting, value string) {
 		config.EmbeddingDimension = dimension
 
 	case "metric", "distance_metric":
-		if value != "cosine" && value != "dot" && value != "euclidean" {
-			fmt.Println("Metric must be one of: cosine, dot, euclidean")
+		validMetrics := map[string]bool{
+			"cosine":    true,
+			"dot":       true,
+			"euclidean": true,
+			"manhattan": true,
+			"jaccard":   true,
+		}
+		
+		if !validMetrics[value] {
+			fmt.Println("Metric must be one of: cosine, dot, euclidean, manhattan, jaccard")
 			return
 		}
 		config.DistanceMetric = value
@@ -346,6 +488,14 @@ func updateVectorConfig(vm *VectorDBManager, setting, value string) {
 			return
 		}
 		config.IndexBuildInterval = interval
+		
+	case "jaccard_threshold":
+		threshold, err := strconv.ParseFloat(value, 32)
+		if err != nil || threshold < 0 || threshold > 1 {
+			fmt.Println("Jaccard threshold must be a float between 0 and 1")
+			return
+		}
+		config.JaccardThreshold = float32(threshold)
 
 	default:
 		fmt.Printf("Unknown setting: %s\n", setting)
@@ -372,6 +522,8 @@ func showVectorHelp() {
 	fmt.Println("  :vector status       - Show vector database status")
 	fmt.Println("  :vector stats        - Show detailed statistics")
 	fmt.Println("  :vector search <cmd> - Search for similar commands")
+	fmt.Println("  :vector search metric:<metric> <cmd> - Search with specified metric")
+	fmt.Println("                         Available metrics: cosine, dot, euclidean, manhattan, jaccard")
 	fmt.Println("  :vector embed <cmd>  - Generate embedding for a command")
 	fmt.Println("  :vector config       - Show configuration")
 	fmt.Println("  :vector config set <setting> <value> - Update configuration")
