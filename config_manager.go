@@ -87,6 +87,9 @@ func (cm *ConfigManager) Initialize() error {
 		}
 	}
 
+	// Apply environment variable overrides
+	cm.applyEnvironmentOverrides()
+
 	cm.isInitialized = true
 	return nil
 }
@@ -402,6 +405,125 @@ func (cm *ConfigManager) ImportConfig(path string) error {
 
 	// Save the configuration
 	return cm.saveConfig()
+}
+
+// applyEnvironmentOverrides applies settings from environment variables
+func (cm *ConfigManager) applyEnvironmentOverrides() {
+	// Only apply environment variables if the component configs exist
+	
+	// Memory config overrides
+	if cm.memoryConfig != nil {
+		cm.memoryConfig.Enabled = getEnvBool("DELTA_MEMORY_ENABLED", cm.memoryConfig.Enabled)
+		cm.memoryConfig.CollectCommands = getEnvBool("DELTA_MEMORY_COLLECT_COMMANDS", cm.memoryConfig.CollectCommands)
+		cm.memoryConfig.MaxEntries = getEnvInt("DELTA_MEMORY_MAX_ENTRIES", cm.memoryConfig.MaxEntries)
+		cm.memoryConfig.StoragePath = getEnvString("DELTA_MEMORY_STORAGE_PATH", cm.memoryConfig.StoragePath)
+	}
+	
+	// AI config overrides
+	if cm.aiConfig != nil {
+		cm.aiConfig.Enabled = getEnvBool("DELTA_AI_ENABLED", cm.aiConfig.Enabled)
+		cm.aiConfig.ModelName = getEnvString("DELTA_AI_MODEL", cm.aiConfig.ModelName)
+		cm.aiConfig.ServerURL = getEnvString("DELTA_AI_SERVER_URL", cm.aiConfig.ServerURL)
+	}
+	
+	// Vector config overrides
+	if cm.vectorConfig != nil {
+		cm.vectorConfig.Enabled = getEnvBool("DELTA_VECTOR_ENABLED", cm.vectorConfig.Enabled)
+		cm.vectorConfig.DBPath = getEnvString("DELTA_VECTOR_DB_PATH", cm.vectorConfig.DBPath)
+		cm.vectorConfig.InMemoryMode = getEnvBool("DELTA_VECTOR_IN_MEMORY_MODE", cm.vectorConfig.InMemoryMode)
+	}
+	
+	// Embedding config overrides
+	if cm.embeddingConfig != nil {
+		cm.embeddingConfig.Enabled = getEnvBool("DELTA_EMBEDDING_ENABLED", cm.embeddingConfig.Enabled)
+		cm.embeddingConfig.Dimensions = getEnvInt("DELTA_EMBEDDING_DIMENSIONS", cm.embeddingConfig.Dimensions)
+		cm.embeddingConfig.CacheSize = getEnvInt("DELTA_EMBEDDING_CACHE_SIZE", cm.embeddingConfig.CacheSize)
+	}
+	
+	// Inference config overrides
+	if cm.inferenceConfig != nil {
+		cm.inferenceConfig.Enabled = getEnvBool("DELTA_INFERENCE_ENABLED", cm.inferenceConfig.Enabled)
+		cm.inferenceConfig.UseLocalInference = getEnvBool("DELTA_INFERENCE_USE_LOCAL", cm.inferenceConfig.UseLocalInference)
+		cm.inferenceConfig.MaxTokens = getEnvInt("DELTA_INFERENCE_MAX_TOKENS", cm.inferenceConfig.MaxTokens)
+		cm.inferenceConfig.Temperature = getEnvFloat("DELTA_INFERENCE_TEMPERATURE", cm.inferenceConfig.Temperature)
+	}
+	
+	// Learning config overrides
+	if cm.learningConfig != nil {
+		cm.learningConfig.CollectFeedback = getEnvBool("DELTA_LEARNING_COLLECT_FEEDBACK", cm.learningConfig.CollectFeedback)
+		cm.learningConfig.UseCustomModel = getEnvBool("DELTA_LEARNING_USE_CUSTOM_MODEL", cm.learningConfig.UseCustomModel)
+		cm.learningConfig.CustomModelPath = getEnvString("DELTA_LEARNING_CUSTOM_MODEL_PATH", cm.learningConfig.CustomModelPath)
+		cm.learningConfig.TrainingThreshold = getEnvInt("DELTA_LEARNING_TRAINING_THRESHOLD", cm.learningConfig.TrainingThreshold)
+	}
+	
+	// Tokenizer config overrides
+	if cm.tokenConfig != nil {
+		cm.tokenConfig.Enabled = getEnvBool("DELTA_TOKEN_ENABLED", cm.tokenConfig.Enabled)
+		cm.tokenConfig.VocabSize = getEnvInt("DELTA_TOKEN_VOCAB_SIZE", cm.tokenConfig.VocabSize)
+		cm.tokenConfig.StoragePath = getEnvString("DELTA_TOKEN_STORAGE_PATH", cm.tokenConfig.StoragePath)
+	}
+	
+	// Agent config overrides
+	if cm.agentConfig != nil {
+		cm.agentConfig.Enabled = getEnvBool("DELTA_AGENT_ENABLED", cm.agentConfig.Enabled)
+		cm.agentConfig.AgentStoragePath = getEnvString("DELTA_AGENT_STORAGE_PATH", cm.agentConfig.AgentStoragePath)
+		cm.agentConfig.CacheStoragePath = getEnvString("DELTA_AGENT_CACHE_PATH", cm.agentConfig.CacheStoragePath)
+		cm.agentConfig.UseDockerBuilds = getEnvBool("DELTA_AGENT_USE_DOCKER", cm.agentConfig.UseDockerBuilds)
+		cm.agentConfig.UseAIAssistance = getEnvBool("DELTA_AGENT_USE_AI", cm.agentConfig.UseAIAssistance)
+	}
+	
+	// Important: Update the components with the new settings if they're already initialized
+	cm.updateComponentConfigs()
+}
+
+// updateComponentConfigs updates all component managers with the current configuration
+func (cm *ConfigManager) updateComponentConfigs() {
+	// Memory Manager
+	mm := GetMemoryManager()
+	if mm != nil && cm.memoryConfig != nil {
+		mm.config = *cm.memoryConfig
+	}
+	
+	// AI Manager
+	ai := GetAIManager()
+	if ai != nil && cm.aiConfig != nil {
+		ai.config = *cm.aiConfig
+	}
+	
+	// Vector DB Manager
+	vdb := GetVectorDBManager()
+	if vdb != nil && cm.vectorConfig != nil {
+		vdb.config = *cm.vectorConfig
+	}
+	
+	// Embedding Manager
+	em := GetEmbeddingManager()
+	if em != nil && cm.embeddingConfig != nil {
+		em.config = *cm.embeddingConfig
+	}
+	
+	// Inference Manager
+	im := GetInferenceManager()
+	if im != nil {
+		if cm.inferenceConfig != nil {
+			im.inferenceConfig = *cm.inferenceConfig
+		}
+		if cm.learningConfig != nil {
+			im.learningConfig = *cm.learningConfig
+		}
+	}
+	
+	// Tokenizer
+	tk := GetTokenizer()
+	if tk != nil && cm.tokenConfig != nil {
+		tk.Config = *cm.tokenConfig
+	}
+	
+	// Agent Manager
+	am := GetAgentManager()
+	if am != nil && cm.agentConfig != nil {
+		am.config = *cm.agentConfig
+	}
 }
 
 // Global ConfigManager instance

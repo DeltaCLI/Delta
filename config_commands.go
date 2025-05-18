@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -92,6 +93,28 @@ func HandleConfigCommand(args []string) bool {
 			}
 			return true
 
+		case "env":
+			// Handle environment variable operations
+			if len(args) >= 2 {
+				switch args[1] {
+				case "list":
+					listEnvironmentVariables()
+					return true
+				case "clear":
+					clearEnvironmentVariables()
+					return true
+				case "help":
+					showEnvironmentVariableHelp()
+					return true
+				default:
+					fmt.Printf("Unknown environment variable command: %s\n", args[1])
+					fmt.Println("Available commands: list, clear, help")
+				}
+			} else {
+				listEnvironmentVariables()
+			}
+			return true
+
 		case "help":
 			// Show help
 			showConfigHelp()
@@ -155,6 +178,22 @@ func showConfigStatus(cm *ConfigManager) {
 		fmt.Printf("Agent Config: %s\n", getComponentStatus(cm.agentConfig.Enabled))
 	} else {
 		fmt.Println("Agent Config: Not available")
+	}
+
+	// Show active environment variables
+	envVars := listDeltaEnvVars()
+	if len(envVars) > 0 {
+		fmt.Println("\nActive Environment Variables:")
+		count := 0
+		for k := range envVars {
+			count++
+			if count <= 3 {
+				fmt.Printf("  %s=%s\n", k, envVars[k])
+			}
+		}
+		if count > 3 {
+			fmt.Printf("  ... and %d more (use ':config env list' to see all)\n", count-3)
+		}
 	}
 }
 
@@ -752,6 +791,115 @@ func resetConfiguration(cm *ConfigManager) {
 	fmt.Println("Please restart Delta CLI to apply the changes")
 }
 
+// listEnvironmentVariables displays all active Delta CLI environment variables
+func listEnvironmentVariables() {
+	vars := listDeltaEnvVars()
+	
+	if len(vars) == 0 {
+		fmt.Println("No Delta CLI environment variables are currently set.")
+		fmt.Println("Use environment variables like DELTA_MEMORY_ENABLED=true to configure Delta CLI.")
+		fmt.Println("Run ':config env help' for more information.")
+		return
+	}
+	
+	fmt.Println("Active Delta CLI Environment Variables:")
+	fmt.Println("=======================================")
+	
+	// Sort keys for consistent output
+	keys := make([]string, 0, len(vars))
+	for k := range vars {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	
+	for _, k := range keys {
+		fmt.Printf("%s=%s\n", k, vars[k])
+	}
+	
+	fmt.Println("\nNote: Environment variables take precedence over configuration file settings.")
+}
+
+// clearEnvironmentVariables provides instructions on clearing environment variables
+func clearEnvironmentVariables() {
+	fmt.Println("Environment variables cannot be unset by Delta CLI.")
+	fmt.Println("To clear environment variables, use your shell's commands:")
+	fmt.Println("")
+	fmt.Println("For Bash/Zsh:")
+	fmt.Println("  unset DELTA_MEMORY_ENABLED")
+	fmt.Println("")
+	fmt.Println("For Fish:")
+	fmt.Println("  set -e DELTA_MEMORY_ENABLED")
+	fmt.Println("")
+	fmt.Println("For PowerShell:")
+	fmt.Println("  $env:DELTA_MEMORY_ENABLED = $null")
+}
+
+// showEnvironmentVariableHelp displays help for environment variable usage
+func showEnvironmentVariableHelp() {
+	fmt.Println("Delta CLI Environment Variables")
+	fmt.Println("==============================")
+	fmt.Println("Environment variables can be used to override configuration settings.")
+	fmt.Println("They have higher priority than settings in the configuration file.")
+	fmt.Println("")
+	fmt.Println("Environment variables use the format DELTA_<COMPONENT>_<SETTING>")
+	fmt.Println("")
+	fmt.Println("Available Environment Variables:")
+	
+	// The variables should be grouped by component for better readability
+	fmt.Println("\nMemory Configuration:")
+	fmt.Println("  DELTA_MEMORY_ENABLED               - Enable/disable memory system (true/false)")
+	fmt.Println("  DELTA_MEMORY_COLLECT_COMMANDS      - Enable/disable command collection (true/false)")
+	fmt.Println("  DELTA_MEMORY_MAX_ENTRIES           - Maximum number of memory entries (integer)")
+	fmt.Println("  DELTA_MEMORY_STORAGE_PATH          - Path to store memory data (string)")
+	
+	fmt.Println("\nAI Configuration:")
+	fmt.Println("  DELTA_AI_ENABLED                   - Enable/disable AI features (true/false)")
+	fmt.Println("  DELTA_AI_MODEL                     - AI model name (string)")
+	fmt.Println("  DELTA_AI_SERVER_URL                - AI server URL (string)")
+	
+	fmt.Println("\nVector Database Configuration:")
+	fmt.Println("  DELTA_VECTOR_ENABLED               - Enable/disable vector database (true/false)")
+	fmt.Println("  DELTA_VECTOR_DB_PATH               - Database file path (string)")
+	fmt.Println("  DELTA_VECTOR_IN_MEMORY_MODE        - Use in-memory mode (true/false)")
+	
+	fmt.Println("\nEmbedding Configuration:")
+	fmt.Println("  DELTA_EMBEDDING_ENABLED            - Enable/disable embedding system (true/false)")
+	fmt.Println("  DELTA_EMBEDDING_DIMENSIONS         - Embedding dimensions (integer)")
+	fmt.Println("  DELTA_EMBEDDING_CACHE_SIZE         - Embedding cache size (integer)")
+	
+	fmt.Println("\nInference Configuration:")
+	fmt.Println("  DELTA_INFERENCE_ENABLED            - Enable/disable inference system (true/false)")
+	fmt.Println("  DELTA_INFERENCE_USE_LOCAL          - Use local inference (true/false)")
+	fmt.Println("  DELTA_INFERENCE_MAX_TOKENS         - Maximum tokens for generation (integer)")
+	fmt.Println("  DELTA_INFERENCE_TEMPERATURE        - Sampling temperature (float 0-1)")
+	
+	fmt.Println("\nLearning Configuration:")
+	fmt.Println("  DELTA_LEARNING_COLLECT_FEEDBACK    - Collect feedback for learning (true/false)")
+	fmt.Println("  DELTA_LEARNING_USE_CUSTOM_MODEL    - Use custom model (true/false)")
+	fmt.Println("  DELTA_LEARNING_CUSTOM_MODEL_PATH   - Path to custom model (string)")
+	fmt.Println("  DELTA_LEARNING_TRAINING_THRESHOLD  - Training threshold (integer)")
+	
+	fmt.Println("\nTokenizer Configuration:")
+	fmt.Println("  DELTA_TOKEN_ENABLED                - Enable/disable tokenizer (true/false)")
+	fmt.Println("  DELTA_TOKEN_VOCAB_SIZE             - Vocabulary size (integer)")
+	fmt.Println("  DELTA_TOKEN_STORAGE_PATH           - Token storage path (string)")
+	
+	fmt.Println("\nAgent Configuration:")
+	fmt.Println("  DELTA_AGENT_ENABLED                - Enable/disable agent system (true/false)")
+	fmt.Println("  DELTA_AGENT_STORAGE_PATH           - Agent storage path (string)")
+	fmt.Println("  DELTA_AGENT_CACHE_PATH             - Agent cache path (string)")
+	fmt.Println("  DELTA_AGENT_USE_DOCKER             - Use Docker for agent builds (true/false)")
+	fmt.Println("  DELTA_AGENT_USE_AI                 - Use AI assistance for agents (true/false)")
+	
+	fmt.Println("\nCommands:")
+	fmt.Println("  :config env list                   - List all active environment variables")
+	fmt.Println("  :config env help                   - Show this help message")
+	
+	fmt.Println("\nExample Usage:")
+	fmt.Println("  export DELTA_MEMORY_ENABLED=true         # Enable memory system")
+	fmt.Println("  export DELTA_INFERENCE_TEMPERATURE=0.7   # Set inference temperature")
+}
+
 // showConfigHelp displays help for configuration commands
 func showConfigHelp() {
 	fmt.Println("Configuration Commands")
@@ -764,6 +912,9 @@ func showConfigHelp() {
 	fmt.Println("  :config edit <comp>    - Show component configuration")
 	fmt.Println("  :config edit <comp> setting=value - Update configuration setting")
 	fmt.Println("  :config reset          - Reset all configurations to default values")
+	fmt.Println("  :config env            - List active environment variables")
+	fmt.Println("  :config env list       - List active environment variables")
+	fmt.Println("  :config env help       - Show environment variable help")
 	fmt.Println("  :config help           - Show this help message")
 	fmt.Println()
 	fmt.Println("Available components:")

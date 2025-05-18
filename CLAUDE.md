@@ -45,3 +45,6 @@ When working with subprocess execution:
    - Test interactive applications (e.g., htop, vim, nano) to ensure proper handling
    - Ensure proper TTY setup for subprocesses
    - Source appropriate shell profile files (.bashrc, .zshrc) explicitly rather than relying on `-i` flag
+
+## Special User Commands
+- If the user says "continue", analyze TASKS.md, PLAN.md, or milestone files to determine the next course of action

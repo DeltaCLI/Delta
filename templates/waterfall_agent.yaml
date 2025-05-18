@@ -1,0 +1,82 @@
+version: "1.0"
+
+project:
+  name: "${PROJECT_NAME}"
+  repository: "${REPOSITORY_URL}"
+  description: "Multi-stage waterfall build agent for ${PROJECT_NAME}"
+
+settings:
+  docker:
+    enabled: true
+    cache_dir: "${HOME}/.config/delta/docker/cache"
+    volumes:
+      - "${PROJECT_DIR}:/src"
+    environment:
+      TERM: "xterm-256color"
+
+agents:
+  - id: "${AGENT_ID}"
+    name: "Waterfall Build Agent for ${PROJECT_NAME}"
+    description: "Multi-stage waterfall build agent for ${PROJECT_NAME}"
+    enabled: true
+    task_types:
+      - "build"
+      - "compile"
+      - "waterfall"
+    
+    docker:
+      enabled: true
+      image: "${PROJECT_NAME}"
+      tag: "latest"
+      dockerfile: "Dockerfile"
+      build_context: "${PROJECT_DIR}"
+      volumes:
+        - "${PROJECT_DIR}:/src"
+      environment:
+        GO111MODULE: "on"
+        CGO_ENABLED: "0"
+      build_args:
+        VERSION: "${VERSION}"
+        BUILD_DATE: "${BUILD_DATE}"
+      use_cache: true
+      
+      waterfall:
+        stages:
+          - "deps"
+          - "builder"
+          - "linter"
+          - "tester"
+          - "final"
+        dependencies:
+          deps: []
+          builder: ["deps"]
+          linter: ["builder"]
+          tester: ["builder"]
+          final: ["linter", "tester"]
+    
+    error_handling:
+      auto_fix: true
+      patterns:
+        - pattern: "no required module provides package"
+          solution: "go mod tidy"
+          description: "Missing go module dependency"
+        
+        - pattern: "undefined: ([\\w.]+)"
+          solution: "Check imports and ensure the referenced package is imported"
+          description: "Missing import or undefined symbol"
+    
+    metadata:
+      project: "${PROJECT_NAME}"
+      build_type: "waterfall"
+      version: "${VERSION}"
+    
+    triggers:
+      patterns:
+        - "build waterfall"
+        - "waterfall build"
+      paths:
+        - "src/**/*.go"
+        - "Dockerfile"
+        - "Makefile"
+      schedules:
+        - "0 0 * * *"  # Daily at midnight

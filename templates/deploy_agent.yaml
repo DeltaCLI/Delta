@@ -1,0 +1,108 @@
+version: "1.0"
+
+project:
+  name: "${PROJECT_NAME}"
+  repository: "${REPOSITORY_URL}"
+  description: "Deployment agent for ${PROJECT_NAME}"
+
+settings:
+  docker:
+    enabled: true
+    cache_dir: "${HOME}/.config/delta/docker/cache"
+    volumes:
+      - "${PROJECT_DIR}:/src"
+    environment:
+      TERM: "xterm-256color"
+
+  error_handling:
+    patterns:
+      - pattern: "permission denied"
+        solution: "Check access permissions for deployment credentials"
+        description: "Permission issue"
+      
+      - pattern: "deployment timeout"
+        solution: "Check network connectivity or increase deployment timeout"
+        description: "Deployment timeout issue"
+
+agents:
+  - id: "${AGENT_ID}"
+    name: "Deploy Agent for ${PROJECT_NAME}"
+    description: "Automated deployment agent for ${PROJECT_NAME}"
+    enabled: true
+    task_types:
+      - "deploy"
+      - "release"
+    
+    commands:
+      - id: "test"
+        command: "make test"
+        working_dir: "/src"
+        timeout: 600
+        retry_count: 1
+        error_patterns:
+          - "test failed"
+          - "error:"
+        success_patterns:
+          - "tests passed"
+      
+      - id: "build"
+        command: "make build"
+        working_dir: "/src"
+        timeout: 1200
+        retry_count: 2
+        error_patterns:
+          - "compilation failed"
+          - "error:"
+        success_patterns:
+          - "build successful"
+      
+      - id: "deploy"
+        command: "make deploy"
+        working_dir: "/src"
+        timeout: 1800
+        retry_count: 3
+        error_patterns:
+          - "deployment failed"
+          - "error:"
+        success_patterns:
+          - "deployment successful"
+    
+    docker:
+      enabled: true
+      image: "golang"
+      tag: "1.21-alpine"
+      volumes:
+        - "${PROJECT_DIR}:/src"
+        - "${HOME}/.aws:/root/.aws:ro"  # Mount AWS credentials for deployment
+      environment:
+        GO111MODULE: "on"
+        CGO_ENABLED: "0"
+        ENVIRONMENT: "${ENVIRONMENT}"
+      use_cache: true
+    
+    error_handling:
+      auto_fix: true
+      patterns:
+        - pattern: "unauthorized"
+          solution: "Check deployment credentials"
+          description: "Authentication issue"
+        
+        - pattern: "resource not found"
+          solution: "Verify resource names and paths in deployment configuration"
+          description: "Missing resource issue"
+    
+    metadata:
+      project: "${PROJECT_NAME}"
+      environment: "${ENVIRONMENT}"
+      deploy_type: "production"
+    
+    triggers:
+      patterns:
+        - "deploy"
+        - "release"
+      paths:
+        - "src/**/*.go"
+        - "Makefile"
+        - "deploy/**/*"
+      schedules:
+        - "0 12 * * 1-5"  # Weekdays at noon

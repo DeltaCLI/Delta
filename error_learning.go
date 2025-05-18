@@ -416,6 +416,64 @@ func (elm *ErrorLearningManager) arePatternsSimilar(pattern1, pattern2 string) b
 	return strings.Contains(pattern1, pattern2) || strings.Contains(pattern2, pattern1)
 }
 
+// GenerateErrorSolution attempts to generate a solution for an error using AI
+func (elm *ErrorLearningManager) GenerateErrorSolution(errorOutput string, context string) (string, string, error) {
+	// Check if AI manager is available
+	aiManager := GetAIManager()
+	if aiManager == nil || !aiManager.IsEnabled() {
+		return "", "", fmt.Errorf("AI manager not available")
+	}
+
+	// Generate prompt
+	prompt := fmt.Sprintf("I encountered the following error:\n\n%s\n\nContext: %s\n\nProvide a solution for this error in the following format:\n\nSolution: [the solution to fix the error]\n\nExplanation: [why this solution works]", errorOutput, context)
+	
+	// Get AI response
+	response, err := aiManager.GetAIResponse(prompt)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get AI response: %v", err)
+	}
+
+	// Extract solution
+	solutionMatch := regexp.MustCompile(`(?i)Solution:\s*(.+?)(?:\n\n|\n(?:Explanation|$))`).FindStringSubmatch(response)
+	if len(solutionMatch) > 1 {
+		solution := strings.TrimSpace(solutionMatch[1])
+		
+		// Extract explanation
+		explanationMatch := regexp.MustCompile(`(?i)Explanation:\s*(.+)$`).FindStringSubmatch(response)
+		var explanation string
+		if len(explanationMatch) > 1 {
+			explanation = strings.TrimSpace(explanationMatch[1])
+		}
+		
+		return solution, explanation, nil
+	}
+	
+	// If no explicit solution format, use the whole response
+	return strings.TrimSpace(response), "", nil
+}
+
+// FixErrorAutomatically attempts to automatically fix an error
+func (elm *ErrorLearningManager) FixErrorAutomatically(errorOutput string, context string) (bool, string, error) {
+	if !elm.isInitialized {
+		return false, "", fmt.Errorf("error learning manager not initialized")
+	}
+	
+	// First try to find a solution in the history
+	solutions := elm.GetBestSolutions(errorOutput, 1)
+	if len(solutions) > 0 && solutions[0].SuccessCount > 0 {
+		// Found a solution with success history
+		return true, solutions[0].Solution, nil
+	}
+	
+	// If no solution found, try to generate one with AI
+	solution, _, err := elm.GenerateErrorSolution(errorOutput, context)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to generate solution: %v", err)
+	}
+	
+	return false, solution, nil
+}
+
 // Global ErrorLearningManager instance
 var globalErrorLearningManager *ErrorLearningManager
 

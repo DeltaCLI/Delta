@@ -215,7 +215,12 @@ func listAgents(am *AgentManager) {
 		return
 	}
 
-	agents := am.ListAgents()
+	agents, err := am.ListAgents()
+	if err != nil {
+		fmt.Printf("Error listing agents: %v\n", err)
+		return
+	}
+	
 	if len(agents) == 0 {
 		fmt.Println("No agents found")
 		fmt.Println("Use ':agent create <name>' to create a new agent")
@@ -369,10 +374,47 @@ func runAgent(am *AgentManager, agentID string, options map[string]string) {
 
 	// Run agent
 	fmt.Println("Starting agent execution...")
-	result, err := am.RunAgent(agentID, options)
+	ctx := context.Background()
+	
+	// Create timeout context if specified
+	timeout, ok := options["timeout"]
+	if ok {
+		timeoutSec, err := time.ParseDuration(timeout + "s")
+		if err == nil {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, timeoutSec)
+			defer cancel()
+		}
+	}
+	
+	// Run the agent
+	err = am.RunAgent(ctx, agentID, options)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
+	}
+	
+	// Get agent status
+	status, err := am.GetAgentStatus(agentID)
+	if err != nil {
+		fmt.Printf("Error getting agent status: %v\n", err)
+		return
+	}
+	
+	// Create result object
+	result := AgentRunResult{
+		AgentID:      agentID,
+		StartTime:    status.StartTime,
+		EndTime:      status.EndTime,
+		Success:      status.LastError == nil,
+		CommandsRun:  status.SuccessCount + status.ErrorCount,
+		Output:       status.LastOutput,
+		ExitCode:     0,
+	}
+	
+	if status.LastError != nil {
+		result.Errors = []string{status.LastError.Error()}
+		result.ExitCode = 1
 	}
 
 	// Show result
@@ -931,9 +973,60 @@ func getBoolText(value bool, trueText, falseText string) string {
 	return falseText
 }
 
+// GetRunHistory returns the run history for an agent
+func (am *AgentManager) GetRunHistory(agentID string, limit int) []AgentRunResult {
+	// This is a placeholder implementation
+	// In a real implementation, this would retrieve the run history from storage
+	return []AgentRunResult{}
+}
+
+// GetDockerCacheStats returns Docker cache statistics
+func (am *AgentManager) GetDockerCacheStats() map[string]interface{} {
+	// This is a placeholder implementation
+	return map[string]interface{}{
+		"cache_size_mb":   float64(0),
+		"cache_hits":      int(0),
+		"cache_misses":    int(0),
+		"cache_efficiency": float64(0),
+		"build_configs":   int(0),
+		"max_cache_age":   float64(0),
+	}
+}
+
+// ClearDockerCache clears the Docker cache
+func (am *AgentManager) ClearDockerCache() error {
+	// This is a placeholder implementation
+	return nil
+}
+
+// GetAgentStats returns agent statistics
+func (am *AgentManager) GetAgentStats() map[string]interface{} {
+	// This is a placeholder implementation
+	return map[string]interface{}{
+		"total_agents":    int(0),
+		"enabled_agents":  int(0),
+		"total_runs":      int(0),
+		"successful_runs": int(0),
+		"success_rate":    float64(0),
+		"avg_run_time":    float64(0),
+	}
+}
+
 // checkDockerAvailability checks if Docker is available
 func checkDockerAvailability() error {
-	// For now, just return success
+	// Check if Docker is available
+	_, err := exec.LookPath("docker")
+	if err != nil {
+		return fmt.Errorf("Docker not found: %v", err)
+	}
+	
+	// Check Docker version
+	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to get Docker version: %v", err)
+	}
+	
 	return nil
 }
 
@@ -957,15 +1050,43 @@ func handleErrorCommands(am *AgentManager, args []string) {
 		fmt.Println("Available subcommands:")
 		fmt.Println("  list      - List learned error solutions")
 		fmt.Println("  export    - Export learned error solutions to patterns file")
+		fmt.Println("  learn     - Learn a new error solution")
+		fmt.Println("  fix       - Fix an error using learned solutions")
+		fmt.Println("  stats     - Show error learning statistics")
 		return
 	}
 
 	cmd := args[0]
 	switch cmd {
 	case "list":
-		// For now, just show a placeholder
-		fmt.Println("Listing learned error solutions is not yet implemented")
-		fmt.Println("Use ':agent errors export' to export learned solutions to the patterns file")
+		// List learned error solutions
+		solutions := errorLearningMgr.ListSolutions()
+		
+		if len(solutions) == 0 {
+			fmt.Println("No learned error solutions found")
+			return
+		}
+		
+		fmt.Println("Learned Error Solutions")
+		fmt.Println("======================")
+		
+		for _, solution := range solutions {
+			// Calculate success rate
+			total := solution.SuccessCount + solution.FailureCount
+			var successRate float64
+			if total > 0 {
+				successRate = float64(solution.SuccessCount) / float64(total) * 100
+			}
+			
+			fmt.Printf("Error Pattern: %s\n", solution.Pattern)
+			fmt.Printf("Solution: %s\n", solution.Solution)
+			if solution.Description != "" {
+				fmt.Printf("Description: %s\n", solution.Description)
+			}
+			fmt.Printf("Success Rate: %.1f%% (%d/%d)\n", successRate, solution.SuccessCount, total)
+			fmt.Printf("Source: %s\n", solution.Source)
+			fmt.Println()
+		}
 		return
 
 	case "export":
@@ -978,9 +1099,102 @@ func handleErrorCommands(am *AgentManager, args []string) {
 		fmt.Println("Learned error solutions exported to patterns file")
 		return
 
+	case "learn":
+		// Learn a new error solution
+		if len(args) < 3 {
+			fmt.Println("Usage: :agent errors learn <error_pattern> <solution>")
+			return
+		}
+		
+		errorPattern := args[1]
+		solution := args[2]
+		
+		// Get optional description
+		description := ""
+		if len(args) > 3 {
+			description = args[3]
+		}
+		
+		// Add error solution
+		errorLearningMgr.AddErrorSolution(errorPattern, solution, description, "", true, "user")
+		fmt.Println("Error solution added successfully")
+		return
+
+	case "fix":
+		// Fix an error using learned solutions
+		if len(args) < 2 {
+			fmt.Println("Usage: :agent errors fix <error_message>")
+			return
+		}
+		
+		// Get error message
+		errorMsg := args[1]
+		
+		// Get context
+		context := ""
+		if len(args) > 2 {
+			context = args[2]
+		}
+		
+		// Try to fix the error
+		knownSolution, solution, err := errorLearningMgr.FixErrorAutomatically(errorMsg, context)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+		
+		if knownSolution {
+			fmt.Println("Found a solution from learning history:")
+		} else {
+			fmt.Println("Generated a solution using AI:")
+		}
+		
+		fmt.Println(solution)
+		return
+
+	case "stats":
+		// Show error learning statistics
+		fmt.Println("Error Learning Statistics")
+		fmt.Println("========================")
+		
+		solutions := errorLearningMgr.ListSolutions()
+		
+		// Calculate statistics
+		totalSolutions := len(solutions)
+		aiGeneratedCount := 0
+		userDefinedCount := 0
+		systemCount := 0
+		successfulCount := 0
+		
+		for _, sol := range solutions {
+			switch sol.Source {
+			case "ai":
+				aiGeneratedCount++
+			case "user":
+				userDefinedCount++
+			case "system":
+				systemCount++
+			}
+			
+			if sol.SuccessCount > 0 {
+				successfulCount++
+			}
+		}
+		
+		fmt.Printf("Total Solutions: %d\n", totalSolutions)
+		fmt.Printf("AI-Generated: %d\n", aiGeneratedCount)
+		fmt.Printf("User-Defined: %d\n", userDefinedCount)
+		fmt.Printf("System-Provided: %d\n", systemCount)
+		fmt.Printf("Successful Solutions: %d\n", successfulCount)
+		
+		if totalSolutions > 0 {
+			fmt.Printf("Success Rate: %.1f%%\n", float64(successfulCount)/float64(totalSolutions)*100)
+		}
+		return
+
 	default:
 		fmt.Printf("Unknown errors command: %s\n", cmd)
-		fmt.Println("Available commands: list, export")
+		fmt.Println("Available commands: list, export, learn, fix, stats")
 		return
 	}
 }
