@@ -601,6 +601,12 @@ func (ha *HistoryAnalyzer) GetSuggestions(currentDirectory string) []CommandSugg
 	now := time.Now()
 	currentHour := now.Hour()
 
+	// Get the most recently executed command to exclude from suggestions
+	var lastExecutedCommand string
+	if len(ha.recentCommands) > 0 {
+		lastExecutedCommand = ha.recentCommands[len(ha.recentCommands)-1]
+	}
+
 	// Build a priority queue of potential suggestions
 	pq := make(PriorityQueue, 0)
 	heap.Init(&pq)
@@ -609,6 +615,10 @@ func (ha *HistoryAnalyzer) GetSuggestions(currentDirectory string) []CommandSugg
 	directoryWeight := ha.config.ContextWeight
 	if dirCmds, ok := ha.directoryCommands[currentDirectory]; ok {
 		for cmd, count := range dirCmds {
+			// Skip this command if it matches the most recently executed command
+			if cmd == lastExecutedCommand {
+				continue
+			}
 			confidence := float64(count) * directoryWeight
 			heap.Push(&pq, &CommandSuggestionItem{
 				command:    cmd,
@@ -622,6 +632,10 @@ func (ha *HistoryAnalyzer) GetSuggestions(currentDirectory string) []CommandSugg
 	timeWeight := ha.config.TimeWeight
 	if timeCmds, ok := ha.timePatterns[currentHour]; ok {
 		for cmd, count := range timeCmds {
+			// Skip this command if it matches the most recently executed command
+			if cmd == lastExecutedCommand {
+				continue
+			}
 			confidence := float64(count) * timeWeight
 			existing := pq.Find(cmd)
 			
@@ -641,6 +655,10 @@ func (ha *HistoryAnalyzer) GetSuggestions(currentDirectory string) []CommandSugg
 	// Add frequently used commands with a lower weight
 	frequencyWeight := ha.config.FrequencyWeight
 	for cmd, count := range ha.commandFrequency {
+		// Skip this command if it matches the most recently executed command
+		if cmd == lastExecutedCommand {
+			continue
+		}
 		confidence := float64(count) * frequencyWeight
 		existing := pq.Find(cmd)
 		
@@ -662,6 +680,10 @@ func (ha *HistoryAnalyzer) GetSuggestions(currentDirectory string) []CommandSugg
 		for _, seq := range ha.commandSequences {
 			if len(seq.Commands) >= 2 && seq.Commands[0] == lastCmd {
 				nextCmd := seq.Commands[1]
+				// Skip this command if it matches the most recently executed command
+				if nextCmd == lastExecutedCommand {
+					continue
+				}
 				confidence := float64(seq.Frequency) * 0.5 // Sequence confidence is higher
 				
 				existing := pq.Find(nextCmd)
