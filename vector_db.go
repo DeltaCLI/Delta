@@ -1088,6 +1088,253 @@ func jaccardSimilarity(a, b []float32, threshold float32) float32 {
 	return intersection / union
 }
 
+// ExportData exports all vector data to a JSON file
+func (vm *VectorDBManager) ExportData(filePath string) error {
+	if !vm.isInitialized {
+		return fmt.Errorf("vector database not initialized")
+	}
+
+	vm.mutex.RLock()
+	defer vm.mutex.RUnlock()
+
+	// Get all command embeddings
+	rows, err := vm.db.Query(`
+		SELECT command_id, command, directory, timestamp, exit_code, 
+			   embedding, metadata, frequency, last_used, success_rate
+		FROM command_embeddings
+		ORDER BY timestamp DESC
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to query command embeddings: %v", err)
+	}
+	defer rows.Close()
+
+	// Scan all rows
+	commands, err := vm.scanCommandRows(rows)
+	if err != nil {
+		return fmt.Errorf("failed to scan command rows: %v", err)
+	}
+
+	// Create export structure
+	exportData := struct {
+		Version           string            `json:"version"`
+		ExportDate        time.Time         `json:"export_date"`
+		Config            VectorDBConfig    `json:"config"`
+		CommandEmbeddings []CommandEmbedding `json:"command_embeddings"`
+	}{
+		Version:           "1.0",
+		ExportDate:        time.Now(),
+		Config:            vm.config,
+		CommandEmbeddings: commands,
+	}
+
+	// Marshal to JSON
+	data, err := json.MarshalIndent(exportData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal export data: %v", err)
+	}
+
+	// Write to file
+	err = os.WriteFile(filePath, data, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write export file: %v", err)
+	}
+
+	return nil
+}
+
+// ImportData imports vector data from a JSON file
+func (vm *VectorDBManager) ImportData(filePath string, mergeStrategy string) error {
+	if !vm.isInitialized {
+		return fmt.Errorf("vector database not initialized")
+	}
+
+	vm.mutex.Lock()
+	defer vm.mutex.Unlock()
+
+	// Read the import file
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read import file: %v", err)
+	}
+
+	// Unmarshal JSON
+	var importData struct {
+		Version           string            `json:"version"`
+		ExportDate        time.Time         `json:"export_date"`
+		Config            VectorDBConfig    `json:"config"`
+		CommandEmbeddings []CommandEmbedding `json:"command_embeddings"`
+	}
+
+	err = json.Unmarshal(data, &importData)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal import data: %v", err)
+	}
+
+	// Check version compatibility
+	if importData.Version != "1.0" {
+		return fmt.Errorf("unsupported import version: %s", importData.Version)
+	}
+
+	// Begin transaction
+	tx, err := vm.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Handle different merge strategies
+	switch mergeStrategy {
+	case "replace":
+		// Delete all existing data
+		_, err = tx.Exec("DELETE FROM command_embeddings")
+		if err != nil {
+			return fmt.Errorf("failed to clear existing data: %v", err)
+		}
+
+		// Insert all imported commands
+		stmt, err := tx.Prepare(`
+			INSERT INTO command_embeddings 
+				(command_id, command, directory, timestamp, exit_code, embedding, metadata, frequency, last_used, success_rate)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`)
+		if err != nil {
+			return fmt.Errorf("failed to prepare insert statement: %v", err)
+		}
+		defer stmt.Close()
+
+		for _, cmd := range importData.CommandEmbeddings {
+			embeddingJSON, err := json.Marshal(cmd.Embedding)
+			if err != nil {
+				return fmt.Errorf("failed to marshal embedding: %v", err)
+			}
+
+			_, err = stmt.Exec(
+				cmd.CommandID,
+				cmd.Command,
+				cmd.Directory,
+				cmd.Timestamp.Unix(),
+				cmd.ExitCode,
+				embeddingJSON,
+				cmd.Metadata,
+				cmd.Frequency,
+				cmd.LastUsed.Unix(),
+				cmd.SuccessRate,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to insert command: %v", err)
+			}
+		}
+	
+	case "merge":
+		// Merge strategy - add new commands, update existing ones
+		stmt, err := tx.Prepare(`
+			INSERT INTO command_embeddings 
+				(command_id, command, directory, timestamp, exit_code, embedding, metadata, frequency, last_used, success_rate)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(command_id) DO UPDATE SET
+				frequency = frequency + excluded.frequency,
+				last_used = MAX(last_used, excluded.last_used),
+				success_rate = (success_rate + excluded.success_rate) / 2
+		`)
+		if err != nil {
+			return fmt.Errorf("failed to prepare merge statement: %v", err)
+		}
+		defer stmt.Close()
+
+		for _, cmd := range importData.CommandEmbeddings {
+			embeddingJSON, err := json.Marshal(cmd.Embedding)
+			if err != nil {
+				return fmt.Errorf("failed to marshal embedding: %v", err)
+			}
+
+			_, err = stmt.Exec(
+				cmd.CommandID,
+				cmd.Command,
+				cmd.Directory,
+				cmd.Timestamp.Unix(),
+				cmd.ExitCode,
+				embeddingJSON,
+				cmd.Metadata,
+				cmd.Frequency,
+				cmd.LastUsed.Unix(),
+				cmd.SuccessRate,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to merge command: %v", err)
+			}
+		}
+
+	case "keep_newer":
+		// Keep newer strategy - only import commands that are newer than existing ones
+		stmt, err := tx.Prepare(`
+			INSERT INTO command_embeddings 
+				(command_id, command, directory, timestamp, exit_code, embedding, metadata, frequency, last_used, success_rate)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(command_id) DO UPDATE SET
+				command = excluded.command,
+				directory = excluded.directory,
+				timestamp = excluded.timestamp,
+				exit_code = excluded.exit_code,
+				embedding = excluded.embedding,
+				metadata = excluded.metadata,
+				frequency = excluded.frequency,
+				last_used = excluded.last_used,
+				success_rate = excluded.success_rate
+			WHERE excluded.timestamp > timestamp
+		`)
+		if err != nil {
+			return fmt.Errorf("failed to prepare keep_newer statement: %v", err)
+		}
+		defer stmt.Close()
+
+		for _, cmd := range importData.CommandEmbeddings {
+			embeddingJSON, err := json.Marshal(cmd.Embedding)
+			if err != nil {
+				return fmt.Errorf("failed to marshal embedding: %v", err)
+			}
+
+			_, err = stmt.Exec(
+				cmd.CommandID,
+				cmd.Command,
+				cmd.Directory,
+				cmd.Timestamp.Unix(),
+				cmd.ExitCode,
+				embeddingJSON,
+				cmd.Metadata,
+				cmd.Frequency,
+				cmd.LastUsed.Unix(),
+				cmd.SuccessRate,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to import command with keep_newer strategy: %v", err)
+			}
+		}
+
+	default:
+		return fmt.Errorf("unsupported merge strategy: %s", mergeStrategy)
+	}
+
+	// Commit the transaction
+	err = tx.Commit()
+	tx = nil
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	// Rebuild the vector index
+	_, err = vm.rebuildVectorIndex()
+	if err != nil {
+		return fmt.Errorf("failed to rebuild vector index: %v", err)
+	}
+
+	return nil
+}
+
 // Global VectorDBManager instance
 var globalVectorDBManager *VectorDBManager
 

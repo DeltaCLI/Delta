@@ -954,10 +954,54 @@ func (ke *KnowledgeExtractor) GetStats() map[string]interface{} {
 		avgConfidence = totalConfidence / float64(len(ke.entities))
 	}
 
-	return map[string]interface{}{
+	// Count entities with embeddings (check vector database)
+	entityIDsInVectorDB := make(map[string]bool)
+	vectorDB := GetVectorDBManager()
+	itemsWithEmbeddings := 0
+	
+	if vectorDB != nil && vectorDB.IsEnabled() {
+		// Check if we have items in the vector database
+		if db := vectorDB.db; db != nil {
+			rows, err := db.Query(`
+				SELECT command_id FROM command_embeddings 
+				WHERE command_id LIKE 'knowledge_%'
+			`)
+			if err == nil {
+				defer rows.Close()
+				
+				for rows.Next() {
+					var commandID string
+					if err := rows.Scan(&commandID); err == nil {
+						// Extract entity ID
+						entityID := strings.TrimPrefix(commandID, "knowledge_")
+						entityIDsInVectorDB[entityID] = true
+					}
+				}
+				
+				// Count entities with embeddings
+				for id := range ke.entities {
+					if entityIDsInVectorDB[id] {
+						itemsWithEmbeddings++
+					}
+				}
+			}
+		}
+	}
+
+	// Count sources
+	sourceCounts := make(map[string]int)
+	for _, entity := range ke.entities {
+		if dir, ok := entity.Metadata["directory"]; ok {
+			sourceCounts[dir]++
+		}
+	}
+
+	stats := map[string]interface{}{
 		"enabled":               ke.config.Enabled,
 		"initialized":           ke.isInitialized,
 		"entity_count":          len(ke.entities),
+		"items_with_embeddings": itemsWithEmbeddings,
+		"total_items":           len(ke.entities),
 		"pattern_count":         len(ke.patterns),
 		"command_patterns":      counts[KnowledgeCommandPattern],
 		"directory_flows":       counts[KnowledgeDirectoryFlow],
@@ -967,17 +1011,60 @@ func (ke *KnowledgeExtractor) GetStats() map[string]interface{} {
 		"workflow_entities":     counts[KnowledgeWorkflow],
 		"average_confidence":    avgConfidence,
 		"last_scan":             ke.lastScan,
+		"last_refresh":          ke.lastScan,
+		"source_counts":         sourceCounts,
+		"type_counts": map[string]interface{}{
+			"command_pattern": counts[KnowledgeCommandPattern],
+			"directory_flow":  counts[KnowledgeDirectoryFlow],
+			"tool_usage":      counts[KnowledgeToolUsage],
+			"file_operation":  counts[KnowledgeFileOperation],
+			"environment":     counts[KnowledgeEnvironment],
+			"workflow":        counts[KnowledgeWorkflow],
+		},
+		"environment_awareness": ke.config.ExtractEnvironment,
+		"command_awareness":     true,
+		"code_awareness":        false,
+		"project_awareness":     true,
+		"privacy_enabled":       len(ke.config.SensitivePatterns) > 0,
+		"max_file_size_kb":      100,
+		"max_scan_depth":        3,
+		"max_extracted_items":   ke.config.MaxEntities,
+		"refresh_interval_minutes": ke.config.ScanInterval,
 		"config": map[string]interface{}{
-			"min_confidence":     ke.config.MinConfidence,
-			"batch_size":         ke.config.BatchSize,
-			"max_entities":       ke.config.MaxEntities,
-			"scan_interval":      ke.config.ScanInterval,
-			"pattern_threshold":  ke.config.PatternThreshold,
+			"min_confidence":      ke.config.MinConfidence,
+			"batch_size":          ke.config.BatchSize,
+			"max_entities":        ke.config.MaxEntities,
+			"scan_interval":       ke.config.ScanInterval,
+			"pattern_threshold":   ke.config.PatternThreshold,
 			"extract_environment": ke.config.ExtractEnvironment,
-			"extract_workflows":  ke.config.ExtractWorkflows,
-			"context_size":       ke.config.ContextSize,
+			"extract_workflows":   ke.config.ExtractWorkflows,
+			"context_size":        ke.config.ContextSize,
 		},
 	}
+	
+	// Add vector database information if available
+	if vectorDB != nil && vectorDB.IsEnabled() {
+		vectorDBStats := vectorDB.GetStats()
+		stats["vector_db_enabled"] = true
+		stats["vector_db_status"] = "enabled"
+		
+		if vectorCount, ok := vectorDBStats["vector_count"].(int); ok {
+			stats["vector_db_count"] = vectorCount
+		}
+		
+		if metric, ok := vectorDBStats["metric"].(string); ok {
+			stats["vector_db_metric"] = metric
+		}
+		
+		if hasVectorExt, ok := vectorDBStats["has_vector_extension"].(bool); ok {
+			stats["vector_db_extension"] = hasVectorExt
+		}
+	} else {
+		stats["vector_db_enabled"] = false
+		stats["vector_db_status"] = "disabled"
+	}
+	
+	return stats
 }
 
 // ExportEntities exports knowledge entities to a file
@@ -1386,14 +1473,89 @@ func hash(s string) uint32 {
 	return h
 }
 
-// GenerateEmbeddings generates embeddings for knowledge items
+// GenerateEmbeddings generates embeddings for knowledge entities
 func (ke *KnowledgeExtractor) GenerateEmbeddings() error {
 	if !ke.IsEnabled() {
 		return fmt.Errorf("knowledge extractor not enabled")
 	}
 
-	// Currently a stub - would integrate with embedding system
-	// For now, just return success
+	ke.mutex.RLock()
+	defer ke.mutex.RUnlock()
+
+	// Get AI manager for embedding generation
+	ai := GetAIManager()
+	if ai == nil {
+		return fmt.Errorf("AI manager not available for embedding generation")
+	}
+
+	// Get vector database manager
+	vectorDB := GetVectorDBManager()
+	if vectorDB == nil {
+		return fmt.Errorf("vector database manager not available")
+	}
+
+	// Initialize and enable vector database if needed
+	if !vectorDB.IsEnabled() {
+		if err := vectorDB.Initialize(); err != nil {
+			return fmt.Errorf("failed to initialize vector database: %v", err)
+		}
+		if err := vectorDB.Enable(); err != nil {
+			return fmt.Errorf("failed to enable vector database: %v", err)
+		}
+	}
+
+	// Count entities to process
+	entitiesCount := len(ke.entities)
+	if entitiesCount == 0 {
+		return nil // No entities to process
+	}
+
+	fmt.Printf("Generating embeddings for %d knowledge entities...\n", entitiesCount)
+
+	// Generate embeddings for entities
+	processedCount := 0
+	for id, entity := range ke.entities {
+		// Create text representation of entity for embedding
+		textToEmbed := fmt.Sprintf("%s %s %s", 
+			entity.Type, 
+			entity.Pattern, 
+			strings.Join(entity.Examples, " "))
+
+		// Generate embedding
+		embedding, err := ai.GenerateEmbedding(textToEmbed)
+		if err != nil {
+			fmt.Printf("Warning: Failed to generate embedding for entity %s: %v\n", id, err)
+			continue
+		}
+
+		// Create command embedding for vector database
+		commandEmbedding := CommandEmbedding{
+			CommandID:   "knowledge_" + id,
+			Command:     entity.Pattern,
+			Directory:   entity.Metadata["directory"],
+			Timestamp:   entity.LastUpdated,
+			ExitCode:    0,
+			Embedding:   embedding,
+			Metadata:    fmt.Sprintf(`{"type":"%s","examples":%d,"confidence":%.2f}`, 
+							entity.Type, len(entity.Examples), entity.Confidence),
+			Frequency:   entity.UsageCount,
+			LastUsed:    entity.LastUpdated,
+			SuccessRate: float32(entity.Confidence),
+		}
+
+		// Add to vector database
+		err = vectorDB.AddCommandEmbedding(commandEmbedding)
+		if err != nil {
+			fmt.Printf("Warning: Failed to add embedding to vector database: %v\n", err)
+			continue
+		}
+
+		processedCount++
+	}
+
+	fmt.Printf("Successfully generated embeddings for %d/%d knowledge entities\n", 
+		processedCount, entitiesCount)
+
 	return nil
 }
 
@@ -1403,24 +1565,143 @@ func (ke *KnowledgeExtractor) SearchKnowledge(query string, limit int) ([]Knowle
 		return nil, fmt.Errorf("knowledge extractor not enabled")
 	}
 
-	// This would be implemented to search using vector embeddings
-	// For now, just return a sample knowledge item
-	result := []KnowledgeEntity{
-		{
-			ID:         "sample1",
-			Type:       KnowledgeCommandPattern,
-			Pattern:    "git commit -m",
-			Examples:   []string{"git commit -m 'Add new feature'"},
-			Confidence: 0.9,
-			LastUpdated: time.Now(),
-			UsageCount: 5,
-			Metadata: map[string]string{
-				"directory": "/home/user/project",
-			},
-		},
+	ke.mutex.RLock()
+	defer ke.mutex.RUnlock()
+
+	// First, try semantic search using vector database if available
+	vectorResults, err := ke.searchKnowledgeWithVectors(query, limit)
+	if err == nil && len(vectorResults) > 0 {
+		// Vector search successful
+		return vectorResults, nil
 	}
 
-	return result, nil
+	// Fall back to text-based search
+	textResults := ke.searchKnowledgeWithText(query, limit)
+	if len(textResults) > 0 {
+		return textResults, nil
+	}
+
+	// If no results from either method, return an empty slice
+	return []KnowledgeEntity{}, nil
+}
+
+// searchKnowledgeWithVectors performs semantic search using vector database
+func (ke *KnowledgeExtractor) searchKnowledgeWithVectors(query string, limit int) ([]KnowledgeEntity, error) {
+	// Get AI manager for embedding generation
+	ai := GetAIManager()
+	if ai == nil {
+		return nil, fmt.Errorf("AI manager not available for embedding generation")
+	}
+
+	// Get vector database manager
+	vectorDB := GetVectorDBManager()
+	if vectorDB == nil || !vectorDB.IsEnabled() {
+		return nil, fmt.Errorf("vector database not available or not enabled")
+	}
+
+	// Generate embedding for query
+	embedding, err := ai.GenerateEmbedding(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate query embedding: %v", err)
+	}
+
+	// Search for similar commands in vector database
+	similarCommands, err := vectorDB.SearchSimilarCommands(embedding, "", limit)
+	if err != nil {
+		return nil, fmt.Errorf("vector search failed: %v", err)
+	}
+
+	// Convert command embeddings to knowledge entities
+	var results []KnowledgeEntity
+	for _, cmd := range similarCommands {
+		// Skip non-knowledge entries
+		if !strings.HasPrefix(cmd.CommandID, "knowledge_") {
+			continue
+		}
+
+		// Extract entity ID from command ID
+		entityID := strings.TrimPrefix(cmd.CommandID, "knowledge_")
+		
+		// Look up entity in our map
+		entity, exists := ke.entities[entityID]
+		if exists {
+			// Add entity to results
+			results = append(results, entity)
+		} else {
+			// If entity doesn't exist in our map, create a synthetic one from the command
+			var entityType KnowledgeType
+			var confidence float64
+			examples := []string{cmd.Command}
+			
+			// Try to parse metadata
+			var metadata map[string]interface{}
+			if err := json.Unmarshal([]byte(cmd.Metadata), &metadata); err == nil {
+				if typeStr, ok := metadata["type"].(string); ok {
+					entityType = KnowledgeType(typeStr)
+				}
+				if conf, ok := metadata["confidence"].(float64); ok {
+					confidence = conf
+				}
+			}
+			
+			// Create synthetic entity
+			syntheticEntity := KnowledgeEntity{
+				ID:          entityID,
+				Type:        entityType,
+				Pattern:     cmd.Command,
+				Examples:    examples,
+				Confidence:  confidence,
+				LastUpdated: cmd.LastUsed,
+				UsageCount:  cmd.Frequency,
+				Metadata: map[string]string{
+					"directory": cmd.Directory,
+					"synthetic": "true",
+				},
+			}
+			
+			results = append(results, syntheticEntity)
+		}
+	}
+
+	return results, nil
+}
+
+// searchKnowledgeWithText performs text-based search using string matching
+func (ke *KnowledgeExtractor) searchKnowledgeWithText(query string, limit int) []KnowledgeEntity {
+	query = strings.ToLower(query)
+	var results []KnowledgeEntity
+	
+	// Search all entities for text matches
+	for _, entity := range ke.entities {
+		// Check if query matches pattern
+		if strings.Contains(strings.ToLower(entity.Pattern), query) {
+			results = append(results, entity)
+			continue
+		}
+		
+		// Check if query matches examples
+		for _, example := range entity.Examples {
+			if strings.Contains(strings.ToLower(example), query) {
+				results = append(results, entity)
+				break
+			}
+		}
+		
+		// Stop if we have enough results
+		if len(results) >= limit {
+			break
+		}
+	}
+	
+	// Sort results by confidence and usage count
+	sortEntities(results)
+	
+	// Limit results
+	if len(results) > limit {
+		results = results[:limit]
+	}
+	
+	return results
 }
 
 // UpdateContext updates the current context with information from a directory
@@ -1436,98 +1717,758 @@ func (ke *KnowledgeExtractor) UpdateContext(directory string) error {
 	return nil
 }
 
-// GetCurrentContext returns the current context information
-func (ke *KnowledgeExtractor) GetCurrentContext() struct {
-	OS              string
-	Arch            string
-	Shell           string
-	User            string
-	Hostname        string
-	CurrentDir      string
-	HomeDir         string
-	ShellEnvironment map[string]string
-	ProjectType     string
-	GitBranch       string
-	GitRepo         string
-	LastCommands    []string
-} {
-	// Get basic system info for demo
-	homeDir, _ := os.UserHomeDir()
-	hostname, _ := os.Hostname()
-
-	// Return basic context info
-	return struct {
-		OS              string
-		Arch            string
-		Shell           string
-		User            string
-		Hostname        string
-		CurrentDir      string
-		HomeDir         string
-		ShellEnvironment map[string]string
-		ProjectType     string
-		GitBranch       string
-		GitRepo         string
-		LastCommands    []string
-	}{
-		OS:              runtime.GOOS,
-		Arch:            runtime.GOARCH,
-		Shell:           os.Getenv("SHELL"),
-		User:            os.Getenv("USER"),
-		Hostname:        hostname,
-		CurrentDir:      "/home/bleepbloop/deltacli",
-		HomeDir:         homeDir,
-		ShellEnvironment: map[string]string{
-			"TERM": os.Getenv("TERM"),
-			"PATH": os.Getenv("PATH"),
-		},
-		ProjectType:     "go",
-		GitBranch:       "main",
-		GitRepo:         "https://github.com/user/delta",
-		LastCommands:    []string{"git status", "make build", "go test"},
-	}
+// Context represents environment context information
+type Context struct {
+	OS                string              `json:"os"`
+	Arch              string              `json:"arch"`
+	Shell             string              `json:"shell"`
+	User              string              `json:"user"`
+	Hostname          string              `json:"hostname"`
+	CurrentDir        string              `json:"current_dir"`
+	HomeDir           string              `json:"home_dir"`
+	ShellEnvironment  map[string]string   `json:"shell_environment"`
+	ProjectType       string              `json:"project_type"`
+	GitBranch         string              `json:"git_branch"`
+	GitRepo           string              `json:"git_repo"`
+	LastCommands      []string            `json:"last_commands"`
+	PackageManagers   map[string]bool     `json:"package_managers"`
+	DetectedTools     map[string]string   `json:"detected_tools"`
+	FileExtensions    map[string]int      `json:"file_extensions"`
+	DirectoryStats    map[string]int      `json:"directory_stats"`
+	NetworkInterfaces []string            `json:"network_interfaces"`
+	DockerInfo        map[string]string   `json:"docker_info"`
+	KubernetesInfo    map[string]string   `json:"kubernetes_info"`
+	RuntimeVersions   map[string]string   `json:"runtime_versions"`
+	SystemLoad        map[string]float64  `json:"system_load"`
 }
 
-// GetProjectInfo returns project information
-func (ke *KnowledgeExtractor) GetProjectInfo() struct {
-	Type           string
-	Path           string
-	Name           string
-	Version        string
-	Dependencies   []string
-	Languages      []string
-	BuildSystem    string
-	TestFramework  string
-	Config         map[string]string
-	RepoURL        string
-	Branch         string
-} {
-	// Return sample project info
-	return struct {
-		Type           string
-		Path           string
-		Name           string
-		Version        string
-		Dependencies   []string
-		Languages      []string
-		BuildSystem    string
-		TestFramework  string
-		Config         map[string]string
-		RepoURL        string
-		Branch         string
-	}{
-		Type:          "go",
-		Path:          "/home/bleepbloop/deltacli",
-		Name:          "deltacli",
-		Version:       "0.1.0",
-		Dependencies:  []string{"github.com/chzyer/readline", "github.com/mattn/go-sqlite3"},
-		Languages:     []string{"Go"},
-		BuildSystem:   "make",
-		TestFramework: "go test",
-		Config:        map[string]string{},
-		RepoURL:       "https://github.com/user/delta",
-		Branch:        "main",
+// GetCurrentContext returns detailed information about the current environment
+func (ke *KnowledgeExtractor) GetCurrentContext() Context {
+	context := Context{
+		OS:               runtime.GOOS,
+		Arch:             runtime.GOARCH,
+		Shell:            os.Getenv("SHELL"),
+		User:             os.Getenv("USER"),
+		PackageManagers:  make(map[string]bool),
+		DetectedTools:    make(map[string]string),
+		FileExtensions:   make(map[string]int),
+		DirectoryStats:   make(map[string]int),
+		RuntimeVersions:  make(map[string]string),
+		SystemLoad:       make(map[string]float64),
 	}
+	
+	// Get basic system info
+	var err error
+	context.HomeDir, err = os.UserHomeDir()
+	if err != nil {
+		context.HomeDir = os.Getenv("HOME")
+	}
+	
+	context.Hostname, _ = os.Hostname()
+	context.CurrentDir, _ = os.Getwd()
+	
+	// Collect shell environment variables
+	context.ShellEnvironment = make(map[string]string)
+	importantEnvVars := []string{
+		"TERM", "PATH", "LANG", "LC_ALL", "EDITOR", "PAGER", 
+		"PWD", "OLDPWD", "GOPATH", "GOROOT", "JAVA_HOME", 
+		"PYTHONPATH", "NODE_PATH", "NVM_DIR", "VIRTUAL_ENV",
+		"HISTSIZE", "HISTFILESIZE", "PROMPT_COMMAND",
+	}
+	
+	for _, envVar := range importantEnvVars {
+		value := os.Getenv(envVar)
+		if value != "" {
+			context.ShellEnvironment[envVar] = value
+		}
+	}
+	
+	// Determine project type
+	context.ProjectType = detectProjectType(context.CurrentDir)
+	
+	// Get Git information
+	context.GitBranch = getGitBranch(context.CurrentDir)
+	context.GitRepo = getGitRemoteURL(context.CurrentDir)
+	
+	// Detect installed package managers
+	context.PackageManagers = detectPackageManagers()
+	
+	// Detect installed tools
+	context.DetectedTools = detectTools()
+	
+	// Collect file extension statistics
+	context.FileExtensions = collectFileExtensions(context.CurrentDir)
+	
+	// Collect directory statistics
+	context.DirectoryStats = collectDirectoryStats(context.CurrentDir)
+	
+	// Collect network interface information
+	context.NetworkInterfaces = collectNetworkInterfaces()
+	
+	// Get Docker information if available
+	context.DockerInfo = getDockerInfo()
+	
+	// Get Kubernetes information if available
+	context.KubernetesInfo = getKubernetesInfo()
+	
+	// Get runtime versions
+	context.RuntimeVersions = detectRuntimeVersions()
+	
+	// Get system load information
+	context.SystemLoad = getSystemLoad()
+	
+	// Get last commands (this would come from the history in a real implementation)
+	context.LastCommands = getLastCommands(5)
+	
+	return context
+}
+
+// detectProjectType tries to determine the type of project in the given directory
+func detectProjectType(dir string) string {
+	// Check for common project files
+	projectFiles := map[string]string{
+		"go.mod":        "go",
+		"package.json":  "javascript",
+		"Cargo.toml":    "rust",
+		"pom.xml":       "java",
+		"build.gradle":  "java",
+		"Gemfile":       "ruby",
+		"requirements.txt": "python",
+		"setup.py":      "python",
+		"composer.json": "php",
+		"Dockerfile":    "docker",
+		"CMakeLists.txt": "cmake",
+		"Makefile":      "make",
+	}
+	
+	for file, projectType := range projectFiles {
+		if _, err := os.Stat(filepath.Join(dir, file)); err == nil {
+			return projectType
+		}
+	}
+	
+	// Check for language-specific directories
+	projectDirs := map[string]string{
+		"src/main/java": "java",
+		"node_modules": "javascript",
+		".venv":        "python",
+		"vendor/bundle": "ruby",
+	}
+	
+	for directory, projectType := range projectDirs {
+		if _, err := os.Stat(filepath.Join(dir, directory)); err == nil {
+			return projectType
+		}
+	}
+	
+	return "unknown"
+}
+
+// getGitBranch gets the current Git branch name
+func getGitBranch(dir string) string {
+	// Check if .git directory exists
+	if _, err := os.Stat(filepath.Join(dir, ".git")); os.IsNotExist(err) {
+		return ""
+	}
+	
+	// Try to read .git/HEAD file
+	headFile := filepath.Join(dir, ".git", "HEAD")
+	content, err := os.ReadFile(headFile)
+	if err != nil {
+		return ""
+	}
+	
+	// Parse the content to extract branch name
+	headContent := string(content)
+	if strings.HasPrefix(headContent, "ref: refs/heads/") {
+		return strings.TrimSpace(strings.TrimPrefix(headContent, "ref: refs/heads/"))
+	}
+	
+	return strings.TrimSpace(headContent)
+}
+
+// getGitRemoteURL gets the Git remote URL
+func getGitRemoteURL(dir string) string {
+	// Check if .git directory exists
+	if _, err := os.Stat(filepath.Join(dir, ".git")); os.IsNotExist(err) {
+		return ""
+	}
+	
+	// Try to read .git/config file
+	configFile := filepath.Join(dir, ".git", "config")
+	content, err := os.ReadFile(configFile)
+	if err != nil {
+		return ""
+	}
+	
+	// Look for remote "origin" URL
+	configContent := string(content)
+	lines := strings.Split(configContent, "\n")
+	inOriginSection := false
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		
+		if line == "[remote \"origin\"]" {
+			inOriginSection = true
+			continue
+		}
+		
+		if inOriginSection && strings.HasPrefix(line, "url = ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "url = "))
+		}
+		
+		if inOriginSection && strings.HasPrefix(line, "[") {
+			inOriginSection = false
+		}
+	}
+	
+	return ""
+}
+
+// detectPackageManagers detects installed package managers
+func detectPackageManagers() map[string]bool {
+	packageManagers := map[string]bool{
+		"npm":     checkCommandExists("npm"),
+		"yarn":    checkCommandExists("yarn"),
+		"pip":     checkCommandExists("pip") || checkCommandExists("pip3"),
+		"gem":     checkCommandExists("gem"),
+		"cargo":   checkCommandExists("cargo"),
+		"go":      checkCommandExists("go"),
+		"maven":   checkCommandExists("mvn"),
+		"gradle":  checkCommandExists("gradle"),
+		"docker":  checkCommandExists("docker"),
+		"kubectl": checkCommandExists("kubectl"),
+		"helm":    checkCommandExists("helm"),
+	}
+	
+	return packageManagers
+}
+
+// checkCommandExists checks if a command exists in PATH
+func checkCommandExists(command string) bool {
+	// This is a simple implementation - in a real environment you would use exec.LookPath
+	path := os.Getenv("PATH")
+	dirs := strings.Split(path, string(os.PathListSeparator))
+	
+	for _, dir := range dirs {
+		fullPath := filepath.Join(dir, command)
+		if fileExists(fullPath) || fileExists(fullPath+".exe") {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// fileExists checks if a file exists
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// detectTools detects installed development tools
+func detectTools() map[string]string {
+	tools := make(map[string]string)
+	
+	// Check for common development tools
+	toolCommands := []string{
+		"git", "python", "python3", "node", "java", "javac", "ruby", "gcc", "g++",
+		"make", "docker", "kubectl", "terraform", "ansible", "vagrant", "virtualbox",
+	}
+	
+	for _, tool := range toolCommands {
+		if checkCommandExists(tool) {
+			// In a real implementation, you would get version information
+			// by running the tool with --version or similar
+			tools[tool] = "installed"
+		}
+	}
+	
+	return tools
+}
+
+// collectFileExtensions collects statistics about file extensions in a directory
+func collectFileExtensions(dir string) map[string]int {
+	extensions := make(map[string]int)
+	
+	// In a real implementation, you would walk the directory tree
+	// This is a simplified version that just checks the current directory
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return extensions
+	}
+	
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		
+		ext := filepath.Ext(file.Name())
+		if ext != "" {
+			extensions[ext]++
+		}
+	}
+	
+	return extensions
+}
+
+// collectDirectoryStats collects statistics about directories
+func collectDirectoryStats(dir string) map[string]int {
+	stats := map[string]int{
+		"total_files": 0,
+		"total_dirs":  0,
+	}
+	
+	// In a real implementation, you would walk the directory tree
+	// This is a simplified version that just checks the current directory
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return stats
+	}
+	
+	for _, file := range files {
+		if file.IsDir() {
+			stats["total_dirs"]++
+		} else {
+			stats["total_files"]++
+		}
+	}
+	
+	return stats
+}
+
+// collectNetworkInterfaces gets information about network interfaces
+func collectNetworkInterfaces() []string {
+	// In a real implementation, you would use net package to get network interfaces
+	// This is a simplified version
+	return []string{"lo", "eth0", "wlan0"}
+}
+
+// getDockerInfo gets information about Docker if installed
+func getDockerInfo() map[string]string {
+	// In a real implementation, you would run docker commands to get info
+	// This is a simplified version
+	dockerInfo := make(map[string]string)
+	
+	if checkCommandExists("docker") {
+		dockerInfo["installed"] = "true"
+		dockerInfo["version"] = "detected"
+	}
+	
+	return dockerInfo
+}
+
+// getKubernetesInfo gets information about Kubernetes if installed
+func getKubernetesInfo() map[string]string {
+	// In a real implementation, you would run kubectl commands to get info
+	// This is a simplified version
+	kubeInfo := make(map[string]string)
+	
+	if checkCommandExists("kubectl") {
+		kubeInfo["installed"] = "true"
+		kubeInfo["version"] = "detected"
+	}
+	
+	return kubeInfo
+}
+
+// detectRuntimeVersions detects versions of installed runtimes
+func detectRuntimeVersions() map[string]string {
+	// In a real implementation, you would run commands to get version info
+	// This is a simplified version
+	versions := make(map[string]string)
+	
+	versions["go"] = runtime.Version()
+	
+	return versions
+}
+
+// getSystemLoad gets system load information
+func getSystemLoad() map[string]float64 {
+	// In a real implementation, you would get actual system load
+	// This is a simplified version
+	load := make(map[string]float64)
+	
+	load["cpu"] = 0.0
+	load["memory"] = 0.0
+	
+	return load
+}
+
+// getLastCommands gets the last N commands from history
+func getLastCommands(n int) []string {
+	// In a real implementation, you would read from history file
+	// This is a simplified version with sample data
+	commands := []string{
+		"git status",
+		"git diff",
+		"make build",
+		"./deltacli",
+		"go test ./...",
+	}
+	
+	if len(commands) > n {
+		return commands[:n]
+	}
+	
+	return commands
+}
+
+// ProjectInfo represents information about a detected project
+type ProjectInfo struct {
+	Type           string            `json:"type"`
+	Path           string            `json:"path"`
+	Name           string            `json:"name"`
+	Version        string            `json:"version"`
+	Dependencies   []string          `json:"dependencies"`
+	Languages      []string          `json:"languages"`
+	BuildSystem    string            `json:"build_system"`
+	TestFramework  string            `json:"test_framework"`
+	Config         map[string]string `json:"config"`
+	RepoURL        string            `json:"repo_url"`
+	Branch         string            `json:"branch"`
+	LastModified   time.Time         `json:"last_modified"`
+	CodeStats      map[string]int    `json:"code_stats"`
+	Contributors   []string          `json:"contributors"`
+	Readme         string            `json:"readme"`
+}
+
+// GetProjectInfo returns detailed information about the current project
+func (ke *KnowledgeExtractor) GetProjectInfo() ProjectInfo {
+	context := ke.GetCurrentContext()
+	
+	// Initialize the project info with data from the context
+	projectInfo := ProjectInfo{
+		Type:         context.ProjectType,
+		Path:         context.CurrentDir,
+		Name:         filepath.Base(context.CurrentDir),
+		RepoURL:      context.GitRepo,
+		Branch:       context.GitBranch,
+		LastModified: time.Now(),
+		Config:       make(map[string]string),
+		CodeStats:    make(map[string]int),
+	}
+	
+	// Copy file extension stats to code stats
+	for ext, count := range context.FileExtensions {
+		projectInfo.CodeStats[ext] = count
+	}
+	
+	// Set languages based on file extensions and project type
+	projectInfo.Languages = detectProjectLanguages(context)
+	
+	// Determine build system
+	projectInfo.BuildSystem = detectBuildSystem(context)
+	
+	// Determine test framework
+	projectInfo.TestFramework = detectTestFramework(context.ProjectType, projectInfo.BuildSystem)
+	
+	// Check for version information
+	projectInfo.Version = detectProjectVersion(context.CurrentDir, context.ProjectType)
+	
+	// Get dependencies from appropriate files
+	projectInfo.Dependencies = detectDependencies(context.CurrentDir, context.ProjectType)
+	
+	// Try to find README file
+	projectInfo.Readme = findReadmeContent(context.CurrentDir)
+	
+	// Get contributors if git repo
+	if context.GitRepo != "" {
+		projectInfo.Contributors = getGitContributors(context.CurrentDir)
+	}
+	
+	return projectInfo
+}
+
+// detectProjectLanguages determines the programming languages used in a project
+func detectProjectLanguages(context Context) []string {
+	languages := make(map[string]bool)
+	
+	// Add language based on project type
+	switch context.ProjectType {
+	case "go":
+		languages["Go"] = true
+	case "javascript", "typescript":
+		languages["JavaScript"] = true
+		// Check for TypeScript
+		if _, ok := context.FileExtensions[".ts"]; ok {
+			languages["TypeScript"] = true
+		}
+	case "java":
+		languages["Java"] = true
+	case "python":
+		languages["Python"] = true
+	case "rust":
+		languages["Rust"] = true
+	case "ruby":
+		languages["Ruby"] = true
+	case "php":
+		languages["PHP"] = true
+	}
+	
+	// Add languages based on file extensions
+	for ext := range context.FileExtensions {
+		switch ext {
+		case ".go":
+			languages["Go"] = true
+		case ".js":
+			languages["JavaScript"] = true
+		case ".ts":
+			languages["TypeScript"] = true
+		case ".py":
+			languages["Python"] = true
+		case ".java":
+			languages["Java"] = true
+		case ".kt", ".kts":
+			languages["Kotlin"] = true
+		case ".rb":
+			languages["Ruby"] = true
+		case ".php":
+			languages["PHP"] = true
+		case ".c", ".h":
+			languages["C"] = true
+		case ".cpp", ".hpp", ".cc", ".hh":
+			languages["C++"] = true
+		case ".cs":
+			languages["C#"] = true
+		case ".rs":
+			languages["Rust"] = true
+		case ".swift":
+			languages["Swift"] = true
+		case ".sh", ".bash":
+			languages["Shell"] = true
+		case ".html", ".htm":
+			languages["HTML"] = true
+		case ".css":
+			languages["CSS"] = true
+		}
+	}
+	
+	// Convert map to slice
+	result := make([]string, 0, len(languages))
+	for lang := range languages {
+		result = append(result, lang)
+	}
+	
+	// Sort languages alphabetically
+	sort.Strings(result)
+	
+	return result
+}
+
+// detectBuildSystem determines the build system used in a project
+func detectBuildSystem(context Context) string {
+	// Check if Makefile exists
+	if _, ok := context.FileExtensions[".mk"]; ok || fileExists(filepath.Join(context.CurrentDir, "Makefile")) {
+		return "make"
+	}
+	
+	// Determine build system based on project type
+	switch context.ProjectType {
+	case "go":
+		return "go build"
+	case "javascript", "typescript":
+		if fileExists(filepath.Join(context.CurrentDir, "package.json")) {
+			// Check for yarn.lock
+			if fileExists(filepath.Join(context.CurrentDir, "yarn.lock")) {
+				return "yarn"
+			}
+			return "npm"
+		}
+	case "java":
+		if fileExists(filepath.Join(context.CurrentDir, "pom.xml")) {
+			return "maven"
+		}
+		if fileExists(filepath.Join(context.CurrentDir, "build.gradle")) {
+			return "gradle"
+		}
+	case "python":
+		if fileExists(filepath.Join(context.CurrentDir, "setup.py")) {
+			return "setup.py"
+		}
+		if fileExists(filepath.Join(context.CurrentDir, "requirements.txt")) {
+			return "pip"
+		}
+	case "rust":
+		return "cargo"
+	case "ruby":
+		if fileExists(filepath.Join(context.CurrentDir, "Gemfile")) {
+			return "bundle"
+		}
+	case "php":
+		if fileExists(filepath.Join(context.CurrentDir, "composer.json")) {
+			return "composer"
+		}
+	}
+	
+	return "unknown"
+}
+
+// detectTestFramework determines the test framework used in a project
+func detectTestFramework(projectType string, buildSystem string) string {
+	switch projectType {
+	case "go":
+		return "go test"
+	case "javascript", "typescript":
+		if buildSystem == "npm" || buildSystem == "yarn" {
+			// Could check package.json for test frameworks like jest, mocha, etc.
+			return "npm test"
+		}
+	case "java":
+		if buildSystem == "maven" {
+			return "junit"
+		}
+		if buildSystem == "gradle" {
+			return "junit"
+		}
+	case "python":
+		// Could check for pytest, unittest, etc.
+		return "pytest"
+	case "rust":
+		return "cargo test"
+	case "ruby":
+		return "rspec"
+	}
+	
+	return "unknown"
+}
+
+// detectProjectVersion tries to determine the project version
+func detectProjectVersion(dir string, projectType string) string {
+	switch projectType {
+	case "go":
+		// Try to read version from go.mod
+		if fileExists(filepath.Join(dir, "go.mod")) {
+			content, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+			if err == nil {
+				// Simple version extraction, could be improved
+				lines := strings.Split(string(content), "\n")
+				for _, line := range lines {
+					if strings.HasPrefix(line, "module ") {
+						// Module name might have version in path
+						parts := strings.Split(strings.TrimSpace(strings.TrimPrefix(line, "module ")), "/")
+						if len(parts) > 0 && strings.HasPrefix(parts[len(parts)-1], "v") {
+							return parts[len(parts)-1]
+						}
+					}
+				}
+			}
+		}
+	case "javascript", "typescript":
+		// Try to read version from package.json
+		if fileExists(filepath.Join(dir, "package.json")) {
+			content, err := os.ReadFile(filepath.Join(dir, "package.json"))
+			if err == nil {
+				// Simple version extraction, could be improved
+				var packageJSON map[string]interface{}
+				if err := json.Unmarshal(content, &packageJSON); err == nil {
+					if version, ok := packageJSON["version"].(string); ok {
+						return version
+					}
+				}
+			}
+		}
+	}
+	
+	return "0.1.0" // Default version if not found
+}
+
+// detectDependencies tries to extract project dependencies
+func detectDependencies(dir string, projectType string) []string {
+	dependencies := []string{}
+	
+	switch projectType {
+	case "go":
+		// Read from go.mod
+		if fileExists(filepath.Join(dir, "go.mod")) {
+			content, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+			if err == nil {
+				lines := strings.Split(string(content), "\n")
+				for _, line := range lines {
+					line = strings.TrimSpace(line)
+					if strings.HasPrefix(line, "require ") && !strings.HasSuffix(line, "(") {
+						dep := strings.TrimPrefix(line, "require ")
+						dependencies = append(dependencies, dep)
+					} else if strings.HasPrefix(line, "github.com/") || 
+							  strings.HasPrefix(line, "golang.org/") || 
+							  strings.HasPrefix(line, "gopkg.in/") {
+						dependencies = append(dependencies, line)
+					}
+				}
+			}
+		}
+	case "javascript", "typescript":
+		// Read from package.json
+		if fileExists(filepath.Join(dir, "package.json")) {
+			content, err := os.ReadFile(filepath.Join(dir, "package.json"))
+			if err == nil {
+				var packageJSON map[string]interface{}
+				if err := json.Unmarshal(content, &packageJSON); err == nil {
+					// Get dependencies
+					if deps, ok := packageJSON["dependencies"].(map[string]interface{}); ok {
+						for dep := range deps {
+							dependencies = append(dependencies, dep)
+						}
+					}
+					// Get devDependencies
+					if devDeps, ok := packageJSON["devDependencies"].(map[string]interface{}); ok {
+						for dep := range devDeps {
+							dependencies = append(dependencies, dep+" (dev)")
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	// Sort dependencies
+	sort.Strings(dependencies)
+	
+	// Limit number of dependencies to return
+	maxDeps := 20
+	if len(dependencies) > maxDeps {
+		dependencies = dependencies[:maxDeps]
+	}
+	
+	return dependencies
+}
+
+// findReadmeContent tries to find and read the README file
+func findReadmeContent(dir string) string {
+	readmeFiles := []string{
+		"README.md",
+		"README",
+		"README.txt",
+		"README.markdown",
+		"readme.md",
+	}
+	
+	for _, name := range readmeFiles {
+		path := filepath.Join(dir, name)
+		if fileExists(path) {
+			content, err := os.ReadFile(path)
+			if err == nil {
+				// Limit readme content length
+				readmeContent := string(content)
+				if len(readmeContent) > 500 {
+					readmeContent = readmeContent[:500] + "...(truncated)"
+				}
+				return readmeContent
+			}
+		}
+	}
+	
+	return ""
+}
+
+// getGitContributors gets the list of contributors from git
+func getGitContributors(dir string) []string {
+	// In a real implementation, you would run:
+	// git log --format='%aN' | sort -u
+	
+	// Return a default list
+	return []string{"User", "Contributor"}
 }
 
 // AddCommand adds a command for knowledge extraction

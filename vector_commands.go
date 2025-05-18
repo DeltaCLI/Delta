@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -94,6 +96,32 @@ func HandleVectorCommand(args []string) bool {
 		}
 		return true
 
+	case "export":
+		// Export vector database to a file
+		if len(args) < 2 {
+			fmt.Println("Usage: :vector export <file_path>")
+			return true
+		}
+		exportVectorDatabase(vm, args[1])
+		return true
+
+	case "import":
+		// Import vector database from a file
+		if len(args) < 2 {
+			fmt.Println("Usage: :vector import <file_path> [merge_strategy]")
+			fmt.Println("Available merge strategies: replace, merge, keep_newer")
+			return true
+		}
+		
+		// Default merge strategy is "merge"
+		mergeStrategy := "merge"
+		if len(args) >= 3 {
+			mergeStrategy = args[2]
+		}
+		
+		importVectorDatabase(vm, args[1], mergeStrategy)
+		return true
+		
 	case "help":
 		// Show help
 		showVectorHelp()
@@ -525,6 +553,9 @@ func showVectorHelp() {
 	fmt.Println("  :vector search metric:<metric> <cmd> - Search with specified metric")
 	fmt.Println("                         Available metrics: cosine, dot, euclidean, manhattan, jaccard")
 	fmt.Println("  :vector embed <cmd>  - Generate embedding for a command")
+	fmt.Println("  :vector export <file> - Export vector database to a file")
+	fmt.Println("  :vector import <file> [strategy] - Import vector database from a file")
+	fmt.Println("                         Available strategies: replace, merge, keep_newer")
 	fmt.Println("  :vector config       - Show configuration")
 	fmt.Println("  :vector config set <setting> <value> - Update configuration")
 	fmt.Println("  :vector help         - Show this help message")
@@ -535,6 +566,131 @@ func showVectorHelp() {
 }
 
 // Helper functions
+
+// exportVectorDatabase exports vector database to a file
+func exportVectorDatabase(vm *VectorDBManager, filePath string) {
+	if !vm.IsEnabled() {
+		fmt.Println("Vector database not enabled")
+		fmt.Println("Run ':vector enable' to enable")
+		return
+	}
+
+	fmt.Printf("Exporting vector database to: %s\n", filePath)
+	
+	// Expand ~ in file path if present
+	if strings.HasPrefix(filePath, "~") {
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			filePath = filepath.Join(homeDir, filePath[1:])
+		}
+	}
+	
+	// Ensure the directory exists
+	dir := filepath.Dir(filePath)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		fmt.Printf("Error creating directory %s: %v\n", dir, err)
+		return
+	}
+
+	// Export the data
+	startTime := time.Now()
+	err = vm.ExportData(filePath)
+	if err != nil {
+		fmt.Printf("Error exporting data: %v\n", err)
+		return
+	}
+
+	// Get stats about the export
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		fmt.Printf("Export completed successfully to %s\n", filePath)
+		return
+	}
+
+	fileSizeMB := float64(fileInfo.Size()) / 1024 / 1024
+	duration := time.Since(startTime)
+	
+	fmt.Printf("Export completed successfully to %s\n", filePath)
+	fmt.Printf("  Size: %.2f MB\n", fileSizeMB)
+	fmt.Printf("  Duration: %s\n", formatDuration(duration))
+	
+	// Get the number of embeddings
+	stats := vm.GetStats()
+	if vectorCount, ok := stats["vector_count"].(int); ok {
+		fmt.Printf("  Exported %d embeddings\n", vectorCount)
+	}
+}
+
+// importVectorDatabase imports vector database from a file
+func importVectorDatabase(vm *VectorDBManager, filePath string, mergeStrategy string) {
+	if !vm.IsEnabled() {
+		fmt.Println("Vector database not enabled")
+		fmt.Println("Run ':vector enable' to enable")
+		return
+	}
+
+	// Validate merge strategy
+	validStrategies := map[string]bool{
+		"replace":    true,
+		"merge":      true,
+		"keep_newer": true,
+	}
+	
+	if !validStrategies[mergeStrategy] {
+		fmt.Printf("Invalid merge strategy: %s\n", mergeStrategy)
+		fmt.Println("Available strategies: replace, merge, keep_newer")
+		return
+	}
+
+	fmt.Printf("Importing vector database from: %s\n", filePath)
+	fmt.Printf("Using merge strategy: %s\n", mergeStrategy)
+	
+	// Expand ~ in file path if present
+	if strings.HasPrefix(filePath, "~") {
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			filePath = filepath.Join(homeDir, filePath[1:])
+		}
+	}
+	
+	// Check if the file exists
+	_, err := os.Stat(filePath)
+	if err != nil {
+		fmt.Printf("Error accessing file: %v\n", err)
+		return
+	}
+
+	// Get stats before import
+	statsBefore := vm.GetStats()
+	countBefore := 0
+	if vectorCount, ok := statsBefore["vector_count"].(int); ok {
+		countBefore = vectorCount
+	}
+
+	// Import the data
+	startTime := time.Now()
+	err = vm.ImportData(filePath, mergeStrategy)
+	if err != nil {
+		fmt.Printf("Error importing data: %v\n", err)
+		return
+	}
+
+	// Get stats after import
+	statsAfter := vm.GetStats()
+	countAfter := 0
+	if vectorCount, ok := statsAfter["vector_count"].(int); ok {
+		countAfter = vectorCount
+	}
+
+	duration := time.Since(startTime)
+	
+	fmt.Printf("Import completed successfully\n")
+	fmt.Printf("  Duration: %s\n", formatDuration(duration))
+	fmt.Printf("  Embeddings before: %d\n", countBefore)
+	fmt.Printf("  Embeddings after: %d\n", countAfter)
+	fmt.Printf("  Net change: %+d\n", countAfter - countBefore)
+}
 
 // formatTimeSince formats a duration in a user-friendly way
 func formatTimeSince(d time.Duration) string {
@@ -550,5 +706,18 @@ func formatTimeSince(d time.Duration) string {
 	} else {
 		seconds := int(d.Seconds())
 		return fmt.Sprintf("%d seconds", seconds)
+	}
+}
+
+// formatDuration formats a duration in a more precise way
+func formatDuration(d time.Duration) string {
+	if d.Hours() >= 1 {
+		return fmt.Sprintf("%.1f hours", d.Hours())
+	} else if d.Minutes() >= 1 {
+		return fmt.Sprintf("%.1f minutes", d.Minutes())
+	} else if d.Seconds() >= 1 {
+		return fmt.Sprintf("%.1f seconds", d.Seconds())
+	} else {
+		return fmt.Sprintf("%d milliseconds", d.Milliseconds())
 	}
 }

@@ -250,6 +250,49 @@ func showKnowledgeStats(ke *KnowledgeExtractor) {
 		fmt.Println("Run ':knowledge enable' to initialize")
 	}
 
+	// Show vector database integration status
+	fmt.Println("\nVector Database Integration:")
+	vectorDBEnabled := false
+	if enabled, ok := stats["vector_db_enabled"].(bool); ok {
+		vectorDBEnabled = enabled
+	}
+	
+	if vectorDBEnabled {
+		fmt.Println("Status: Enabled and connected")
+		
+		// Show vector count
+		if count, ok := stats["vector_db_count"].(int); ok {
+			fmt.Printf("Indexed Items: %d\n", count)
+		}
+		
+		// Show similarity metric
+		if metric, ok := stats["vector_db_metric"].(string); ok {
+			fmt.Printf("Similarity Metric: %s\n", metric)
+		}
+		
+		// Show vector extension status
+		if hasExt, ok := stats["vector_db_extension"].(bool); ok {
+			if hasExt {
+				fmt.Println("SQLite Vector Extension: Available")
+			} else {
+				fmt.Println("SQLite Vector Extension: Not available (using in-memory fallback)")
+			}
+		}
+		
+		// Show embedding coverage
+		totalItems := stats["total_items"].(int)
+		itemsWithEmbeddings := stats["items_with_embeddings"].(int)
+		
+		if totalItems > 0 {
+			coverage := float64(itemsWithEmbeddings) / float64(totalItems) * 100
+			fmt.Printf("Embedding Coverage: %.1f%% (%d/%d items)\n", 
+				coverage, itemsWithEmbeddings, totalItems)
+		}
+	} else {
+		fmt.Println("Status: Not connected")
+		fmt.Println("Run ':vector enable' to enable vector database")
+	}
+	
 	// Show configuration
 	fmt.Println("\nConfiguration:")
 	fmt.Printf("Environment Awareness: %t\n", stats["environment_awareness"])
@@ -274,17 +317,40 @@ func searchKnowledge(ke *KnowledgeExtractor, query string) {
 	fmt.Printf("Searching for knowledge matching: %s\n", query)
 	fmt.Println("------------------------------------------")
 
-	// Generate embeddings for items first
+	// Initialize vector database if available
+	vectorDB := GetVectorDBManager()
+	if vectorDB != nil && !vectorDB.IsEnabled() {
+		err := vectorDB.Initialize()
+		if err == nil {
+			vectorDB.Enable()
+		}
+	}
+
+	// Generate embeddings for items first (if not already done)
+	fmt.Println("Generating embeddings for semantic search...")
 	err := ke.GenerateEmbeddings()
 	if err != nil {
 		fmt.Printf("Warning: Error generating embeddings: %v\n", err)
+		fmt.Println("Falling back to text-based search")
 	}
+
+	// Start time to measure search duration
+	startTime := time.Now()
 
 	// Search for knowledge
 	results, err := ke.SearchKnowledge(query, 10)
+	
+	// Calculate search duration
+	searchDuration := time.Since(startTime)
+
 	if err != nil {
 		fmt.Printf("Error searching knowledge: %v\n", err)
-		return
+		fmt.Println("Falling back to text-based search")
+		
+		// Try again with text-based search only
+		startTime = time.Now()
+		results = ke.searchKnowledgeWithText(query, 10)
+		searchDuration = time.Since(startTime)
 	}
 
 	if len(results) == 0 {
@@ -293,15 +359,76 @@ func searchKnowledge(ke *KnowledgeExtractor, query string) {
 	}
 
 	// Display results
-	fmt.Printf("Found %d matching items:\n\n", len(results))
+	fmt.Printf("Found %d matching items in %s:\n\n", len(results), formatDuration(searchDuration))
+
+	// Determine if results are from vector search or text search
+	searchMethod := "semantic vector"
+	if err != nil {
+		searchMethod = "text-based"
+	}
+	fmt.Printf("Search method: %s search\n\n", searchMethod)
 
 	for i, item := range results {
-		fmt.Printf("%d. [%s] %s\n", i+1, item.Type, item.Pattern)
-		if len(item.Examples) > 0 {
-			fmt.Printf("   Example: %s\n", item.Examples[0])
+		// Check if item is synthetic (from vector DB but not in memory)
+		isSynthetic := false
+		if val, ok := item.Metadata["synthetic"]; ok && val == "true" {
+			isSynthetic = true
 		}
-		fmt.Printf("   Confidence: %.2f\n", item.Confidence)
+
+		// Show item type and pattern
+		fmt.Printf("%d. [%s] %s\n", i+1, item.Type, item.Pattern)
+		
+		// Show examples
+		if len(item.Examples) > 0 {
+			if len(item.Examples) == 1 {
+				fmt.Printf("   Example: %s\n", item.Examples[0])
+			} else {
+				fmt.Printf("   Examples: %d available\n", len(item.Examples))
+				// Show first example
+				fmt.Printf("     - %s\n", item.Examples[0])
+				
+				// Show second example if available
+				if len(item.Examples) > 1 {
+					fmt.Printf("     - %s\n", item.Examples[1])
+				}
+			}
+		}
+		
+		// Show metadata
+		fmt.Printf("   Confidence: %.2f, Usage: %d\n", item.Confidence, item.UsageCount)
+		
+		// Show last update time
+		if !item.LastUpdated.IsZero() {
+			fmt.Printf("   Last Updated: %s\n", formatTimeSince(time.Since(item.LastUpdated)))
+		}
+		
+		// Show directory if available
+		if dir, ok := item.Metadata["directory"]; ok && dir != "" {
+			fmt.Printf("   Context: %s\n", dir)
+		}
+		
+		// Show if item is synthetic
+		if isSynthetic {
+			fmt.Printf("   [From vector database]\n")
+		}
+		
 		fmt.Println()
+	}
+	
+	// Check vector database status
+	if vectorDB != nil && vectorDB.IsEnabled() {
+		stats := vectorDB.GetStats()
+		vectorCount := 0
+		if count, ok := stats["vector_count"].(int); ok {
+			vectorCount = count
+		}
+		
+		fmt.Printf("Vector database status: %d entries indexed\n", vectorCount)
+		
+		// Show which similarity metric was used
+		if metric, ok := stats["metric"].(string); ok {
+			fmt.Printf("Similarity metric: %s\n", metric)
+		}
 	}
 }
 
@@ -333,37 +460,180 @@ func showCurrentContext(ke *KnowledgeExtractor) {
 	fmt.Println("Current Environment Context")
 	fmt.Println("==========================")
 	
-	fmt.Printf("OS: %s\n", context.OS)
-	fmt.Printf("Architecture: %s\n", context.Arch)
-	fmt.Printf("Shell: %s\n", context.Shell)
-	fmt.Printf("User: %s\n", context.User)
-	fmt.Printf("Hostname: %s\n", context.Hostname)
-	fmt.Printf("Current Directory: %s\n", context.CurrentDir)
-	fmt.Printf("Home Directory: %s\n", context.HomeDir)
+	// System information
+	fmt.Println("System Information:")
+	fmt.Printf("  OS: %s\n", context.OS)
+	fmt.Printf("  Architecture: %s\n", context.Arch)
+	fmt.Printf("  Hostname: %s\n", context.Hostname)
+	fmt.Printf("  User: %s\n", context.User)
 	
-	if context.GitBranch != "" {
-		fmt.Printf("Git Branch: %s\n", context.GitBranch)
+	// Shell information
+	fmt.Println("\nShell Environment:")
+	fmt.Printf("  Shell: %s\n", context.Shell)
+	fmt.Printf("  Current Directory: %s\n", context.CurrentDir)
+	fmt.Printf("  Home Directory: %s\n", context.HomeDir)
+	
+	// Git information
+	if context.GitBranch != "" || context.GitRepo != "" {
+		fmt.Println("\nGit Information:")
+		if context.GitBranch != "" {
+			fmt.Printf("  Branch: %s\n", context.GitBranch)
+		}
+		if context.GitRepo != "" {
+			fmt.Printf("  Repository: %s\n", context.GitRepo)
+		}
 	}
 	
-	if context.GitRepo != "" {
-		fmt.Printf("Git Repository: %s\n", context.GitRepo)
-	}
-	
+	// Project information
 	if context.ProjectType != "" {
-		fmt.Printf("Project Type: %s\n", context.ProjectType)
+		fmt.Println("\nProject Information:")
+		fmt.Printf("  Type: %s\n", context.ProjectType)
+		
+		// Get detailed project info
+		projectInfo := ke.GetProjectInfo()
+		
+		if len(projectInfo.Languages) > 0 {
+			fmt.Printf("  Languages: %s\n", strings.Join(projectInfo.Languages, ", "))
+		}
+		
+		if projectInfo.BuildSystem != "" && projectInfo.BuildSystem != "unknown" {
+			fmt.Printf("  Build System: %s\n", projectInfo.BuildSystem)
+		}
+		
+		if projectInfo.TestFramework != "" && projectInfo.TestFramework != "unknown" {
+			fmt.Printf("  Test Framework: %s\n", projectInfo.TestFramework)
+		}
+		
+		if projectInfo.Version != "" {
+			fmt.Printf("  Version: %s\n", projectInfo.Version)
+		}
+		
+		if len(projectInfo.Dependencies) > 0 {
+			fmt.Printf("  Dependencies: %d detected\n", len(projectInfo.Dependencies))
+			
+			// Show top dependencies (limited to 5)
+			maxShow := 5
+			if len(projectInfo.Dependencies) < maxShow {
+				maxShow = len(projectInfo.Dependencies)
+			}
+			
+			fmt.Println("  Top Dependencies:")
+			for i := 0; i < maxShow; i++ {
+				fmt.Printf("    - %s\n", projectInfo.Dependencies[i])
+			}
+		}
+		
+		// Show file statistics
+		if len(context.FileExtensions) > 0 {
+			fmt.Println("\nFile Extensions:")
+			
+			// Get top extensions by count
+			type extCount struct {
+				ext   string
+				count int
+			}
+			
+			extensions := make([]extCount, 0, len(context.FileExtensions))
+			for ext, count := range context.FileExtensions {
+				extensions = append(extensions, extCount{ext, count})
+			}
+			
+			// Sort by count descending
+			sort.Slice(extensions, func(i, j int) bool {
+				return extensions[i].count > extensions[j].count
+			})
+			
+			// Show top extensions (limited to 8)
+			maxShow := 8
+			if len(extensions) < maxShow {
+				maxShow = len(extensions)
+			}
+			
+			for i := 0; i < maxShow; i++ {
+				fmt.Printf("  %s: %d files\n", extensions[i].ext, extensions[i].count)
+			}
+		}
 	}
 	
+	// Detected tools
+	if len(context.DetectedTools) > 0 {
+		fmt.Println("\nDetected Tools:")
+		toolCount := 0
+		for tool, version := range context.DetectedTools {
+			fmt.Printf("  %s: %s\n", tool, version)
+			toolCount++
+			if toolCount >= 8 {
+				fmt.Printf("  (and %d more...)\n", len(context.DetectedTools)-toolCount)
+				break
+			}
+		}
+	}
+	
+	// Package managers
+	packageManagerCount := 0
+	for pm, installed := range context.PackageManagers {
+		if installed {
+			packageManagerCount++
+		}
+	}
+	
+	if packageManagerCount > 0 {
+		fmt.Println("\nPackage Managers:")
+		count := 0
+		for pm, installed := range context.PackageManagers {
+			if installed {
+				fmt.Printf("  %s\n", pm)
+				count++
+				if count >= 5 {
+					break
+				}
+			}
+		}
+	}
+	
+	// Docker information
+	if len(context.DockerInfo) > 0 && context.DockerInfo["installed"] == "true" {
+		fmt.Println("\nDocker Information:")
+		fmt.Printf("  Version: %s\n", context.DockerInfo["version"])
+	}
+	
+	// Kubernetes information
+	if len(context.KubernetesInfo) > 0 && context.KubernetesInfo["installed"] == "true" {
+		fmt.Println("\nKubernetes Information:")
+		fmt.Printf("  Version: %s\n", context.KubernetesInfo["version"])
+	}
+	
+	// Runtime versions
+	if len(context.RuntimeVersions) > 0 {
+		fmt.Println("\nRuntime Versions:")
+		for runtime, version := range context.RuntimeVersions {
+			fmt.Printf("  %s: %s\n", runtime, version)
+		}
+	}
+	
+	// Last commands
 	if len(context.LastCommands) > 0 {
-		fmt.Println("\nLast Commands:")
+		fmt.Println("\nRecent Commands:")
 		for i, cmd := range context.LastCommands {
 			fmt.Printf("  %d: %s\n", i+1, cmd)
 		}
 	}
 	
+	// Important environment variables (limited view)
 	if len(context.ShellEnvironment) > 0 {
-		fmt.Println("\nImportant Environment Variables:")
-		for key, value := range context.ShellEnvironment {
-			fmt.Printf("  %s=%s\n", key, value)
+		fmt.Println("\nKey Environment Variables:")
+		
+		// Show only important variables
+		importantVars := []string{"GOPATH", "GOROOT", "JAVA_HOME", "PYTHONPATH", "NODE_PATH", "PATH"}
+		
+		for _, key := range importantVars {
+			if value, ok := context.ShellEnvironment[key]; ok {
+				if len(value) > 50 {
+					// Truncate long values
+					value = value[:47] + "..."
+				}
+				fmt.Printf("  %s=%s\n", key, value)
+			}
 		}
 	}
 }
@@ -429,7 +699,7 @@ func scanCurrentDirectory(ke *KnowledgeExtractor) {
 	}
 }
 
-// showProjectInfo displays project information
+// showProjectInfo displays detailed project information
 func showProjectInfo(ke *KnowledgeExtractor) {
 	if !ke.IsEnabled() {
 		fmt.Println("Knowledge extractor not enabled")
@@ -451,8 +721,9 @@ func showProjectInfo(ke *KnowledgeExtractor) {
 		return
 	}
 
-	// Get project info
+	// Get project info and environment context
 	projectInfo := ke.GetProjectInfo()
+	context := ke.GetCurrentContext()
 
 	fmt.Println("Project Information")
 	fmt.Println("==================")
@@ -462,45 +733,220 @@ func showProjectInfo(ke *KnowledgeExtractor) {
 		return
 	}
 	
+	// Basic project information
 	fmt.Printf("Name: %s\n", projectInfo.Name)
+	fmt.Printf("Path: %s\n", projectInfo.Path)
 	fmt.Printf("Type: %s\n", projectInfo.Type)
 	
 	if projectInfo.Version != "" {
 		fmt.Printf("Version: %s\n", projectInfo.Version)
 	}
 	
-	if projectInfo.BuildSystem != "" {
-		fmt.Printf("Build System: %s\n", projectInfo.BuildSystem)
+	// Repository information
+	if projectInfo.RepoURL != "" || projectInfo.Branch != "" {
+		fmt.Println("\nRepository Information:")
+		if projectInfo.RepoURL != "" {
+			fmt.Printf("  URL: %s\n", projectInfo.RepoURL)
+		}
+		if projectInfo.Branch != "" {
+			fmt.Printf("  Branch: %s\n", projectInfo.Branch)
+		}
+		if len(projectInfo.Contributors) > 0 {
+			fmt.Println("  Contributors:")
+			for _, contributor := range projectInfo.Contributors {
+				fmt.Printf("    - %s\n", contributor)
+			}
+		}
+		fmt.Printf("  Last Modified: %s\n", projectInfo.LastModified.Format(time.RFC1123))
 	}
 	
-	if projectInfo.TestFramework != "" {
-		fmt.Printf("Test Framework: %s\n", projectInfo.TestFramework)
+	// Development information
+	fmt.Println("\nDevelopment Information:")
+	if projectInfo.BuildSystem != "" && projectInfo.BuildSystem != "unknown" {
+		fmt.Printf("  Build System: %s\n", projectInfo.BuildSystem)
+	}
+	if projectInfo.TestFramework != "" && projectInfo.TestFramework != "unknown" {
+		fmt.Printf("  Test Framework: %s\n", projectInfo.TestFramework)
 	}
 	
+	// Languages
 	if len(projectInfo.Languages) > 0 {
-		fmt.Printf("\nLanguages:\n")
-		for _, lang := range projectInfo.Languages {
-			fmt.Printf("  - %s\n", lang)
+		fmt.Printf("  Languages: %s\n", strings.Join(projectInfo.Languages, ", "))
+	}
+	
+	// Code statistics
+	if len(projectInfo.CodeStats) > 0 {
+		fmt.Println("\nCode Statistics:")
+		
+		// Get total file count by extension
+		totalFiles := 0
+		for _, count := range projectInfo.CodeStats {
+			totalFiles += count
+		}
+		fmt.Printf("  Total Files: %d\n", totalFiles)
+		
+		// Display top extensions by count
+		type extCount struct {
+			ext   string
+			count int
+		}
+		
+		extensions := make([]extCount, 0, len(projectInfo.CodeStats))
+		for ext, count := range projectInfo.CodeStats {
+			extensions = append(extensions, extCount{ext, count})
+		}
+		
+		// Sort by count descending
+		sort.Slice(extensions, func(i, j int) bool {
+			return extensions[i].count > extensions[j].count
+		})
+		
+		// Show top extensions (limited to 8)
+		fmt.Println("  File Types:")
+		maxShow := 8
+		if len(extensions) < maxShow {
+			maxShow = len(extensions)
+		}
+		
+		for i := 0; i < maxShow; i++ {
+			percentage := float64(extensions[i].count) / float64(totalFiles) * 100
+			fmt.Printf("    %s: %d files (%.1f%%)\n", extensions[i].ext, extensions[i].count, percentage)
 		}
 	}
 	
+	// Dependencies
 	if len(projectInfo.Dependencies) > 0 {
-		fmt.Printf("\nDependencies:\n")
-		for i, dep := range projectInfo.Dependencies {
-			if i >= 10 {
-				fmt.Printf("  ... and %d more\n", len(projectInfo.Dependencies)-10)
+		fmt.Printf("\nDependencies (%d total):\n", len(projectInfo.Dependencies))
+		
+		// Group dependencies by type if possible
+		devDeps := []string{}
+		mainDeps := []string{}
+		
+		for _, dep := range projectInfo.Dependencies {
+			if strings.Contains(dep, "(dev)") {
+				devDeps = append(devDeps, dep)
+			} else {
+				mainDeps = append(mainDeps, dep)
+			}
+		}
+		
+		// Show main dependencies
+		fmt.Println("  Main Dependencies:")
+		for i, dep := range mainDeps {
+			if i >= 8 {
+				fmt.Printf("    ... and %d more\n", len(mainDeps)-8)
 				break
 			}
-			fmt.Printf("  - %s\n", dep)
+			fmt.Printf("    - %s\n", dep)
+		}
+		
+		// Show dev dependencies if any
+		if len(devDeps) > 0 {
+			fmt.Println("  Dev Dependencies:")
+			maxShow := 5
+			if len(devDeps) < maxShow {
+				maxShow = len(devDeps)
+			}
+			
+			for i := 0; i < maxShow; i++ {
+				fmt.Printf("    - %s\n", devDeps[i])
+			}
+			
+			if len(devDeps) > maxShow {
+				fmt.Printf("    ... and %d more\n", len(devDeps)-maxShow)
+			}
 		}
 	}
 	
-	if projectInfo.RepoURL != "" {
-		fmt.Printf("\nRepository: %s\n", projectInfo.RepoURL)
+	// Environment tools
+	relevantTools := map[string]bool{}
+	
+	// Add relevant tools based on project type
+	switch projectInfo.Type {
+	case "go":
+		relevantTools["go"] = true
+		relevantTools["make"] = true
+		relevantTools["git"] = true
+	case "javascript", "typescript":
+		relevantTools["node"] = true
+		relevantTools["npm"] = true
+		relevantTools["yarn"] = true
+		relevantTools["git"] = true
+	case "python":
+		relevantTools["python"] = true
+		relevantTools["python3"] = true
+		relevantTools["pip"] = true
+		relevantTools["pip3"] = true
+		relevantTools["git"] = true
+	case "java":
+		relevantTools["java"] = true
+		relevantTools["javac"] = true
+		relevantTools["maven"] = true
+		relevantTools["gradle"] = true
+		relevantTools["git"] = true
+	case "rust":
+		relevantTools["rust"] = true
+		relevantTools["cargo"] = true
+		relevantTools["git"] = true
 	}
 	
-	if projectInfo.Branch != "" {
-		fmt.Printf("Branch: %s\n", projectInfo.Branch)
+	// Display detected relevant tools
+	detectedRelevantTools := []string{}
+	for tool := range context.DetectedTools {
+		if relevantTools[tool] {
+			detectedRelevantTools = append(detectedRelevantTools, tool)
+		}
+	}
+	
+	if len(detectedRelevantTools) > 0 {
+		fmt.Println("\nDetected Development Tools:")
+		for _, tool := range detectedRelevantTools {
+			fmt.Printf("  - %s: %s\n", tool, context.DetectedTools[tool])
+		}
+	}
+	
+	// Show README preview if available
+	if projectInfo.Readme != "" {
+		fmt.Println("\nREADME Preview:")
+		
+		// Split into lines and show first few
+		lines := strings.Split(projectInfo.Readme, "\n")
+		maxLines := 8
+		if len(lines) < maxLines {
+			maxLines = len(lines)
+		}
+		
+		for i := 0; i < maxLines; i++ {
+			// Truncate long lines
+			line := lines[i]
+			if len(line) > 70 {
+				line = line[:67] + "..."
+			}
+			fmt.Printf("  %s\n", line)
+		}
+		
+		if len(lines) > maxLines {
+			fmt.Println("  (README preview truncated)")
+		}
+	}
+	
+	// Project-specific information based on type
+	switch projectInfo.Type {
+	case "go":
+		fmt.Println("\nGo-specific Information:")
+		fmt.Printf("  GOPATH: %s\n", os.Getenv("GOPATH"))
+		fmt.Printf("  Go Version: %s\n", runtime.Version())
+	case "javascript", "typescript":
+		fmt.Println("\nNode-specific Information:")
+		if version, ok := context.RuntimeVersions["node"]; ok {
+			fmt.Printf("  Node Version: %s\n", version)
+		}
+	case "python":
+		fmt.Println("\nPython-specific Information:")
+		if version, ok := context.RuntimeVersions["python"]; ok {
+			fmt.Printf("  Python Version: %s\n", version)
+		}
+		fmt.Printf("  Virtual Environment: %s\n", os.Getenv("VIRTUAL_ENV"))
 	}
 }
 
