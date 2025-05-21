@@ -1063,8 +1063,65 @@ func getAIStatusText() string {
 
 // formatThought formats an AI thought with appropriate styling
 func formatThought(thought string) string {
-	// Use red color (31) and return formatted string with delta symbol
+	// Process double-asterisk highlighted sections
+	var result strings.Builder
+	parts := strings.Split(thought, "**")
+	
+	// If we have asterisk-marked sections
+	if len(parts) > 1 {
+		// Start with the text before first **
+		result.WriteString(parts[0])
+		
+		// Process each part
+		for i := 1; i < len(parts); i++ {
+			if i%2 == 1 { // This is text inside ** **
+				// Get appropriate emoji for the content
+				emoji := chooseEmoji(parts[i])
+				// Add on a new line with emoji
+				result.WriteString("\n" + emoji + " " + parts[i])
+			} else { // This is text after a ** ** section
+				result.WriteString(parts[i])
+			}
+		}
+		
+		return fmt.Sprintf("\033[31m[∆ thinking: %s]\033[0m", result.String())
+	}
+	
+	// If no ** sections, return the original
 	return fmt.Sprintf("\033[31m[∆ thinking: %s]\033[0m", thought)
+}
+
+// chooseEmoji selects an appropriate emoji based on text content
+func chooseEmoji(text string) string {
+	text = strings.ToLower(text)
+	
+	// Map keywords to emojis
+	if strings.Contains(text, "error") || strings.Contains(text, "fail") {
+		return "⚠️"
+	} else if strings.Contains(text, "success") || strings.Contains(text, "complete") {
+		return "✅"
+	} else if strings.Contains(text, "warning") {
+		return "⚡"
+	} else if strings.Contains(text, "tip") || strings.Contains(text, "hint") || strings.Contains(text, "suggestion") {
+		return "💡"
+	} else if strings.Contains(text, "info") || strings.Contains(text, "note") {
+		return "ℹ️"
+	} else if strings.Contains(text, "question") {
+		return "❓"
+	} else if strings.Contains(text, "important") {
+		return "‼️"
+	} else if strings.Contains(text, "todo") || strings.Contains(text, "task") {
+		return "📋"
+	} else if strings.Contains(text, "file") || strings.Contains(text, "document") {
+		return "📄"
+	} else if strings.Contains(text, "folder") || strings.Contains(text, "directory") {
+		return "📁"
+	} else if strings.Contains(text, "github") || strings.Contains(text, "git") {
+		return "🔄"
+	}
+	
+	// Default emoji
+	return "🔹"
 }
 
 // Global variable for AI manager
@@ -1354,7 +1411,7 @@ func main() {
 					suggestion := suggestions[0]
 					// Only display suggestion if it's not empty
 					if suggestion.Command != "" {
-						fmt.Printf("\n\033[2m💡 Suggestion:\n%s\033[0m\n", suggestion.Command)
+						fmt.Printf("\n\033[2m💡 ∆ Suggestion: %s\033[0m\n", suggestion.Command)
 					}
 				}
 			}

@@ -291,8 +291,8 @@ func (m *AIPredictionManager) generateThought() {
 		return
 	}
 
-	// Ensure it's a single line without cutting it off
-	thought = strings.ReplaceAll(thought, "\n", " ")
+	// Preserve newlines for properly formatting **text** sections
+	thought = strings.TrimSpace(thought)
 
 	// Store the prediction and command for feedback
 	m.processingLock.Lock()
