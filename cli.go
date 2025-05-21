@@ -1084,11 +1084,11 @@ func formatThought(thought string) string {
 			}
 		}
 		
-		return fmt.Sprintf("\033[31m[∆ thinking: %s]\033[0m", result.String())
+		return fmt.Sprintf("\033[32m[∆ thinking: %s]\033[0m", result.String())
 	}
 	
-	// If no ** sections, return the original
-	return fmt.Sprintf("\033[31m[∆ thinking: %s]\033[0m", thought)
+	// If no ** sections, return the original (in green color)
+	return fmt.Sprintf("\033[32m[∆ thinking: %s]\033[0m", thought)
 }
 
 // chooseEmoji selects an appropriate emoji based on text content
@@ -1102,6 +1102,8 @@ func chooseEmoji(text string) string {
 		return "✅"
 	} else if strings.Contains(text, "warning") {
 		return "⚡"
+	} else if strings.Contains(text, "good thought") {
+		return "💭"
 	} else if strings.Contains(text, "tip") || strings.Contains(text, "hint") || strings.Contains(text, "suggestion") {
 		return "💡"
 	} else if strings.Contains(text, "info") || strings.Contains(text, "note") {
@@ -1411,7 +1413,7 @@ func main() {
 					suggestion := suggestions[0]
 					// Only display suggestion if it's not empty
 					if suggestion.Command != "" {
-						fmt.Printf("\n\033[2m💡 ∆ Suggestion: %s\033[0m\n", suggestion.Command)
+						fmt.Printf("\n\033[2m💡 ∆ Next command suggestion: %s\033[0m\n", suggestion.Command)
 					}
 				}
 			}
