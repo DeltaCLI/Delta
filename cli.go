@@ -1061,6 +1061,12 @@ func getAIStatusText() string {
 	return "disabled"
 }
 
+// formatThought formats an AI thought with appropriate styling
+func formatThought(thought string) string {
+	// Use red color (31) and return formatted string with delta symbol
+	return fmt.Sprintf("\033[31m[∆ thinking: %s]\033[0m", thought)
+}
+
 // Global variable for AI manager
 var globalAIManager *AIPredictionManager
 
@@ -1252,8 +1258,8 @@ func main() {
 		if ai != nil && ai.IsEnabled() {
 			thought := ai.GetCurrentThought()
 			if thought != "" {
-				// Display thought above prompt in a subtle gray color
-				fmt.Printf("\033[31m[∆ thinking: %s]\033[0m\n", thought)
+				// Display thought above prompt using formatThought function
+				fmt.Println(formatThought(thought))
 			}
 		}
 
