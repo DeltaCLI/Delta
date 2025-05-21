@@ -611,15 +611,18 @@ func handleInternalCommand(command string) bool {
 		return HandleEmbeddingCommand(args)
 	case "speculative", "specd":
 		return HandleSpeculativeCommand(args)
-	case "knowledge", "know":
-		return HandleKnowledgeCommand(args)
-	case "agent":
-		return HandleAgentCommand(args)
-	case "config":
-		return HandleConfigCommand(args)
-	case "spellcheck", "spell":
-		return HandleSpellCheckCommand(args)
-	case "history", "hist":
+		case "knowledge", "know":
+			return HandleKnowledgeCommand(args)
+		case "agent":
+			return HandleAgentCommand(args)
+		case "config":
+			return HandleConfigCommand(args)
+		case "pattern", "pat":
+			return HandlePatternCommand(args)
+		case "spellcheck", "spell":
+			return HandleSpellCheckCommand(args)
+		case "history", "hist":
+			return HandleHistoryCommand(args)
 		return HandleHistoryCommand(args)
 	case "feedback":
 		// Shorthand for inference feedback
@@ -1174,6 +1177,8 @@ func main() {
 		"know agent":      {"suggest", "learn", "optimize", "create", "extract", "context", "triggers", "discover", "help"},
 		"agent":           {"enable", "disable", "list", "show", "run", "create", "edit", "delete", "learn", "docker", "stats", "help"},
 		"config":          {"status", "list", "export", "import", "edit", "reset", "help"},
+		"pattern":         {"enable", "disable", "update", "versions", "list", "check", "auto", "interval", "status", "stats", "help"},
+		"pat":             {"enable", "disable", "update", "versions", "list", "check", "auto", "interval", "status", "stats", "help"},
 		"spellcheck":      {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
 		"spell":           {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
 		"history":         {"show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},

@@ -38,6 +38,7 @@ build: $(OUTPUT_BINARY)
 		config_manager.go config_commands.go \
 		spellcheck.go spellcheck_commands.go \
 		history_analysis.go history_commands.go \
+			pattern_update.go pattern_commands.go \
 		error_learning.go
 	@echo "Successfully built $(BINARY_NAME) for $(TARGET)"
 

@@ -158,6 +158,7 @@ func (sc *SpellChecker) initializeCommands() {
 		"ai", "help", "jump", "j", "memory", "mem", "tokenizer", "tok",
 		"inference", "inf", "feedback", "vector", "embedding", "speculative",
 		"specd", "knowledge", "know", "agent", "config", "init",
+			"pattern", "pat",
 		"spellcheck", "spell",
 	}
 
@@ -186,6 +187,8 @@ func (sc *SpellChecker) initializeCommands() {
 	sc.internalCommands["feedback"] = true
 	sc.internalCommands["init"] = true
 	sc.internalCommands["ai"] = true
+		sc.internalCommands["pattern"] = true
+		sc.internalCommands["pat"] = true
 	
 	// Add custom dictionary entries
 	for _, cmd := range sc.config.CustomDictionary {
