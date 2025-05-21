@@ -1348,7 +1348,7 @@ func main() {
 					suggestion := suggestions[0]
 					// Only display suggestion if it's not empty
 					if suggestion.Command != "" {
-						fmt.Printf("\033[2m[Suggestion: %s]\033[0m\n", suggestion.Command)
+						fmt.Printf("\n\033[2m💡 Suggestion:\n%s\033[0m\n", suggestion.Command)
 					}
 				}
 			}

@@ -44,6 +44,15 @@ func HandleHistoryCommand(args []string) bool {
 		// Show history statistics
 		showHistoryStats(ha)
 		return true
+		
+	case "analyze":
+		// Force pattern analysis
+		fmt.Println("Analyzing command history to detect patterns...")
+		patterns := ha.findCommandPatterns()
+		workflows := ha.identifyTaskWorkflows()
+		fmt.Printf("Found %d command patterns and %d workflows\n", len(patterns), len(workflows))
+		fmt.Println("Use ':history patterns' to view the results")
+		return true
 
 	case "enable":
 		// Enable history analysis
@@ -573,20 +582,27 @@ func showCommandPatterns(ha *HistoryAnalyzer) {
 	ha.historyLock.RLock()
 	defer ha.historyLock.RUnlock()
 
+	// Find command patterns
+	patterns := ha.findCommandPatterns()
+	
+	// Display original command sequences
 	fmt.Println("Command Sequence Patterns")
 	fmt.Println("=======================")
 	
-	if len(ha.commandSequences) == 0 {
-		fmt.Println("No command sequences detected yet.")
+	if len(ha.commandSequences) == 0 && len(patterns) == 0 {
+		fmt.Println("No command patterns detected yet.")
+		fmt.Println("Use more commands to build up a history, or run ':history analyze' to force pattern detection.")
 		return
 	}
 	
-	// Sort sequences by frequency
-	sequences := make([]CommandSequence, len(ha.commandSequences))
-	copy(sequences, ha.commandSequences)
-	sort.Slice(sequences, func(i, j int) bool {
-		return sequences[i].Frequency > sequences[j].Frequency
-	})
+	// Display basic command sequences first
+	if len(ha.commandSequences) > 0 {
+		// Sort sequences by frequency
+		sequences := make([]CommandSequence, len(ha.commandSequences))
+		copy(sequences, ha.commandSequences)
+		sort.Slice(sequences, func(i, j int) bool {
+			return sequences[i].Frequency > sequences[j].Frequency
+		})
 	
 	// Display the top 10 sequences
 	for i, seq := range sequences {
@@ -606,6 +622,62 @@ func showCommandPatterns(ha *HistoryAnalyzer) {
 			fmt.Printf("   %d. %s\n", j+1, cmd)
 		}
 		fmt.Println()
+	}
+	}
+
+	// Display advanced patterns if available
+	if len(patterns) > 0 {
+		fmt.Println("\nAdvanced Command Patterns")
+		fmt.Println("=======================")
+		
+		// Group patterns by type
+		patternsByType := make(map[string][]CommandPattern)
+		for _, pattern := range patterns {
+			patternsByType[pattern.Type] = append(patternsByType[pattern.Type], pattern)
+		}
+		
+		// Display patterns by type
+		for patternType, typePatterns := range patternsByType {
+			fmt.Printf("\n%s Patterns:\n", strings.Title(patternType))
+			
+			// Sort by confidence
+			sort.Slice(typePatterns, func(i, j int) bool {
+				return typePatterns[i].Confidence > typePatterns[j].Confidence
+			})
+			
+			// Display patterns
+			for i, pattern := range typePatterns {
+				if i >= 5 {
+					fmt.Printf("  ... and %d more %s patterns\n", len(typePatterns)-5, patternType)
+					break
+				}
+				
+				fmt.Printf("  [%.0f%%] %s\n", pattern.Confidence*100, pattern.Description)
+				if pattern.Type == "sequence" {
+					fmt.Printf("       %s → %s (used %d times)\n", 
+						pattern.Commands[0], pattern.Commands[1], pattern.Frequency)
+				} else {
+					commandStr := strings.Join(pattern.Commands, ", ")
+					fmt.Printf("       %s (used %d times)\n", commandStr, pattern.Frequency)
+				}
+			}
+		}
+		
+		// Display workflows
+		workflows := ha.identifyTaskWorkflows()
+		if len(workflows) > 0 {
+			fmt.Println("\nIdentified Task Workflows:")
+			for i, workflow := range workflows {
+				if i >= 3 {
+					fmt.Printf("  ... and %d more workflows\n", len(workflows)-3)
+					break
+				}
+				
+				fmt.Printf("  %s: %s\n", workflow.Name, workflow.Description)
+				fmt.Printf("    Contains %d command patterns, used approximately %d times\n", 
+					len(workflow.Patterns), workflow.Frequency)
+			}
+		}
 	}
 }
 
@@ -695,6 +767,7 @@ func showHistoryHelp() {
 	fmt.Println("  :history config <setting=value> - Update configuration")
 	fmt.Println("  :history mark important|unimportant <command> - Mark a command")
 	fmt.Println("  :history patterns       - Show command patterns")
+	fmt.Println("  :history analyze        - Force analysis of command patterns")
 	fmt.Println("  :history info <command> - Show info about a specific command")
 	fmt.Println("  :history help           - Show this help message")
 	fmt.Println()
