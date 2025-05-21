@@ -19,10 +19,10 @@ OUTPUT_BINARY = $(BUILD_DIR)/$(TARGET)/$(BINARY_NAME)
 
 all: build
 
-build: $(OUTPUT_BINARY)
+build:
 	@echo "Building $(BINARY_NAME) for $(TARGET)"
 	@mkdir -p $(dir $(OUTPUT_BINARY))
-	CGO_ENABLED=0 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build $(GOFLAGS) -o $(OUTPUT_BINARY) \
+	CGO_ENABLED=1 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build $(GOFLAGS) -o $(OUTPUT_BINARY) \
 		ai.go ai_manager.go \
 		jump_manager.go jump_helper.go \
 		cli.go help.go \
