@@ -2,3 +2,7 @@ build/
 docs/node_modules/
 
 **/.claude/settings.local.json
+*.ini
+docs/.astro/
+docs/dist/
+docs/public/
