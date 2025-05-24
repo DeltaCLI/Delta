@@ -8,6 +8,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Clean: `make clean`
 - Install: `make install`
 
+## Extension Dependencies
+- SQLite vector extension: Download from https://github.com/asg017/sqlite-vec/releases
+- Current latest release: v0.1.7-alpha.2
+- Always use official releases for extensions
+- Do NOT create placeholder or simplified extension implementations
+- If an external dependency is missing, notify the user and suggest installation methods
+
 ## Code Style Guidelines
 1. **Formatting**: Follow Go standard formatting using `gofmt`
 2. **Imports**: Group standard library imports first, then third-party packages
