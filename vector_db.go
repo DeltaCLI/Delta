@@ -164,18 +164,26 @@ func (vm *VectorDBManager) initializeSchema() error {
 		return err
 	}
 
-	// Try to load the vectorx extension first
-	_, err = vm.db.Exec(`SELECT load_extension('vectorx')`)
+	// Try to load the vec0 extension
+	_, err = vm.db.Exec(`SELECT load_extension('./vec0')`)
 	
 	// If the extension load fails, try a few common paths where it might be installed
 	if err != nil {
+		// Get current working directory
+		cwd, _ := os.Getwd()
+		
 		commonPaths := []string{
-			"libvectorx", // System might find it in library path
-			"/usr/lib/sqlite3/vectorx",
-			"/usr/local/lib/sqlite3/vectorx",
-			"./vectorx", // Current directory
-			"/usr/lib/libvectorx",
-			"/usr/local/lib/libvectorx",
+			"vec0", // Current directory without ./
+			"./vec0.so", // With .so extension
+			"vec0.so",
+		}
+		
+		// Add current working directory paths if available
+		if cwd != "" {
+			commonPaths = append(commonPaths,
+				filepath.Join(cwd, "vec0"),
+				filepath.Join(cwd, "vec0.so"),
+			)
 		}
 		
 		extensionLoaded := false
@@ -183,31 +191,31 @@ func (vm *VectorDBManager) initializeSchema() error {
 			_, loadErr := vm.db.Exec(fmt.Sprintf(`SELECT load_extension('%s')`, path))
 			if loadErr == nil {
 				extensionLoaded = true
-				fmt.Printf("Successfully loaded vectorx extension from %s\n", path)
+				fmt.Printf("Successfully loaded vec0 extension from %s\n", path)
 				break
 			}
 		}
 		
 		if !extensionLoaded {
-			fmt.Printf("Warning: SQLite vectorx extension not available - falling back to in-memory search: %v\n", err)
-			fmt.Println("To enable vectorx, install the SQLite vectorx extension")
+			fmt.Printf("Warning: SQLite vec0 extension not available - falling back to in-memory search: %v\n", err)
+			fmt.Println("To enable vec0, install the sqlite-vec extension")
 			
-			// Log information about how to install the vectorx extension
+			// Log information about how to install the vec0 extension
 			fmt.Println("Installation tips:")
-			fmt.Println("  1. Download vectorx extension from https://github.com/asg017/sqlite-vectorx/releases")
-			fmt.Println("  2. Place the extension file in your library path")
-			fmt.Println("  3. Load the extension with SQLite's .load directive")
+			fmt.Println("  1. Download sqlite-vec extension from https://github.com/asg017/sqlite-vec/releases")
+			fmt.Println("  2. Place vec0.so in the current directory")
+			fmt.Println("  3. The extension will be loaded automatically")
 			
 			// We will fall back to a standard implementation that does vector distance calculation in Go
 		}
 	} else {
-		fmt.Println("SQLite vectorx extension loaded successfully")
+		fmt.Println("SQLite vec0 extension loaded successfully")
 	}
 	
 	// Try to create the vector index table
 	createVectorTableSQL := fmt.Sprintf(`
-		CREATE VIRTUAL TABLE IF NOT EXISTS vector_index USING vectorx(
-			embedding(%d)
+		CREATE VIRTUAL TABLE IF NOT EXISTS vector_index USING vec0(
+			embedding float[%d]
 		)
 	`, vm.config.EmbeddingDimension)
 	
@@ -218,7 +226,7 @@ func (vm *VectorDBManager) initializeSchema() error {
 		fmt.Printf("Warning: Failed to create vector index table: %v\n", err)
 		fmt.Println("Will use in-memory vector search as fallback")
 	} else {
-		fmt.Println("SQLite vectorx virtual table created successfully")
+		fmt.Println("SQLite vec0 virtual table created successfully")
 		
 		// Insert any existing embeddings into the index
 		rowsAffected, err := vm.rebuildVectorIndex()
@@ -435,9 +443,10 @@ func (vm *VectorDBManager) rebuildVectorIndex() (int64, error) {
 	totalInserted := int64(0)
 	
 	// Prepare a statement for better performance
+	// vec0 expects the embedding directly, not as JSON
 	stmt, err := tx.Prepare(`
 		INSERT INTO vector_index (rowid, embedding) 
-		VALUES (?, json(?))
+		VALUES (?, ?)
 	`)
 	if err != nil {
 		return 0, fmt.Errorf("failed to prepare insert statement: %v", err)
@@ -472,8 +481,19 @@ func (vm *VectorDBManager) rebuildVectorIndex() (int64, error) {
 				return totalInserted, fmt.Errorf("failed to scan row: %v", err)
 			}
 			
+			// Parse the JSON embedding
+			var embedding []float32
+			err = json.Unmarshal(embeddingBlob, &embedding)
+			if err != nil {
+				rows.Close()
+				return totalInserted, fmt.Errorf("failed to unmarshal embedding: %v", err)
+			}
+			
+			// Convert to vec0 format - it expects a string representation like "[1.0, 2.0, 3.0]"
+			embeddingStr := fmt.Sprintf("%v", embedding)
+			
 			// Insert into vector index
-			_, err = stmt.Exec(rowid, string(embeddingBlob))
+			_, err = stmt.Exec(rowid, embeddingStr)
 			if err != nil {
 				rows.Close()
 				return totalInserted, fmt.Errorf("failed to insert into vector index: %v", err)
@@ -522,11 +542,8 @@ func (vm *VectorDBManager) SearchSimilarCommands(query []float32, context string
 	
 	if hasVectorX {
 		// Vector extension is available, use it for search
-		// Convert query to JSON
-		queryJSON, err := json.Marshal(query)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal query: %v", err)
-		}
+		// Convert query to vec0 format - it expects a string representation like "[1.0, 2.0, 3.0]"
+		queryVec := fmt.Sprintf("%v", query)
 
 		// Prepare context filter if provided
 		contextFilter := ""
@@ -543,30 +560,29 @@ func (vm *VectorDBManager) SearchSimilarCommands(query []float32, context string
 
 		switch vm.config.DistanceMetric {
 		case "cosine":
-			// similarityType = "cosine_similarity"
-			vectorxFuncName = "vectorx_cosine_similarity"
-			isDistanceMetric = false // Higher is better
+			// vec0 uses distance functions
+			vectorxFuncName = "vec_distance_cosine"
+			isDistanceMetric = true // Lower is better for distances
 		case "dot":
-			// similarityType = "dot_product"
-			vectorxFuncName = "vectorx_dot_product"
-			isDistanceMetric = false // Higher is better
+			// vec0 doesn't have dot product, use cosine
+			vectorxFuncName = "vec_distance_cosine"
+			isDistanceMetric = true
 		case "euclidean":
-			// similarityType = "euclidean_distance"
-			vectorxFuncName = "vectorx_euclidean_distance"
+			// L2 distance
+			vectorxFuncName = "vec_distance_l2"
 			isDistanceMetric = true // Lower is better
 		case "manhattan":
-			// similarityType = "manhattan_distance"
-			vectorxFuncName = "vectorx_manhattan_distance"
+			// L1 distance
+			vectorxFuncName = "vec_distance_l1"
 			isDistanceMetric = true // Lower is better
 		case "jaccard":
-			// similarityType = "jaccard_similarity"
-			vectorxFuncName = "vectorx_jaccard_similarity"
-			isDistanceMetric = false // Higher is better
+			// vec0 doesn't have jaccard, use cosine
+			vectorxFuncName = "vec_distance_cosine"
+			isDistanceMetric = true
 		default:
-			// Default to cosine similarity if the metric isn't recognized
-			// similarityType = "cosine_similarity"
-			vectorxFuncName = "vectorx_cosine_similarity"
-			isDistanceMetric = false
+			// Default to cosine distance
+			vectorxFuncName = "vec_distance_cosine"
+			isDistanceMetric = true
 		}
 		
 		// Check if the vectorx function we want is available
@@ -589,7 +605,7 @@ func (vm *VectorDBManager) SearchSimilarCommands(query []float32, context string
 				orderDir = "DESC"
 			}
 			
-			queryStr.WriteString(`(vi.embedding, json(?)) AS similarity
+			queryStr.WriteString(`(vi.embedding, ?) AS similarity
 				FROM command_embeddings ce
 				JOIN vector_index vi ON ce.rowid = vi.rowid
 				WHERE 1=1 `)
@@ -601,7 +617,7 @@ func (vm *VectorDBManager) SearchSimilarCommands(query []float32, context string
 				LIMIT ?`)
 			
 			// Add args
-			args = append([]interface{}{string(queryJSON)}, args...)
+			args = append([]interface{}{queryVec}, args...)
 			args = append(args, limit)
 			
 			// Execute query
@@ -905,31 +921,38 @@ func (vm *VectorDBManager) GetStats() map[string]interface{} {
 			stats["db_size_mb"] = float64(fileInfo.Size()) / (1024 * 1024)
 		}
 
-		// Check if vectorx extension is available
+		// Check if vec0 extension is available
 		hasVectorX := vm.hasVectorExtension()
 		stats["has_vector_extension"] = hasVectorX
 		stats["last_index_build"] = vm.lastIndexBuild
 		
-		// Get vectorx extension version and details if available
+		// Get vec0 extension version and details if available
 		if hasVectorX {
-			// Check which vectorx functions are available
+			// Check which vec0 functions are available
 			vectorxFunctions := []string{
-				"vectorx_cosine_similarity",
-				"vectorx_dot_product", 
-				"vectorx_euclidean_distance",
-				"vectorx_manhattan_distance",
-				"vectorx_jaccard_similarity",
-				"vectorx_version",
+				"vec_distance_cosine",
+				"vec_distance_l2",
+				"vec_distance_l1",
+				"vec_distance_hamming",
+				"vec0_version",
 			}
 			
 			availableFunctions := make(map[string]bool)
 			for _, fn := range vectorxFunctions {
-				var result string
-				err := vm.db.QueryRow("SELECT " + fn + "(json('[1]'), json('[1]'))").Scan(&result)
-				availableFunctions[fn] = (err == nil)
+				var result float64
+				// vec0 functions need different arguments
+				if fn == "vec0_version" {
+					var versionStr string
+					err := vm.db.QueryRow("SELECT " + fn + "()").Scan(&versionStr)
+					availableFunctions[fn] = (err == nil)
+				} else {
+					// Distance functions need vector arguments
+					err := vm.db.QueryRow("SELECT " + fn + "('[1.0]', '[1.0]')").Scan(&result)
+					availableFunctions[fn] = (err == nil)
+				}
 			}
 			
-			stats["vectorx_functions"] = availableFunctions
+			stats["vec0_functions"] = availableFunctions
 			
 			// Get vector index statistics
 			var indexCount int

@@ -45,6 +45,26 @@ func HandleTokenizerCommand(args []string) bool {
 		cmd := args[0]
 
 		switch cmd {
+		case "enable":
+			// Enable tokenizer
+			err := enableTokenizer(tokenizer)
+			if err != nil {
+				fmt.Printf("Error enabling tokenizer: %v\n", err)
+			} else {
+				fmt.Println("Tokenizer enabled")
+			}
+			return true
+
+		case "disable":
+			// Disable tokenizer
+			err := disableTokenizer(tokenizer)
+			if err != nil {
+				fmt.Printf("Error disabling tokenizer: %v\n", err)
+			} else {
+				fmt.Println("Tokenizer disabled")
+			}
+			return true
+
 		case "status":
 			// Show status
 			showTokenizerStatus(tokenizer)
@@ -95,6 +115,13 @@ func showTokenizerStatus(tokenizer *Tokenizer) {
 	fmt.Println("===============")
 	
 	stats := tokenizer.GetTokenizerStats()
+	
+	// Show enabled/disabled status
+	if tokenizer.Config.Enabled {
+		fmt.Println("Status: Enabled")
+	} else {
+		fmt.Println("Status: Disabled")
+	}
 	
 	fmt.Printf("Vocabulary Size: %d / %d\n", stats["vocabulary_size"], tokenizer.Config.VocabSize)
 	fmt.Printf("Known Commands: %d\n", stats["command_count"])
@@ -361,6 +388,8 @@ func showTokenizerHelp() {
 	fmt.Println("Tokenizer Commands")
 	fmt.Println("=================")
 	fmt.Println("  :tokenizer               - Show current tokenizer status")
+	fmt.Println("  :tokenizer enable        - Enable tokenizer")
+	fmt.Println("  :tokenizer disable       - Disable tokenizer")
 	fmt.Println("  :tokenizer status        - Show tokenizer status")
 	fmt.Println("  :tokenizer stats         - Show detailed tokenizer statistics")
 	fmt.Println("  :tokenizer process       - Process all command shards into training data")
@@ -376,4 +405,44 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// enableTokenizer enables the tokenizer
+func enableTokenizer(tokenizer *Tokenizer) error {
+	tokenizer.mutex.Lock()
+	tokenizer.Config.Enabled = true
+	tokenizer.mutex.Unlock()
+	
+	// Save local config
+	if err := tokenizer.saveVocabulary(); err != nil {
+		return err
+	}
+	
+	// Update ConfigManager
+	cm := GetConfigManager()
+	if cm != nil {
+		cm.UpdateTokenConfig(&tokenizer.Config)
+	}
+	
+	return nil
+}
+
+// disableTokenizer disables the tokenizer
+func disableTokenizer(tokenizer *Tokenizer) error {
+	tokenizer.mutex.Lock()
+	tokenizer.Config.Enabled = false
+	tokenizer.mutex.Unlock()
+	
+	// Save local config
+	if err := tokenizer.saveVocabulary(); err != nil {
+		return err
+	}
+	
+	// Update ConfigManager
+	cm := GetConfigManager()
+	if cm != nil {
+		cm.UpdateTokenConfig(&tokenizer.Config)
+	}
+	
+	return nil
 }

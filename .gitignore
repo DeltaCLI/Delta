@@ -6,3 +6,7 @@ docs/node_modules/
 docs/.astro/
 docs/dist/
 docs/public/
+
+# SQLite extensions
+vec0.so
+sqlite-extensions/

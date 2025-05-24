@@ -17,7 +17,20 @@ TARGET := $(TARGET_OS)/$(TARGET_ARCH)
 # Define the output binary path
 OUTPUT_BINARY = $(BUILD_DIR)/$(TARGET)/$(BINARY_NAME)
 
-all: build
+# SQLite vector extension version
+SQLITE_VEC_VERSION = v0.1.6
+SQLITE_VEC_URL = https://github.com/asg017/sqlite-vec/releases/download/$(SQLITE_VEC_VERSION)/sqlite-vec-0.1.6-loadable-linux-x86_64.tar.gz
+
+all: deps build
+
+deps: vec0.so
+
+vec0.so:
+	@echo "Downloading SQLite vector extension $(SQLITE_VEC_VERSION)..."
+	@curl -L -o sqlite-vec.tar.gz $(SQLITE_VEC_URL)
+	@tar -xzf sqlite-vec.tar.gz
+	@rm -f sqlite-vec.tar.gz
+	@echo "SQLite vector extension downloaded successfully"
 
 build:
 	@echo "Building $(BINARY_NAME) for $(TARGET)"
@@ -43,8 +56,9 @@ build:
 	@echo "Successfully built $(BINARY_NAME) for $(TARGET)"
 
 clean:
-	@echo "Cleaning up build directory"
+	@echo "Cleaning up build directory and dependencies"
 	@rm -rf $(BUILD_DIR)
+	@rm -f vec0.so
 
 run: build
 	@echo "Running $(BINARY_NAME)"
@@ -55,4 +69,4 @@ install: build
 	@sudo cp $(OUTPUT_BINARY) /usr/local/bin/$(BINARY_NAME)
 	@chmod +x /usr/local/bin/$(BINARY_NAME)
 
-.PHONY: all clean run install
+.PHONY: all deps clean run install

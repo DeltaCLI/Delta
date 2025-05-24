@@ -255,7 +255,19 @@ func (im *InferenceManager) EnableLearning() error {
 	im.mutex.Lock()
 	im.learningConfig.Enabled = true
 	im.mutex.Unlock()
-	return im.saveConfig()
+	
+	// Save local config
+	if err := im.saveConfig(); err != nil {
+		return err
+	}
+	
+	// Update ConfigManager
+	cm := GetConfigManager()
+	if cm != nil {
+		cm.UpdateLearningConfig(&im.learningConfig)
+	}
+	
+	return nil
 }
 
 // DisableLearning disables the learning system
@@ -263,7 +275,19 @@ func (im *InferenceManager) DisableLearning() error {
 	im.mutex.Lock()
 	im.learningConfig.Enabled = false
 	im.mutex.Unlock()
-	return im.saveConfig()
+	
+	// Save local config
+	if err := im.saveConfig(); err != nil {
+		return err
+	}
+	
+	// Update ConfigManager
+	cm := GetConfigManager()
+	if cm != nil {
+		cm.UpdateLearningConfig(&im.learningConfig)
+	}
+	
+	return nil
 }
 
 // AddFeedback adds user feedback for a prediction

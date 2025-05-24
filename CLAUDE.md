@@ -40,6 +40,15 @@ When making changes, follow these steps:
 
 For larger changes, consider adding Go tests using the standard testing package.
 
+## Testing Delta Commands
+IMPORTANT: Delta uses an interactive shell interface, not command-line arguments. To test delta functionality:
+- Use `echo "command" | ./delta` to send commands to delta
+- Example: `echo "vector status" | ./delta`
+- Example: `echo "help" | ./delta`
+- Example: `echo "ai test prompt" | ./delta`
+- DO NOT use `./delta command` syntax - this won't work
+- For multi-line input or complex testing, create a test file and use `./delta < testfile.txt`
+
 ## Interactive Application Support
 When working with subprocess execution:
 1. **Signal Handling**:

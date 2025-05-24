@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/chzyer/readline"
+	"delta/cmds"
 )
 
 // Simple encryption key based on machine-specific values
@@ -611,19 +612,20 @@ func handleInternalCommand(command string) bool {
 		return HandleEmbeddingCommand(args)
 	case "speculative", "specd":
 		return HandleSpeculativeCommand(args)
-		case "knowledge", "know":
-			return HandleKnowledgeCommand(args)
-		case "agent":
-			return HandleAgentCommand(args)
-		case "config":
-			return HandleConfigCommand(args)
-		case "pattern", "pat":
-			return HandlePatternCommand(args)
-		case "spellcheck", "spell":
-			return HandleSpellCheckCommand(args)
-		case "history", "hist":
-			return HandleHistoryCommand(args)
+	case "knowledge", "know":
+		return HandleKnowledgeCommand(args)
+	case "agent":
+		return HandleAgentCommand(args)
+	case "config":
+		return HandleConfigCommand(args)
+	case "pattern", "pat":
+		return HandlePatternCommand(args)
+	case "spellcheck", "spell":
+		return HandleSpellCheckCommand(args)
+	case "history", "hist":
 		return HandleHistoryCommand(args)
+	case "docs":
+		return cmds.HandleDocsCommand(args)
 	case "feedback":
 		// Shorthand for inference feedback
 		if im := GetInferenceManager(); im != nil {
@@ -1066,12 +1068,12 @@ func formatThought(thought string) string {
 	// Process double-asterisk highlighted sections
 	var result strings.Builder
 	parts := strings.Split(thought, "**")
-	
+
 	// If we have asterisk-marked sections
 	if len(parts) > 1 {
 		// Start with the text before first **
 		result.WriteString(parts[0])
-		
+
 		// Process each part
 		for i := 1; i < len(parts); i++ {
 			if i%2 == 1 { // This is text inside ** **
@@ -1083,10 +1085,10 @@ func formatThought(thought string) string {
 				result.WriteString(parts[i])
 			}
 		}
-		
+
 		return fmt.Sprintf("\033[32m[∆ thinking: %s]\033[0m", result.String())
 	}
-	
+
 	// If no ** sections, return the original (in green color)
 	return fmt.Sprintf("\033[32m[∆ thinking: %s]\033[0m", thought)
 }
@@ -1094,7 +1096,7 @@ func formatThought(thought string) string {
 // chooseEmoji selects an appropriate emoji based on text content
 func chooseEmoji(text string) string {
 	text = strings.ToLower(text)
-	
+
 	// Map keywords to emojis
 	if strings.Contains(text, "error") || strings.Contains(text, "fail") {
 		return "⚠️"
@@ -1121,7 +1123,7 @@ func chooseEmoji(text string) string {
 	} else if strings.Contains(text, "github") || strings.Contains(text, "git") {
 		return "🔄"
 	}
-	
+
 	// Default emoji
 	return "🔹"
 }
@@ -1142,7 +1144,7 @@ func main() {
 			fmt.Printf("Warning: Error updating component configurations: %v\n", err)
 		}
 	}
-	
+
 	// Initialize AI features
 	// Use GetAIManager to ensure we have a single instance
 	ai := GetAIManager()
@@ -1173,7 +1175,7 @@ func main() {
 
 	// Initialize all components first with default configurations
 	// Then we'll update them with configs from the config manager
-	
+
 	// Initialize config manager (base only) to prevent circular dependencies
 	cm := GetConfigManager()
 	if cm != nil {
@@ -1184,7 +1186,7 @@ func main() {
 			fmt.Println("\033[33m[∆ Configuration system enabled: Centralized settings management]\033[0m")
 		}
 	}
-	
+
 	// Initialize spell checker with default config
 	sc := GetSpellChecker()
 	if sc != nil {
@@ -1248,6 +1250,7 @@ func main() {
 		"spell":           {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
 		"history":         {"show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
 		"hist":            {"show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
+		"docs":            {"build", "dev", "open", "status", "help"},
 		"init":            {},
 	}
 
@@ -1413,7 +1416,7 @@ func main() {
 					suggestion := suggestions[0]
 					// Only display suggestion if it's not empty
 					if suggestion.Command != "" {
-						fmt.Printf("\n\033[2m💡 ∆ Next command suggestion: %s\033[0m\n", suggestion.Command)
+						fmt.Printf("\n\033[2m∆ 💡 Next command suggestion: %s\033[0m\n", suggestion.Command)
 					}
 				}
 			}
