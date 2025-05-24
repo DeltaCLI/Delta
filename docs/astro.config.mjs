@@ -7,10 +7,6 @@ export default defineConfig({
     mdx(),
     starlight({
       title: 'Delta CLI Documentation',
-      logo: {
-        light: './src/assets/delta-logo-light.svg',
-        dark: './src/assets/delta-logo-dark.svg',
-      },
       social: {
         github: 'https://github.com/yourusername/deltacli',
       },
