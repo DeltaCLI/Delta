@@ -176,8 +176,8 @@ func showConfigStatus(cm *ConfigManager) {
 		fmt.Println("Embedding Config: Not available")
 	}
 
-	if cm.inferenceConfig != nil {
-		fmt.Printf("Inference Config: %s\n", getComponentStatus(cm.inferenceConfig.Enabled))
+	if cm.learningConfig != nil {
+		fmt.Printf("Inference Config: %s\n", getComponentStatus(cm.learningConfig.Enabled))
 	} else {
 		fmt.Println("Inference Config: Not available")
 	}

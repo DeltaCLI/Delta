@@ -1122,6 +1122,8 @@ func chooseEmoji(text string) string {
 		return "📁"
 	} else if strings.Contains(text, "github") || strings.Contains(text, "git") {
 		return "🔄"
+	} else if strings.Contains(text, "configuration") || strings.Contains(text, "config") || strings.Contains(text, "settings") {
+		return "🔬"
 	}
 
 	// Default emoji
