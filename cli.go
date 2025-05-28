@@ -18,8 +18,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/chzyer/readline"
 	"delta/cmds"
+
+	"github.com/chzyer/readline"
 )
 
 // Simple encryption key based on machine-specific values
@@ -1106,6 +1107,8 @@ func chooseEmoji(text string) string {
 		return "⚡"
 	} else if strings.Contains(text, "good thought") {
 		return "💭"
+	} else if strings.Contains(text, "helpful thought") {
+		return "✨"
 	} else if strings.Contains(text, "tip") || strings.Contains(text, "hint") || strings.Contains(text, "suggestion") {
 		return "💡"
 	} else if strings.Contains(text, "info") || strings.Contains(text, "note") {
