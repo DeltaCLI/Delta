@@ -23,6 +23,106 @@ import (
 	"github.com/chzyer/readline"
 )
 
+// Global variable to store the original terminal title
+var originalTerminalTitle string
+
+// getOriginalTerminalTitle attempts to determine what the terminal title should be restored to
+func getOriginalTerminalTitle() string {
+	// Only attempt if we're connected to a terminal
+	if !isTerminal() {
+		return ""
+	}
+
+	// Method 1: Check if any environment variables give us hints about the original title
+	envVars := []string{
+		"TERM_PROGRAM_TITLE",  // Some terminal programs set this
+		"TERMINAL_TITLE",      // Custom env var if set by user
+	}
+	
+	for _, envVar := range envVars {
+		if value := os.Getenv(envVar); value != "" {
+			return value
+		}
+	}
+	
+	// Method 2: Get the shell name - this is most likely what the title was
+	shell := os.Getenv("SHELL")
+	if shell != "" {
+		return filepath.Base(shell)
+	}
+	
+	// Method 3: Try to determine from parent process
+	if ppid := os.Getppid(); ppid > 0 {
+		// Read parent process info from /proc on Linux
+		cmdlineFile := fmt.Sprintf("/proc/%d/cmdline", ppid)
+		if data, err := os.ReadFile(cmdlineFile); err == nil {
+			cmdline := string(data)
+			// Replace null bytes with spaces and clean up
+			cmdline = strings.ReplaceAll(cmdline, "\x00", " ")
+			cmdline = strings.TrimSpace(cmdline)
+			
+			if cmdline != "" {
+				parts := strings.Fields(cmdline)
+				if len(parts) > 0 {
+					baseName := filepath.Base(parts[0])
+					// Return the parent process name if it looks like a shell/terminal
+					terminalNames := []string{"bash", "zsh", "fish", "sh", "gnome-terminal", "konsole", "xterm", "alacritty", "kitty", "terminal"}
+					for _, term := range terminalNames {
+						if strings.Contains(baseName, term) {
+							return baseName
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	// Fallback: return empty string - we'll just reset to empty title
+	return ""
+}
+
+// isTerminal checks if we're running in a terminal
+func isTerminal() bool {
+	fileInfo, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return (fileInfo.Mode() & os.ModeCharDevice) != 0
+}
+
+// setTerminalTitle sets the terminal title using ANSI escape sequence
+func setTerminalTitle(title string) {
+	fmt.Printf("\033]0;%s\007", title)
+}
+
+// setDeltaTitle sets the terminal title to show delta with the triangle symbol
+func setDeltaTitle() {
+	setTerminalTitle("∆ delta")
+}
+
+// setProgramTitle sets the terminal title to show delta symbol followed by program name
+func setProgramTitle(programName string) {
+	setTerminalTitle(fmt.Sprintf("∆ %s", programName))
+}
+
+// resetTerminalTitle resets the terminal title to the original title
+func resetTerminalTitle() {
+	if originalTerminalTitle != "" {
+		// Restore the original title
+		setTerminalTitle(originalTerminalTitle)
+	} else {
+		// Fallback: Get the shell name to use as the default title
+		shell := os.Getenv("SHELL")
+		if shell != "" {
+			shellName := filepath.Base(shell)
+			setTerminalTitle(shellName)
+		} else {
+			// Reset to empty title if no shell is set
+			setTerminalTitle("")
+		}
+	}
+}
+
 // Simple encryption key based on machine-specific values
 func getEncryptionKey() []byte {
 	hostname, err := os.Hostname()
@@ -1137,6 +1237,12 @@ func chooseEmoji(text string) string {
 var globalAIManager *AIPredictionManager
 
 func main() {
+	// Determine what the original terminal title should be restored to
+	originalTerminalTitle = getOriginalTerminalTitle()
+	
+	// Set the initial terminal title
+	setDeltaTitle()
+	
 	fmt.Println("Welcome to Delta! 🔼")
 	fmt.Println()
 
@@ -1289,9 +1395,20 @@ func main() {
 
 	inSubCommand := false
 
-	// Set up signal handling for Ctrl+C
+	// Set up signal handling for Ctrl+C and termination
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	// Set up cleanup on signal termination
+	go func() {
+		sig := <-c
+		if sig == syscall.SIGTERM {
+			fmt.Println("\nTerminating...")
+			resetTerminalTitle()
+			os.Exit(0)
+		}
+		// For SIGINT (Ctrl+C), just continue - it's handled in the main loop
+	}()
 
 	for {
 		var prompt string
@@ -1344,6 +1461,7 @@ func main() {
 			} else if err == io.EOF {
 				// Ctrl+D exits
 				fmt.Println("\nGoodbye! 👋")
+				resetTerminalTitle()
 				break
 			}
 			fmt.Println("Error reading input:", err)
@@ -1367,6 +1485,7 @@ func main() {
 		// Handle the exit command
 		if command == "exit" || command == "quit" {
 			fmt.Println("Goodbye! 👋")
+			resetTerminalTitle()
 			break
 		}
 
@@ -1436,6 +1555,16 @@ func runCommand(command string, sigChan chan os.Signal) (int, time.Duration) {
 		return 0, 0
 	}
 
+	// Extract the program name for the terminal title
+	programName := cmdParts[0]
+	// Handle cases where the program is a path
+	if strings.Contains(programName, "/") {
+		programName = filepath.Base(programName)
+	}
+	
+	// Set the terminal title to show the running program
+	setProgramTitle(programName)
+
 	// Check for built-in `jump` command to override external jump.sh
 	if cmdParts[0] == "jump" {
 		// Use our internal jump command instead
@@ -1453,6 +1582,9 @@ func runCommand(command string, sigChan chan os.Signal) (int, time.Duration) {
 		if !result {
 			exitCode = 1
 		}
+
+		// Restore the delta title after jump command completion
+		setDeltaTitle()
 
 		return exitCode, duration
 	}
@@ -1517,9 +1649,13 @@ func runCommand(command string, sigChan chan os.Signal) (int, time.Duration) {
 		err := os.Chdir(targetDir)
 		if err != nil {
 			fmt.Printf("cd: %v\n", err)
+			// Restore the delta title after cd command failure
+			setDeltaTitle()
 			return 1, time.Since(startTime)
 		}
 
+		// Restore the delta title after cd command completion
+		setDeltaTitle()
 		return 0, time.Since(startTime)
 	}
 
@@ -1530,9 +1666,13 @@ func runCommand(command string, sigChan chan os.Signal) (int, time.Duration) {
 		pwd, err := os.Getwd()
 		if err != nil {
 			fmt.Println("Error getting current directory:", err)
+			// Restore the delta title after pwd command failure
+			setDeltaTitle()
 			return 1, time.Since(startTime)
 		}
 		fmt.Println(pwd)
+		// Restore the delta title after pwd command completion
+		setDeltaTitle()
 		return 0, time.Since(startTime)
 	}
 
@@ -1553,7 +1693,10 @@ func runCommand(command string, sigChan chan os.Signal) (int, time.Duration) {
 		homeDir = os.Getenv("HOME")
 		if homeDir == "" {
 			// If we can't determine home directory, just run command directly
-			return runDirectCommand(shell, command, sigChan)
+			exitCode, duration := runDirectCommand(shell, command, sigChan)
+			// Restore the delta title after direct command completion
+			setDeltaTitle()
+			return exitCode, duration
 		}
 	}
 
@@ -1576,7 +1719,12 @@ func runCommand(command string, sigChan chan os.Signal) (int, time.Duration) {
 	}
 
 	// Now run the command
-	return runShellCommand(shell, shellCmd, sigChan)
+	exitCode, duration := runShellCommand(shell, shellCmd, sigChan)
+	
+	// Restore the delta title after command completion
+	setDeltaTitle()
+	
+	return exitCode, duration
 }
 
 // ZSH special handling to properly load functions and aliases

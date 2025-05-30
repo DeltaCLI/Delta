@@ -10,3 +10,36 @@ docs/public/
 # SQLite extensions
 vec0.so
 sqlite-extensions/
+
+# Security - Sensitive files
+.env
+.env.*
+*.key
+*.pem
+*.crt
+*.cer
+*.p12
+*.pfx
+secrets/
+*secret*
+*password*
+*credential*
+config.local.*
+*.local
+
+# User data and caches
+.delta_history
+~/.config/delta/
+~/.cache/delta/
+*.log
+*.pid
+*.sock
+
+# Temporary and backup files
+*.tmp
+*.temp
+*~
+*.bak
+*.backup
+.DS_Store
+Thumbs.db
