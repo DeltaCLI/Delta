@@ -63,4 +63,4 @@ When working with subprocess execution:
    - Source appropriate shell profile files (.bashrc, .zshrc) explicitly rather than relying on `-i` flag
 
 ## Special User Commands
-- If the user says "continue", analyze TASKS.md, PLAN.md, or milestone files to determine the next course of action
+- If the user says "continue", analyze TASKS.md, docs/planning/PLAN.md, or milestone files to determine the next course of action
