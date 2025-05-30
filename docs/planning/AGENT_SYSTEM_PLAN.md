@@ -103,47 +103,47 @@ type AgentManager struct {
 
 ## 3. Task-specific Agent Implementation Plan
 
-### 3.1 Build Agent ("DeepFry Uproot Agent")
+### 3.1 Build Agent ("Sample Build Agent")
 
-First, we'll implement the specific agent for the DeepFry build process:
+First, we'll implement a sample agent for a build process:
 
 ```go
-// Example Agent Definition for the DeepFry Uproot Agent
-deepFryAgent := Agent{
-    ID:          "deepfry-uproot-builder",
-    Name:        "DeepFry Uproot Builder",
-    Description: "Automates the DeepFry uproot command, runs all builds, and fixes common build errors",
+// Example Agent Definition for a Sample Build Agent
+sampleBuildAgent := Agent{
+    ID:          "sample-build-agent",
+    Name:        "Sample Build Agent",
+    Description: "Automates build commands, runs all builds, and fixes common build errors",
     TaskTypes:   []string{"build", "error-fix", "uproot"},
     Commands: []AgentCommand{
         {
-            Command:        "uproot",
-            WorkingDir:     "$DEEPFRY_HOME",
+            Command:        "make clean",
+            WorkingDir:     "$PROJECT_HOME",
             Timeout:        3600,
             RetryCount:     3,
-            ErrorPatterns:  []string{"failed to uproot", "error:"},
-            SuccessPatterns: []string{"uproot completed successfully"},
+            ErrorPatterns:  []string{"clean failed", "error:"},
+            SuccessPatterns: []string{"clean completed successfully"},
         },
         {
-            Command:        "run all",
-            WorkingDir:     "$DEEPFRY_HOME",
+            Command:        "make all",
+            WorkingDir:     "$PROJECT_HOME",
             Timeout:        7200,
             RetryCount:     5,
             ErrorPatterns:  []string{"build failed", "error:"},
         },
     },
     DockerConfig: &AgentDockerConfig{
-        Image:      "deepfry-builder",
+        Image:      "project-builder",
         Tag:        "latest",
-        Volumes:    []string{"$DEEPFRY_HOME:/src"},
+        Volumes:    []string{"$PROJECT_HOME:/src"},
         UseCache:   true,
-        CacheFrom:  []string{"deepfry-builder:cache"},
+        CacheFrom:  []string{"project-builder:cache"},
     },
-    TriggerPatterns: []string{"deepfry build", "uproot failing", "pocketpc defconfig"},
+    TriggerPatterns: []string{"project build", "build failing", "custom defconfig"},
     Context: map[string]string{
-        "project": "deepfry",
-        "build_type": "pocketpc",
+        "project": "sample-project",
+        "build_type": "custom",
     },
-    AIPrompt: "You are a DeepFry build assistant. Your task is to execute uproot commands, run builds, and fix common build errors for the PocketPC defconfig.",
+    AIPrompt: "You are a build assistant. Your task is to execute build commands, run builds, and fix common build errors for the project configuration.",
     Enabled:  true,
 }
 ```
@@ -255,9 +255,9 @@ type CacheStage struct {
    - Add task delegation
    - Create collaborative problem-solving
 
-## 5. PocketPC Defconfig Waterfall Build Implementation
+## 5. Sample Defconfig Waterfall Build Implementation
 
-For the specific request of creating a waterfall of builds for the PocketPC defconfig:
+For creating a waterfall of builds for a sample project configuration:
 
 ```go
 // Example Docker Compose configuration for waterfall builds
@@ -266,66 +266,66 @@ version: '3'
 
 services:
   base-build:
-    image: deepfry-builder:base
+    image: project-builder:base
     build:
-      context: ${DEEPFRY_HOME}
+      context: ${PROJECT_HOME}
       dockerfile: Dockerfile.base
       args:
-        DEFCONFIG: pocketpc
+        DEFCONFIG: sample
       cache_from:
-        - deepfry-builder:base-cache
+        - project-builder:base-cache
     volumes:
       - cache-volume:/cache
-      - ${DEEPFRY_HOME}:/src
+      - ${PROJECT_HOME}:/src
     environment:
       - BUILD_TYPE=base
 
   kernel-build:
-    image: deepfry-builder:kernel
+    image: project-builder:kernel
     build:
-      context: ${DEEPFRY_HOME}
+      context: ${PROJECT_HOME}
       dockerfile: Dockerfile.kernel
       args:
-        DEFCONFIG: pocketpc
+        DEFCONFIG: sample
       cache_from:
-        - deepfry-builder:kernel-cache
+        - project-builder:kernel-cache
     volumes:
       - cache-volume:/cache
-      - ${DEEPFRY_HOME}:/src
+      - ${PROJECT_HOME}:/src
     environment:
       - BUILD_TYPE=kernel
     depends_on:
       - base-build
 
   fs-build:
-    image: deepfry-builder:fs
+    image: project-builder:fs
     build:
-      context: ${DEEPFRY_HOME}
+      context: ${PROJECT_HOME}
       dockerfile: Dockerfile.fs
       args:
-        DEFCONFIG: pocketpc
+        DEFCONFIG: sample
       cache_from:
-        - deepfry-builder:fs-cache
+        - project-builder:fs-cache
     volumes:
       - cache-volume:/cache
-      - ${DEEPFRY_HOME}:/src
+      - ${PROJECT_HOME}:/src
     environment:
       - BUILD_TYPE=fs
     depends_on:
       - kernel-build
 
   final-build:
-    image: deepfry-builder:final
+    image: project-builder:final
     build:
-      context: ${DEEPFRY_HOME}
+      context: ${PROJECT_HOME}
       dockerfile: Dockerfile.final
       args:
-        DEFCONFIG: pocketpc
+        DEFCONFIG: sample
       cache_from:
-        - deepfry-builder:final-cache
+        - project-builder:final-cache
     volumes:
       - cache-volume:/cache
-      - ${DEEPFRY_HOME}:/src
+      - ${PROJECT_HOME}:/src
     environment:
       - BUILD_TYPE=final
     depends_on:
@@ -367,9 +367,9 @@ func (am *AgentManager) RegisterJumpHandler() {
     jumpManager := GetJumpManager()
     
     // Register trigger handler
-    jumpManager.AddLocationTrigger("deepfry", func(location string) {
-        // Find agents related to deepfry
-        agents := am.FindAgentsByContext("project", "deepfry")
+    jumpManager.AddLocationTrigger("project", func(location string) {
+        // Find agents related to project
+        agents := am.FindAgentsByContext("project", "sample-project")
         
         // Suggest agents
         for _, agent := range agents {
@@ -387,31 +387,31 @@ Agents can be configured for CI/CD workflows:
 ```go
 // CI/CD agent example
 cicdAgent := Agent{
-    ID:          "deepfry-ci",
-    Name:        "DeepFry CI Pipeline",
-    Description: "Runs the CI pipeline for DeepFry project",
+    ID:          "project-ci",
+    Name:        "Project CI Pipeline",
+    Description: "Runs the CI pipeline for the project",
     TaskTypes:   []string{"ci", "test", "build"},
     Commands: []AgentCommand{
         {
             Command:        "git pull",
-            WorkingDir:     "$DEEPFRY_HOME",
+            WorkingDir:     "$PROJECT_HOME",
             Timeout:        60,
         },
         {
             Command:        "make test",
-            WorkingDir:     "$DEEPFRY_HOME",
+            WorkingDir:     "$PROJECT_HOME",
             Timeout:        600,
             ErrorPatterns:  []string{"test failed", "error:"},
         },
         {
             Command:        "make build",
-            WorkingDir:     "$DEEPFRY_HOME",
+            WorkingDir:     "$PROJECT_HOME",
             Timeout:        1800,
             ErrorPatterns:  []string{"build failed", "error:"},
         },
         {
             Command:        "make deploy",
-            WorkingDir:     "$DEEPFRY_HOME",
+            WorkingDir:     "$PROJECT_HOME",
             Timeout:        300,
             ErrorPatterns:  []string{"deploy failed", "error:"},
         },
@@ -425,4 +425,4 @@ cicdAgent := Agent{
 
 This plan outlines a comprehensive approach to evolve Delta into an agent-based system that can automate complex tasks. The implementation will focus on Docker integration for build caching, AI-assisted error resolution, and creating a flexible agent system that can adapt to different workflows and projects.
 
-The system will be particularly useful for the DeepFry project, enabling automated builds with the PocketPC defconfig through a waterfall build process that leverages Docker caching for efficiency.
+The system will be particularly useful for complex projects, enabling automated builds with custom configurations through a waterfall build process that leverages Docker caching for efficiency.
