@@ -2,6 +2,7 @@ build/
 docs/node_modules/
 
 **/.claude/settings.local.json
+.untracked/
 *.ini
 docs/.astro/
 docs/dist/
