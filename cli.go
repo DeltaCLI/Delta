@@ -696,6 +696,8 @@ func handleInternalCommand(command string) bool {
 	switch cmd {
 	case "ai":
 		return handleAICommand(args)
+	case "art2":
+		return HandleART2Command(args)
 	case "help":
 		showHelp()
 		return true
@@ -917,6 +919,24 @@ func handleInitCommand() bool {
 		} else {
 			fmt.Printf("Warning: Failed to initialize history analyzer: %v\n", err)
 		}
+	}
+
+	// Initialize ART-2 machine learning system
+	art2Mgr := GetART2Manager()
+	if art2Mgr != nil {
+		err := art2Mgr.Initialize()
+		if err == nil {
+			fmt.Println("ART-2 pattern recognition system initialized")
+		} else {
+			fmt.Printf("Warning: Failed to initialize ART-2 system: %v\n", err)
+		}
+	}
+
+	// Initialize ART-2 preprocessor
+	art2Preprocessor := GetART2Preprocessor()
+	if art2Preprocessor != nil {
+		stats := art2Preprocessor.GetVocabularyStats()
+		fmt.Printf("ART-2 preprocessor initialized with %d vocabulary terms\n", stats["vocabulary_size"].(int))
 	}
 
 	// Initialize history file
@@ -1316,6 +1336,15 @@ func main() {
 		}
 	}
 
+	// Initialize ART-2 machine learning system
+	art2Mgr := GetART2Manager()
+	if art2Mgr != nil {
+		art2Mgr.Initialize()
+		if art2Mgr.IsEnabled() {
+			fmt.Println("\033[33m[∆ ART-2 learning enabled: Adaptive pattern recognition active]\033[0m")
+		}
+	}
+
 	// Set up cleanup for AI resources on exit
 	defer func() {
 		if ai != nil && ai.cancelFunc != nil {
@@ -1335,6 +1364,7 @@ func main() {
 	// Create our completer with extended commands
 	internalCmds := map[string][]string{
 		"ai":              {"on", "off", "model", "custom", "default", "status", "feedback", "help"},
+		"art2":            {"enable", "disable", "status", "stats", "categories", "predict", "feedback", "config", "help"},
 		"help":            {},
 		"jump":            {"add", "remove", "rm", "import", "list"},
 		"j":               {},
@@ -1479,6 +1509,33 @@ func main() {
 			// Submit command to AI for analysis in the background
 			go func(cmd string) {
 				ai.AddCommand(cmd)
+			}(command)
+		}
+
+		// Process command with ART-2 learning if enabled
+		if art2Mgr := GetART2Manager(); art2Mgr != nil && art2Mgr.IsEnabled() && command != "" {
+			// Submit command to ART-2 for pattern learning in the background
+			go func(cmd string) {
+				// Get current context
+				dir, _ := os.Getwd()
+				
+				// Preprocess the command into a feature vector
+				preprocessor := GetART2Preprocessor()
+				if preprocessor != nil {
+					featureVector, err := preprocessor.PreprocessCommand(cmd, "", dir)
+					if err == nil {
+						// Create ART-2 input
+						art2Input := ART2Input{
+							Vector:    featureVector.Values,
+							Command:   cmd,
+							Context:   dir,
+							Timestamp: time.Now(),
+						}
+						
+						// Process with ART-2 algorithm
+						art2Mgr.ProcessInput(art2Input)
+					}
+				}
 			}(command)
 		}
 

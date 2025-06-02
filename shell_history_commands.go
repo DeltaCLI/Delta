@@ -17,6 +17,12 @@ func handleHistoryImportCommand(args []string) error {
 	}
 
 	parser := NewShellHistoryParser()
+	
+	// Initialize import tracker for deduplication
+	tracker, err := NewShellHistoryTracker()
+	if err != nil {
+		return fmt.Errorf("failed to initialize import tracker: %w", err)
+	}
 
 	// Parse command options
 	options := parseHistoryImportOptions(args)
@@ -63,16 +69,31 @@ func handleHistoryImportCommand(args []string) error {
 		return nil
 	}
 
-	// Show detected files
+	// Check for previously imported files and show status
 	fmt.Printf("Detected %d shell history file(s):\n\n", len(historyFiles))
 	for i, file := range historyFiles {
 		status := "readable"
 		if !file.Readable {
 			status = "not readable"
 		}
-		fmt.Printf("%d. %s (%s, %s, %.1f KB, %s)\n",
+		
+		// Check if file has been imported before
+		imported, record, err := tracker.HasBeenImported(file.Path)
+		importStatus := ""
+		if err == nil {
+			if imported {
+				importStatus = fmt.Sprintf(" [previously imported %s]", 
+					record.LastImported.Format("2006-01-02"))
+			} else if record != nil {
+				importStatus = " [file updated since last import]"
+			} else {
+				importStatus = " [never imported]"
+			}
+		}
+		
+		fmt.Printf("%d. %s (%s, %s, %.1f KB, %s)%s\n",
 			i+1, file.Path, file.Shell, file.Format,
-			float64(file.Size)/1024, status)
+			float64(file.Size)/1024, status, importStatus)
 	}
 	fmt.Println()
 
@@ -95,9 +116,22 @@ func handleHistoryImportCommand(args []string) error {
 		fmt.Printf("Processing %s...\n", file.Path)
 
 		// Parse the history file
-		entries, err := parser.ParseHistoryFile(file.Path, file.Format, options.Limit)
+		allEntries, err := parser.ParseHistoryFile(file.Path, file.Format, options.Limit)
 		if err != nil {
 			fmt.Printf("Error parsing %s: %v\n", file.Path, err)
+			continue
+		}
+
+		// Apply deduplication - only get new commands not previously imported
+		entries, err := tracker.GetNewCommandsOnly(file.Path, allEntries)
+		if err != nil {
+			fmt.Printf("Error checking for new commands in %s: %v\n", file.Path, err)
+			continue
+		}
+
+		// If no new commands and not forcing re-import
+		if len(entries) == 0 && !options.Force {
+			fmt.Printf("No new commands found in %s (already imported)\n", file.Path)
 			continue
 		}
 
@@ -126,8 +160,14 @@ func handleHistoryImportCommand(args []string) error {
 				continue
 			}
 
+			// Record successful import in tracker
+			err = tracker.RecordImport(file.Path, allEntries, len(entries))
+			if err != nil {
+				fmt.Printf("Warning: Failed to record import for %s: %v\n", file.Path, err)
+			}
+
 			totalImported += len(entries)
-			fmt.Printf("Imported %d commands from %s\n", len(entries), file.Path)
+			fmt.Printf("Imported %d new commands from %s\n", len(entries), file.Path)
 
 			if options.Verbose {
 				stats := parser.GetParsingStats(entries)
@@ -153,6 +193,7 @@ type HistoryImportOptions struct {
 	DryRun           bool
 	Verbose          bool
 	IncludeSensitive bool
+	Force            bool // Force re-import even if previously imported
 	Help             bool
 }
 
@@ -186,6 +227,8 @@ func parseHistoryImportOptions(args []string) HistoryImportOptions {
 			options.Verbose = true
 		case "--include-sensitive":
 			options.IncludeSensitive = true
+		case "--force":
+			options.Force = true
 		case "--non-interactive":
 			options.Interactive = false
 		}
@@ -321,6 +364,9 @@ OPTIONS:
     
     --include-sensitive Include potentially sensitive commands (passwords, keys, etc.)
                        By default, these are filtered out for security
+    
+    --force            Force re-import even if files were previously imported
+                       By default, only new commands since last import are processed
     
     --non-interactive   Skip interactive prompts and use default settings
     
