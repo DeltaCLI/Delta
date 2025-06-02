@@ -337,10 +337,10 @@ func (am *ART2Manager) updateCategory(category *ART2Category, input ART2Input) {
 	category.LastActivation = time.Now()
 
 	// Add command and context patterns if not already present
-	if !contains(category.CommandPatterns, input.Command) {
+	if !art2Contains(category.CommandPatterns, input.Command) {
 		category.CommandPatterns = append(category.CommandPatterns, input.Command)
 	}
-	if !contains(category.ContextPatterns, input.Context) {
+	if !art2Contains(category.ContextPatterns, input.Context) {
 		category.ContextPatterns = append(category.ContextPatterns, input.Context)
 	}
 }
@@ -576,7 +576,7 @@ func (am *ART2Manager) saveCategories() error {
 }
 
 // Helper function to check if slice contains string
-func contains(slice []string, item string) bool {
+func art2Contains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
 			return true

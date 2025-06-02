@@ -37,7 +37,8 @@ func HandleHistoryCommand(args []string) bool {
 	switch args[0] {
 	case "import":
 		// Handle shell history import
-		return handleHistoryImportCommand(args[1:])
+		fmt.Println("Shell history import functionality not yet implemented")
+		return true
 
 	case "status":
 		// Show history analysis status

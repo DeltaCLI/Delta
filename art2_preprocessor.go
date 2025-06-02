@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 )
 
 // ART2Preprocessor handles input preprocessing for the ART-2 algorithm

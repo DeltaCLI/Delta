@@ -37,6 +37,7 @@ build:
 	@mkdir -p $(dir $(OUTPUT_BINARY))
 	CGO_ENABLED=1 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build $(GOFLAGS) -o $(OUTPUT_BINARY) \
 		ai.go ai_manager.go \
+		art2_manager.go art2_preprocessor.go art2_commands.go \
 		jump_manager.go jump_helper.go \
 		cli.go help.go \
 		memory_manager.go memory_commands.go \
