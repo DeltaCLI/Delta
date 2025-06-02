@@ -1359,8 +1359,8 @@ func main() {
 		"pat":             {"enable", "disable", "update", "versions", "list", "check", "auto", "interval", "status", "stats", "help"},
 		"spellcheck":      {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
 		"spell":           {"enable", "disable", "status", "config", "add", "remove", "test", "help"},
-		"history":         {"show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
-		"hist":            {"show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
+		"history":         {"import", "show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
+		"hist":            {"import", "show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
 		"docs":            {"build", "dev", "open", "status", "help"},
 		"init":            {},
 	}

@@ -35,6 +35,10 @@ func HandleHistoryCommand(args []string) bool {
 	}
 
 	switch args[0] {
+	case "import":
+		// Handle shell history import
+		return handleHistoryImportCommand(args[1:])
+
 	case "status":
 		// Show history analysis status
 		showHistoryStatus(ha)
