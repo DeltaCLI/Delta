@@ -1,0 +1,61 @@
+{
+  "meta": {
+    "language": "中文（简体）",
+    "locale": "zh-CN",
+    "version": "1.0.0",
+    "contributors": ["Delta团队"]
+  },
+  "welcome": {
+    "message": "欢迎使用Delta！🔼",
+    "features_enabled": "[∆ {{feature}}已启用：{{details}}]"
+  },
+  "goodbye": {
+    "message": "再见！👋",
+    "terminating": "正在终止..."
+  },
+  "prompts": {
+    "main": "∆ ",
+    "continuation": "⬠ ",
+    "directory": "[{{dir}}] ∆ ",
+    "subcommand": "⬠ "
+  },
+  "status": {
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "available": "可用",
+    "unavailable": "不可用",
+    "active": "活跃",
+    "inactive": "非活跃"
+  },
+  "navigation": {
+    "entering_subcommand": "进入子命令模式。",
+    "exiting_subcommand": "退出子命令模式。",
+    "changed_directory": "已切换到：{{path}}",
+    "current_directory": "{{path}}"
+  },
+  "ai": {
+    "thinking": "[∆ 思考中：{{thought}}]",
+    "features_enabled": "AI功能已启用：使用{{model}}模型",
+    "learning_enabled": "学习系统已启用：已收集{{examples}}个训练示例",
+    "agent_enabled": "代理系统已启用：任务自动化处于活跃状态"
+  },
+  "errors": {
+    "reading_input": "读取输入时出错：{{error}}",
+    "getting_directory": "获取当前目录时出错：{{error}}",
+    "getting_home": "获取主目录时出错：{{error}}",
+    "command_failed": "命令失败：{{error}}",
+    "command_exited": "命令退出，退出码{{code}}",
+    "initialization_failed": "初始化{{component}}时出错：{{error}}"
+  },
+  "commands": {
+    "unknown": "未知命令：{{command}}",
+    "available": "输入:help查看可用命令列表。",
+    "running": "正在运行：{{command}}"
+  },
+  "system": {
+    "configuration_enabled": "配置系统已启用：集中设置管理",
+    "spellcheck_enabled": "拼写检查已启用：命令纠错处于活跃状态",
+    "history_enabled": "历史分析已启用：命令建议处于活跃状态",
+    "art2_enabled": "ART-2学习已启用：自适应模式识别处于活跃状态"
+  }
+}

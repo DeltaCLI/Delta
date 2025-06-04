@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "language": "English",
+    "locale": "en",
+    "version": "1.0.0",
+    "contributors": ["Delta Team"]
+  },
+  "ai": {
+    "description": "AI Assistant commands",
+    "help_title": "AI Assistant Commands",
+    "status": {
+      "enabled": "AI assistant enabled",
+      "disabled": "AI assistant disabled",
+      "current": "AI assistant is currently {{status}}",
+      "unavailable": "AI features unavailable - failed to initialize AI manager"
+    },
+    "model": {
+      "current": "Current AI model: {{model}}",
+      "changed": "AI model set to: {{model}}",
+      "custom": "Now using custom trained model: {{path}}",
+      "default": "Using Ollama model: {{model}}",
+      "reverted": "Reverted to default Ollama model",
+      "error": "Error setting model: {{error}}",
+      "pull_suggestion": "You can pull the model with: ollama pull {{model}}"
+    },
+    "feedback": {
+      "recorded": "Feedback recorded: {{type}}",
+      "usage": "Usage: :ai feedback <helpful|unhelpful|correction> [correction]",
+      "type_required": "Please specify feedback type: helpful, unhelpful, or correction"
+    },
+    "help": {
+      "show_status": ":ai              - Show AI status",
+      "enable": ":ai on           - Enable AI assistant",
+      "disable": ":ai off          - Disable AI assistant",
+      "show_model": ":ai model        - Show current model",
+      "set_model": ":ai model <name> - Switch to specified Ollama model",
+      "custom_model": ":ai model custom <path> - Use custom trained model",
+      "default_model": ":ai model default - Revert to default model",
+      "detailed_status": ":ai status       - Show detailed AI status",
+      "feedback": ":ai feedback <helpful|unhelpful|correction> [correction]",
+      "feedback_desc": "                   - Provide feedback on last prediction",
+      "help": ":ai help         - Show this help message"
+    }
+  },
+  "jump": {
+    "description": "Navigation commands",
+    "location_added": "Jump location '{{name}}' added: {{path}}",
+    "location_removed": "Jump location '{{name}}' removed",
+    "location_not_found": "Jump location '{{name}}' not found",
+    "invalid_location": "Invalid location: {{location}}",
+    "directory_changed": "Changed to: {{path}}",
+    "directory_not_found": "Directory not found: {{path}}",
+    "import_success": "Imported {{count}} locations from jump.sh",
+    "import_failed": "Failed to import from jump.sh: {{error}}",
+    "help": {
+      "jump": ":jump <location>  - Jump to predefined location",
+      "add": ":jump add <n> [path] - Add a new jump location",
+      "remove": ":jump remove <n>     - Remove a jump location",
+      "import": ":jump import jumpsh  - Import locations from jump.sh",
+      "shorthand": ":j <location>     - Shorthand for jump"
+    }
+  },
+  "memory": {
+    "description": "Memory System commands",
+    "status": {
+      "enabled": "Memory collection enabled",
+      "disabled": "Memory collection disabled",
+      "unavailable": "Memory system not available"
+    },
+    "stats": {
+      "title": "Memory Statistics:",
+      "entries": "- Total entries: {{count}}",
+      "size": "- Data size: {{size}}",
+      "last_update": "- Last update: {{time}}"
+    },
+    "help": {
+      "status": ":memory status    - Show memory system status",
+      "enable": ":memory enable    - Enable memory collection",
+      "disable": ":memory disable   - Disable memory collection",
+      "stats": ":memory stats     - Show detailed memory statistics",
+      "config": ":memory config    - View or modify memory configuration",
+      "list": ":memory list      - List available data shards",
+      "export": ":memory export    - Export data for a specific date",
+      "clear": ":memory clear     - Clear all collected data (requires confirmation)",
+      "train": ":memory train     - Memory training commands",
+      "shorthand": ":mem              - Shorthand for memory commands"
+    }
+  },
+  "config": {
+    "description": "Configuration commands",
+    "initialized": "Configuration manager initialized",
+    "export_success": "Configuration exported to: {{path}}",
+    "import_success": "Configuration imported from: {{path}}",
+    "reset_success": "All configurations reset to default values",
+    "component_updated": "{{component}} configuration updated",
+    "help": {
+      "status": ":config                - Show configuration status",
+      "list": ":config list           - List all configurations",
+      "export": ":config export <path>  - Export configuration to a file",
+      "import": ":config import <path>  - Import configuration from a file",
+      "edit": ":config edit <comp>    - View or modify component configuration",
+      "reset": ":config reset          - Reset all configurations to default values"
+    }
+  },
+  "help": {
+    "description": "Show help information",
+    "unknown_command": "Unknown command: {{command}}",
+    "available_commands": "Type :help for a list of available commands."
+  },
+  "init": {
+    "description": "Initialize Delta CLI configuration",
+    "starting": "Initializing Delta CLI configuration...",
+    "success": "Delta CLI configuration initialized successfully!",
+    "component_initialized": "{{component}} initialized",
+    "component_failed": "Warning: Failed to initialize {{component}}: {{error}}"
+  }
+}

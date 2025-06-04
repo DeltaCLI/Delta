@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "language": "Italiano",
+    "locale": "it",
+    "version": "1.0.0",
+    "contributors": ["Team Delta"]
+  },
+  "ai": {
+    "description": "Comandi dell'Assistente IA",
+    "help_title": "Comandi dell'Assistente IA",
+    "status": {
+      "enabled": "Assistente IA abilitato",
+      "disabled": "Assistente IA disabilitato",
+      "current": "L'assistente IA è attualmente {{status}}",
+      "unavailable": "Funzionalità IA non disponibili - inizializzazione del gestore IA fallita"
+    },
+    "model": {
+      "current": "Modello IA attuale: {{model}}",
+      "changed": "Modello IA impostato a: {{model}}",
+      "custom": "Ora utilizzando il modello addestrato personalizzato: {{path}}",
+      "default": "Utilizzando il modello Ollama: {{model}}",
+      "reverted": "Ripristinato al modello Ollama predefinito",
+      "error": "Errore nell'impostazione del modello: {{error}}",
+      "pull_suggestion": "Puoi scaricare il modello con: ollama pull {{model}}"
+    },
+    "feedback": {
+      "recorded": "Feedback registrato: {{type}}",
+      "usage": "Utilizzo: :ai feedback <helpful|unhelpful|correction> [correzione]",
+      "type_required": "Specifica il tipo di feedback: helpful, unhelpful o correction"
+    },
+    "help": {
+      "show_status": ":ai              - Mostra stato IA",
+      "enable": ":ai on           - Abilita assistente IA",
+      "disable": ":ai off          - Disabilita assistente IA",
+      "show_model": ":ai model        - Mostra modello attuale",
+      "set_model": ":ai model <nome> - Passa al modello Ollama specificato",
+      "custom_model": ":ai model custom <percorso> - Usa modello addestrato personalizzato",
+      "default_model": ":ai model default - Ripristina al modello predefinito",
+      "detailed_status": ":ai status       - Mostra stato dettagliato IA",
+      "feedback": ":ai feedback <helpful|unhelpful|correction> [correzione]",
+      "feedback_desc": "                   - Fornisci feedback sull'ultima previsione",
+      "help": ":ai help         - Mostra questo messaggio di aiuto"
+    }
+  },
+  "jump": {
+    "description": "Comandi di navigazione",
+    "location_added": "Posizione di salto '{{name}}' aggiunta: {{path}}",
+    "location_removed": "Posizione di salto '{{name}}' rimossa",
+    "location_not_found": "Posizione di salto '{{name}}' non trovata",
+    "invalid_location": "Posizione non valida: {{location}}",
+    "directory_changed": "Cambiato a: {{path}}",
+    "directory_not_found": "Directory non trovata: {{path}}",
+    "import_success": "Importate {{count}} posizioni da jump.sh",
+    "import_failed": "Importazione da jump.sh fallita: {{error}}",
+    "help": {
+      "jump": ":jump <posizione>  - Salta alla posizione predefinita",
+      "add": ":jump add <nome> [percorso] - Aggiungi nuova posizione di salto",
+      "remove": ":jump remove <nome>     - Rimuovi posizione di salto",
+      "import": ":jump import jumpsh  - Importa posizioni da jump.sh",
+      "shorthand": ":j <posizione>     - Abbreviazione per jump"
+    }
+  },
+  "memory": {
+    "description": "Comandi del Sistema di Memoria",
+    "status": {
+      "enabled": "Raccolta memoria abilitata",
+      "disabled": "Raccolta memoria disabilitata",
+      "unavailable": "Sistema di memoria non disponibile"
+    },
+    "stats": {
+      "title": "Statistiche Memoria:",
+      "entries": "- Totale voci: {{count}}",
+      "size": "- Dimensione dati: {{size}}",
+      "last_update": "- Ultimo aggiornamento: {{time}}"
+    },
+    "help": {
+      "status": ":memory status    - Mostra stato del sistema di memoria",
+      "enable": ":memory enable    - Abilita raccolta memoria",
+      "disable": ":memory disable   - Disabilita raccolta memoria",
+      "stats": ":memory stats     - Mostra statistiche dettagliate memoria",
+      "config": ":memory config    - Visualizza o modifica configurazione memoria",
+      "list": ":memory list      - Elenca frammenti di dati disponibili",
+      "export": ":memory export    - Esporta dati per una data specifica",
+      "clear": ":memory clear     - Cancella tutti i dati raccolti (richiede conferma)",
+      "train": ":memory train     - Comandi di addestramento memoria",
+      "shorthand": ":mem              - Abbreviazione per comandi memoria"
+    }
+  },
+  "config": {
+    "description": "Comandi di configurazione",
+    "initialized": "Gestore configurazione inizializzato",
+    "export_success": "Configurazione esportata in: {{path}}",
+    "import_success": "Configurazione importata da: {{path}}",
+    "reset_success": "Tutte le configurazioni ripristinate ai valori predefiniti",
+    "component_updated": "Configurazione {{component}} aggiornata",
+    "help": {
+      "status": ":config                - Mostra stato configurazione",
+      "list": ":config list           - Elenca tutte le configurazioni",
+      "export": ":config export <percorso>  - Esporta configurazione in un file",
+      "import": ":config import <percorso>  - Importa configurazione da un file",
+      "edit": ":config edit <comp>    - Visualizza o modifica configurazione componente",
+      "reset": ":config reset          - Ripristina tutte le configurazioni ai valori predefiniti"
+    }
+  },
+  "help": {
+    "description": "Mostra informazioni di aiuto",
+    "unknown_command": "Comando sconosciuto: {{command}}",
+    "available_commands": "Digita :help per un elenco dei comandi disponibili."
+  },
+  "init": {
+    "description": "Inizializza configurazione Delta CLI",
+    "starting": "Inizializzazione configurazione Delta CLI...",
+    "success": "Configurazione Delta CLI inizializzata con successo!",
+    "component_initialized": "{{component}} inizializzato",
+    "component_failed": "Avviso: Inizializzazione {{component}} fallita: {{error}}"
+  }
+}

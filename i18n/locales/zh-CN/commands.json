@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "language": "中文（简体）",
+    "locale": "zh-CN",
+    "version": "1.0.0",
+    "contributors": ["Delta团队"]
+  },
+  "ai": {
+    "description": "AI助手命令",
+    "help_title": "AI助手命令",
+    "status": {
+      "enabled": "AI助手已启用",
+      "disabled": "AI助手已禁用",
+      "current": "AI助手当前状态：{{status}}",
+      "unavailable": "AI功能不可用 - 初始化AI管理器失败"
+    },
+    "model": {
+      "current": "当前AI模型：{{model}}",
+      "changed": "AI模型已设置为：{{model}}",
+      "custom": "现在使用自定义训练模型：{{path}}",
+      "default": "使用Ollama模型：{{model}}",
+      "reverted": "已恢复到默认Ollama模型",
+      "error": "设置模型时出错：{{error}}",
+      "pull_suggestion": "您可以使用以下命令拉取模型：ollama pull {{model}}"
+    },
+    "feedback": {
+      "recorded": "反馈已记录：{{type}}",
+      "usage": "用法：:ai feedback <helpful|unhelpful|correction> [correction]",
+      "type_required": "请指定反馈类型：helpful、unhelpful 或 correction"
+    },
+    "help": {
+      "show_status": ":ai              - 显示AI状态",
+      "enable": ":ai on           - 启用AI助手",
+      "disable": ":ai off          - 禁用AI助手",
+      "show_model": ":ai model        - 显示当前模型",
+      "set_model": ":ai model <名称> - 切换到指定的Ollama模型",
+      "custom_model": ":ai model custom <路径> - 使用自定义训练模型",
+      "default_model": ":ai model default - 恢复到默认模型",
+      "detailed_status": ":ai status       - 显示详细AI状态",
+      "feedback": ":ai feedback <helpful|unhelpful|correction> [correction]",
+      "feedback_desc": "                   - 对上次预测提供反馈",
+      "help": ":ai help         - 显示此帮助信息"
+    }
+  },
+  "jump": {
+    "description": "导航命令",
+    "location_added": "跳转位置 '{{name}}' 已添加：{{path}}",
+    "location_removed": "跳转位置 '{{name}}' 已移除",
+    "location_not_found": "未找到跳转位置 '{{name}}'",
+    "invalid_location": "无效位置：{{location}}",
+    "directory_changed": "已切换到：{{path}}",
+    "directory_not_found": "未找到目录：{{path}}",
+    "import_success": "从jump.sh导入了{{count}}个位置",
+    "import_failed": "从jump.sh导入失败：{{error}}",
+    "help": {
+      "jump": ":jump <位置>  - 跳转到预定义位置",
+      "add": ":jump add <名称> [路径] - 添加新的跳转位置",
+      "remove": ":jump remove <名称>     - 移除跳转位置",
+      "import": ":jump import jumpsh  - 从jump.sh导入位置",
+      "shorthand": ":j <位置>     - jump的简写"
+    }
+  },
+  "memory": {
+    "description": "内存系统命令",
+    "status": {
+      "enabled": "内存收集已启用",
+      "disabled": "内存收集已禁用",
+      "unavailable": "内存系统不可用"
+    },
+    "stats": {
+      "title": "内存统计：",
+      "entries": "- 总条目数：{{count}}",
+      "size": "- 数据大小：{{size}}",
+      "last_update": "- 最后更新：{{time}}"
+    },
+    "help": {
+      "status": ":memory status    - 显示内存系统状态",
+      "enable": ":memory enable    - 启用内存收集",
+      "disable": ":memory disable   - 禁用内存收集",
+      "stats": ":memory stats     - 显示详细内存统计",
+      "config": ":memory config    - 查看或修改内存配置",
+      "list": ":memory list      - 列出可用数据分片",
+      "export": ":memory export    - 导出特定日期的数据",
+      "clear": ":memory clear     - 清除所有收集的数据（需要确认）",
+      "train": ":memory train     - 内存训练命令",
+      "shorthand": ":mem              - memory命令的简写"
+    }
+  },
+  "config": {
+    "description": "配置命令",
+    "initialized": "配置管理器已初始化",
+    "export_success": "配置已导出到：{{path}}",
+    "import_success": "配置已从以下位置导入：{{path}}",
+    "reset_success": "所有配置已重置为默认值",
+    "component_updated": "{{component}}配置已更新",
+    "help": {
+      "status": ":config                - 显示配置状态",
+      "list": ":config list           - 列出所有配置",
+      "export": ":config export <路径>  - 将配置导出到文件",
+      "import": ":config import <路径>  - 从文件导入配置",
+      "edit": ":config edit <组件>    - 查看或修改组件配置",
+      "reset": ":config reset          - 将所有配置重置为默认值"
+    }
+  },
+  "help": {
+    "description": "显示帮助信息",
+    "unknown_command": "未知命令：{{command}}",
+    "available_commands": "输入:help查看可用命令列表。"
+  },
+  "init": {
+    "description": "初始化Delta CLI配置",
+    "starting": "正在初始化Delta CLI配置...",
+    "success": "Delta CLI配置初始化成功！",
+    "component_initialized": "{{component}}已初始化",
+    "component_failed": "警告：初始化{{component}}失败：{{error}}"
+  }
+}

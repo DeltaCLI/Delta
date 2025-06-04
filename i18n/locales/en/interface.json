@@ -1,0 +1,61 @@
+{
+  "meta": {
+    "language": "English",
+    "locale": "en",
+    "version": "1.0.0",
+    "contributors": ["Delta Team"]
+  },
+  "welcome": {
+    "message": "Welcome to Delta! 🔼",
+    "features_enabled": "[∆ {{feature}} enabled: {{details}}]"
+  },
+  "goodbye": {
+    "message": "Goodbye! 👋",
+    "terminating": "Terminating..."
+  },
+  "prompts": {
+    "main": "∆ ",
+    "continuation": "⬠ ",
+    "directory": "[{{dir}}] ∆ ",
+    "subcommand": "⬠ "
+  },
+  "status": {
+    "enabled": "enabled",
+    "disabled": "disabled",
+    "available": "available",
+    "unavailable": "unavailable",
+    "active": "active",
+    "inactive": "inactive"
+  },
+  "navigation": {
+    "entering_subcommand": "Entering subcommand mode.",
+    "exiting_subcommand": "Exiting subcommand mode.",
+    "changed_directory": "Changed to: {{path}}",
+    "current_directory": "{{path}}"
+  },
+  "ai": {
+    "thinking": "[∆ thinking: {{thought}}]",
+    "features_enabled": "AI features enabled: Using {{model}} model",
+    "learning_enabled": "Learning system enabled: {{examples}} training examples collected",
+    "agent_enabled": "Agent system enabled: Task automation active"
+  },
+  "errors": {
+    "reading_input": "Error reading input: {{error}}",
+    "getting_directory": "Error getting current directory: {{error}}",
+    "getting_home": "Error getting home directory: {{error}}",
+    "command_failed": "Command failed: {{error}}",
+    "command_exited": "Command exited with code {{code}}",
+    "initialization_failed": "Error initializing {{component}}: {{error}}"
+  },
+  "commands": {
+    "unknown": "Unknown command: {{command}}",
+    "available": "Type :help for a list of available commands.",
+    "running": "Running: {{command}}"
+  },
+  "system": {
+    "configuration_enabled": "Configuration system enabled: Centralized settings management",
+    "spellcheck_enabled": "Spell checking enabled: Command correction active",
+    "history_enabled": "History analysis enabled: Command suggestion active",
+    "art2_enabled": "ART-2 learning enabled: Adaptive pattern recognition active"
+  }
+}

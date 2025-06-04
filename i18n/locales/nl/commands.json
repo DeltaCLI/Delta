@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "language": "Nederlands",
+    "locale": "nl",
+    "version": "1.0.0",
+    "contributors": ["Delta Team"]
+  },
+  "ai": {
+    "description": "AI Assistent commando's",
+    "help_title": "AI Assistent Commando's",
+    "status": {
+      "enabled": "AI assistent ingeschakeld",
+      "disabled": "AI assistent uitgeschakeld",
+      "current": "AI assistent is momenteel {{status}}",
+      "unavailable": "AI functies niet beschikbaar - initialisatie van AI manager mislukt"
+    },
+    "model": {
+      "current": "Huidig AI model: {{model}}",
+      "changed": "AI model ingesteld op: {{model}}",
+      "custom": "Nu bezig met aangepast getraind model: {{path}}",
+      "default": "Ollama model gebruiken: {{model}}",
+      "reverted": "Teruggekeerd naar standaard Ollama model",
+      "error": "Fout bij instellen model: {{error}}",
+      "pull_suggestion": "Je kunt het model downloaden met: ollama pull {{model}}"
+    },
+    "feedback": {
+      "recorded": "Feedback geregistreerd: {{type}}",
+      "usage": "Gebruik: :ai feedback <helpful|unhelpful|correction> [correctie]",
+      "type_required": "Specificeer het feedback type: helpful, unhelpful of correction"
+    },
+    "help": {
+      "show_status": ":ai              - Toon AI status",
+      "enable": ":ai on           - AI assistent inschakelen",
+      "disable": ":ai off          - AI assistent uitschakelen",
+      "show_model": ":ai model        - Toon huidig model",
+      "set_model": ":ai model <naam> - Schakel naar gespecificeerd Ollama model",
+      "custom_model": ":ai model custom <pad> - Gebruik aangepast getraind model",
+      "default_model": ":ai model default - Terug naar standaard model",
+      "detailed_status": ":ai status       - Toon gedetailleerde AI status",
+      "feedback": ":ai feedback <helpful|unhelpful|correction> [correctie]",
+      "feedback_desc": "                   - Geef feedback op laatste voorspelling",
+      "help": ":ai help         - Toon dit hulpbericht"
+    }
+  },
+  "jump": {
+    "description": "Navigatie commando's",
+    "location_added": "Jump locatie '{{name}}' toegevoegd: {{path}}",
+    "location_removed": "Jump locatie '{{name}}' verwijderd",
+    "location_not_found": "Jump locatie '{{name}}' niet gevonden",
+    "invalid_location": "Ongeldige locatie: {{location}}",
+    "directory_changed": "Veranderd naar: {{path}}",
+    "directory_not_found": "Map niet gevonden: {{path}}",
+    "import_success": "{{count}} locaties geïmporteerd van jump.sh",
+    "import_failed": "Import van jump.sh mislukt: {{error}}",
+    "help": {
+      "jump": ":jump <locatie>  - Spring naar voorgedefinieerde locatie",
+      "add": ":jump add <naam> [pad] - Voeg nieuwe jump locatie toe",
+      "remove": ":jump remove <naam>     - Verwijder jump locatie",
+      "import": ":jump import jumpsh  - Importeer locaties van jump.sh",
+      "shorthand": ":j <locatie>     - Afkorting voor jump"
+    }
+  },
+  "memory": {
+    "description": "Geheugen Systeem commando's",
+    "status": {
+      "enabled": "Geheugen verzameling ingeschakeld",
+      "disabled": "Geheugen verzameling uitgeschakeld",
+      "unavailable": "Geheugen systeem niet beschikbaar"
+    },
+    "stats": {
+      "title": "Geheugen Statistieken:",
+      "entries": "- Totaal items: {{count}}",
+      "size": "- Data grootte: {{size}}",
+      "last_update": "- Laatste update: {{time}}"
+    },
+    "help": {
+      "status": ":memory status    - Toon geheugen systeem status",
+      "enable": ":memory enable    - Geheugen verzameling inschakelen",
+      "disable": ":memory disable   - Geheugen verzameling uitschakelen",
+      "stats": ":memory stats     - Toon gedetailleerde geheugen statistieken",
+      "config": ":memory config    - Bekijk of wijzig geheugen configuratie",
+      "list": ":memory list      - Lijst beschikbare data fragmenten",
+      "export": ":memory export    - Exporteer data voor specifieke datum",
+      "clear": ":memory clear     - Wis alle verzamelde data (bevestiging vereist)",
+      "train": ":memory train     - Geheugen training commando's",
+      "shorthand": ":mem              - Afkorting voor geheugen commando's"
+    }
+  },
+  "config": {
+    "description": "Configuratie commando's",
+    "initialized": "Configuratie manager geïnitialiseerd",
+    "export_success": "Configuratie geëxporteerd naar: {{path}}",
+    "import_success": "Configuratie geïmporteerd van: {{path}}",
+    "reset_success": "Alle configuraties gereset naar standaardwaarden",
+    "component_updated": "{{component}} configuratie bijgewerkt",
+    "help": {
+      "status": ":config                - Toon configuratie status",
+      "list": ":config list           - Lijst alle configuraties",
+      "export": ":config export <pad>  - Exporteer configuratie naar bestand",
+      "import": ":config import <pad>  - Importeer configuratie van bestand",
+      "edit": ":config edit <comp>    - Bekijk of wijzig component configuratie",
+      "reset": ":config reset          - Reset alle configuraties naar standaardwaarden"
+    }
+  },
+  "help": {
+    "description": "Toon hulp informatie",
+    "unknown_command": "Onbekend commando: {{command}}",
+    "available_commands": "Type :help voor een lijst van beschikbare commando's."
+  },
+  "init": {
+    "description": "Initialiseer Delta CLI configuratie",
+    "starting": "Delta CLI configuratie initialiseren...",
+    "success": "Delta CLI configuratie succesvol geïnitialiseerd!",
+    "component_initialized": "{{component}} geïnitialiseerd",
+    "component_failed": "Waarschuwing: Initialisatie van {{component}} mislukt: {{error}}"
+  }
+}
