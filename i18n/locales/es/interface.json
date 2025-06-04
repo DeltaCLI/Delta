@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "language": "Español",
+    "locale": "es",
+    "version": "1.0.0",
+    "contributors": ["Equipo Delta"]
+  },
+  "welcome": {
+    "message": "¡Bienvenido a Delta! 🔼",
+    "features_enabled": "[∆ {{feature}} habilitado: {{details}}]"
+  },
+  "goodbye": {
+    "message": "¡Adiós! 👋",
+    "terminating": "Terminando..."
+  },
+  "prompts": {
+    "main": "∆ ",
+    "continuation": "⬠ ",
+    "directory": "[{{dir}}] ∆ ",
+    "subcommand": "⬠ "
+  },
+  "status": {
+    "enabled": "habilitado",
+    "disabled": "deshabilitado",
+    "available": "disponible",
+    "unavailable": "no disponible",
+    "active": "activo",
+    "inactive": "inactivo"
+  },
+  "navigation": {
+    "entering_subcommand": "Entrando en modo de subcomando.",
+    "exiting_subcommand": "Saliendo del modo de subcomando.",
+    "changed_directory": "Cambiado a: {{path}}",
+    "current_directory": "{{path}}"
+  },
+  "errors": {
+    "reading_input": "Error leyendo entrada: {{error}}",
+    "getting_directory": "Error obteniendo directorio actual: {{error}}",
+    "getting_home": "Error obteniendo directorio home: {{error}}",
+    "command_failed": "Comando falló: {{error}}",
+    "command_exited": "Comando terminó con código {{code}}",
+    "initialization_failed": "Error inicializando {{component}}: {{error}}"
+  },
+  "commands": {
+    "unknown": "Comando desconocido: {{command}}",
+    "available": "Escribe :help para una lista de comandos disponibles.",
+    "running": "Ejecutando: {{command}}"
+  }
+}

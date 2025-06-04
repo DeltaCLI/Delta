@@ -701,6 +701,8 @@ func handleInternalCommand(command string) bool {
 	case "help":
 		showHelp()
 		return true
+	case "i18n", "lang", "locale":
+		return HandleI18nCommand(args)
 	case "jump", "j":
 		return HandleJumpCommand(args)
 	case "memory", "mem":
@@ -1263,7 +1265,10 @@ func main() {
 	// Set the initial terminal title
 	setDeltaTitle()
 	
-	fmt.Println("Welcome to Delta! 🔼")
+	// Initialize i18n system first
+	initializeI18nSystem()
+	
+	fmt.Println(T("interface.welcome.message"))
 	fmt.Println()
 
 	// Now that all components have been created with default configs,
@@ -1284,7 +1289,10 @@ func main() {
 	if ai != nil {
 		// Initialize will now handle displaying errors only once
 		if ai.Initialize() {
-			fmt.Println("\033[33m[∆ AI features enabled: Using " + ai.ollamaClient.ModelName + " model]\033[0m")
+			fmt.Printf("\033[33m%s\033[0m\n", T("interface.welcome.features_enabled", TranslationParams{
+				"feature": "AI features",
+				"details": T("interface.ai.features_enabled", TranslationParams{"model": ai.ollamaClient.ModelName}),
+			}))
 		}
 	}
 
@@ -1490,11 +1498,11 @@ func main() {
 				continue
 			} else if err == io.EOF {
 				// Ctrl+D exits
-				fmt.Println("\nGoodbye! 👋")
+				fmt.Printf("\n%s\n", T("interface.goodbye.message"))
 				resetTerminalTitle()
 				break
 			}
-			fmt.Println("Error reading input:", err)
+			fmt.Println(T("interface.errors.reading_input", TranslationParams{"error": err.Error()}))
 			continue
 		}
 
@@ -1541,7 +1549,7 @@ func main() {
 
 		// Handle the exit command
 		if command == "exit" || command == "quit" {
-			fmt.Println("Goodbye! 👋")
+			fmt.Println(T("interface.goodbye.message"))
 			resetTerminalTitle()
 			break
 		}
@@ -1549,11 +1557,11 @@ func main() {
 		// Check for subcommand mode
 		if command == "sub" {
 			inSubCommand = true
-			fmt.Println("Entering subcommand mode.")
+			fmt.Println(T("interface.navigation.entering_subcommand"))
 			continue
 		} else if command == "end" {
 			inSubCommand = false
-			fmt.Println("Exiting subcommand mode.")
+			fmt.Println(T("interface.navigation.exiting_subcommand"))
 			continue
 		}
 

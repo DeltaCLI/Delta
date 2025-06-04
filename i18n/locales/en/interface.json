@@ -57,5 +57,55 @@
     "spellcheck_enabled": "Spell checking enabled: Command correction active",
     "history_enabled": "History analysis enabled: Command suggestion active",
     "art2_enabled": "ART-2 learning enabled: Adaptive pattern recognition active"
+  },
+  "i18n": {
+    "status": {
+      "title": "Internationalization Status:",
+      "current_locale": "Current locale",
+      "available_locales": "Available locales",
+      "loaded_locales": "Loaded locales",
+      "total_keys": "Total translation keys"
+    },
+    "locale": {
+      "current": "Current locale",
+      "not_found": "Locale '{{locale}}' not found.",
+      "available": "Available locales",
+      "error": "Error setting locale: {{error}}",
+      "changed": "Locale changed to: {{locale}}"
+    },
+    "list": {
+      "title": "Available Locales:",
+      "current_marker": "* indicates current locale"
+    },
+    "reload": {
+      "starting": "Reloading translation files...",
+      "error": "Error reloading translations: {{error}}",
+      "success": "Translation files reloaded successfully."
+    },
+    "stats": {
+      "title": "Internationalization Statistics:",
+      "current_locale": "Current locale",
+      "fallback_locale": "Fallback locale",
+      "loaded_locales": "Loaded locales",
+      "total_keys": "Total translation keys",
+      "per_locale": "Per-locale statistics",
+      "keys": "keys"
+    },
+    "help": {
+      "title": "Internationalization Commands",
+      "separator": "============================",
+      "status": ":i18n                - Show i18n status",
+      "locale_show": ":i18n locale         - Show current locale",
+      "locale_set": ":i18n locale <code>  - Set locale (e.g., en, zh-CN, es)",
+      "list": ":i18n list           - List all available locales",
+      "reload": ":i18n reload         - Reload translation files",
+      "stats": ":i18n stats          - Show detailed i18n statistics",
+      "help": ":i18n help           - Show this help message",
+      "examples": "Examples",
+      "example_status": ":i18n                # Show current status",
+      "example_list": ":i18n list           # List available languages",
+      "example_set_chinese": ":i18n locale zh-CN   # Switch to Chinese",
+      "example_set_english": ":i18n locale en      # Switch to English"
+    }
   }
 }

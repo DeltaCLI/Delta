@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "language": "Français",
+    "locale": "fr",
+    "version": "1.0.0",
+    "contributors": ["Équipe Delta"]
+  },
+  "welcome": {
+    "message": "Bienvenue dans Delta ! 🔼",
+    "features_enabled": "[∆ {{feature}} activé : {{details}}]"
+  },
+  "goodbye": {
+    "message": "Au revoir ! 👋",
+    "terminating": "Arrêt en cours..."
+  },
+  "prompts": {
+    "main": "∆ ",
+    "continuation": "⬠ ",
+    "directory": "[{{dir}}] ∆ ",
+    "subcommand": "⬠ "
+  },
+  "status": {
+    "enabled": "activé",
+    "disabled": "désactivé",
+    "available": "disponible",
+    "unavailable": "indisponible",
+    "active": "actif",
+    "inactive": "inactif"
+  },
+  "navigation": {
+    "entering_subcommand": "Entrée en mode sous-commande.",
+    "exiting_subcommand": "Sortie du mode sous-commande.",
+    "changed_directory": "Changé vers : {{path}}",
+    "current_directory": "{{path}}"
+  },
+  "errors": {
+    "reading_input": "Erreur de lecture d'entrée : {{error}}",
+    "getting_directory": "Erreur d'obtention du répertoire actuel : {{error}}",
+    "getting_home": "Erreur d'obtention du répertoire home : {{error}}",
+    "command_failed": "Commande échouée : {{error}}",
+    "command_exited": "Commande terminée avec le code {{code}}",
+    "initialization_failed": "Erreur d'initialisation de {{component}} : {{error}}"
+  },
+  "commands": {
+    "unknown": "Commande inconnue : {{command}}",
+    "available": "Tapez :help pour une liste des commandes disponibles.",
+    "running": "Exécution : {{command}}"
+  }
+}

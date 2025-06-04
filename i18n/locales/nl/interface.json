@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "language": "Nederlands",
+    "locale": "nl",
+    "version": "1.0.0",
+    "contributors": ["Delta Team"]
+  },
+  "welcome": {
+    "message": "Welkom bij Delta! 🔼",
+    "features_enabled": "[∆ {{feature}} ingeschakeld: {{details}}]"
+  },
+  "goodbye": {
+    "message": "Tot ziens! 👋",
+    "terminating": "Bezig met afsluiten..."
+  },
+  "prompts": {
+    "main": "∆ ",
+    "continuation": "⬠ ",
+    "directory": "[{{dir}}] ∆ ",
+    "subcommand": "⬠ "
+  },
+  "status": {
+    "enabled": "ingeschakeld",
+    "disabled": "uitgeschakeld",
+    "available": "beschikbaar",
+    "unavailable": "niet beschikbaar",
+    "active": "actief",
+    "inactive": "inactief"
+  },
+  "navigation": {
+    "entering_subcommand": "Subcommando modus betreden.",
+    "exiting_subcommand": "Subcommando modus verlaten.",
+    "changed_directory": "Veranderd naar: {{path}}",
+    "current_directory": "{{path}}"
+  },
+  "errors": {
+    "reading_input": "Fout bij lezen invoer: {{error}}",
+    "getting_directory": "Fout bij ophalen huidige map: {{error}}",
+    "getting_home": "Fout bij ophalen thuismap: {{error}}",
+    "command_failed": "Commando mislukt: {{error}}",
+    "command_exited": "Commando afgesloten met code {{code}}",
+    "initialization_failed": "Fout bij initialiseren {{component}}: {{error}}"
+  },
+  "commands": {
+    "unknown": "Onbekend commando: {{command}}",
+    "available": "Type :help voor een lijst van beschikbare commando's.",
+    "running": "Uitvoeren: {{command}}"
+  }
+}
