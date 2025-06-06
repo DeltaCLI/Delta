@@ -1,4 +1,5 @@
 build/
+releases/
 docs/node_modules/
 
 **/.claude/settings.local.json

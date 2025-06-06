@@ -21,6 +21,7 @@ import (
 	"delta/cmds"
 
 	"github.com/chzyer/readline"
+	"github.com/spf13/cobra"
 )
 
 // Global variable to store the original terminal title
@@ -1258,7 +1259,7 @@ func chooseEmoji(text string) string {
 // Global variable for AI manager
 var globalAIManager *AIPredictionManager
 
-func main() {
+func runInteractiveShell() {
 	// Determine what the original terminal title should be restored to
 	originalTerminalTitle = getOriginalTerminalTitle()
 	
@@ -1610,6 +1611,29 @@ func main() {
 				}
 			}
 		}
+	}
+}
+
+func main() {
+	var rootCmd = &cobra.Command{
+		Use:   "delta",
+		Short: "Delta CLI - AI-powered shell enhancement",
+		Long: `Delta CLI is an intelligent shell wrapper that enhances your command-line experience 
+with AI-powered suggestions, encrypted command history, and seamless shell compatibility.
+
+🌍 Multilingual Support: Available in 6 languages
+💡 AI-Powered Shell Enhancement with Local Privacy`,
+		Version: GetVersionInfo(),
+		Run: func(cmd *cobra.Command, args []string) {
+			runInteractiveShell()
+		},
+	}
+
+	rootCmd.SetVersionTemplate(GetVersionInfo() + "\n")
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 

@@ -5,6 +5,7 @@ Delta is an intelligent shell wrapper that enhances your command-line experience
 ## Features
 
 - **Universal Shell Compatibility**: Works with bash, zsh, fish, and preserves your existing shell functions and aliases
+- **Multilingual Support**: Available in 6 languages with runtime language switching (🆕 v0.1.0-alpha)
 - **AI-Powered Suggestions**: Context-aware predictions and insights using local Ollama models
 - **Secure Command History**: Encrypted storage with privacy filtering
 - **Advanced Memory System**: Learn from your command patterns and improve over time
@@ -13,6 +14,28 @@ Delta is an intelligent shell wrapper that enhances your command-line experience
 - **Vector Search**: Fast semantic search through your command history
 
 ## Installation
+
+### Option 1: Download Pre-built Binary (Recommended)
+
+Download the latest release from [GitHub Releases](https://github.com/DeltaCLI/Delta/releases):
+
+```bash
+# Download the latest release (replace VERSION with actual version like v0.1.0-alpha)
+curl -L -o delta-VERSION-linux-amd64.tar.gz \
+  https://github.com/DeltaCLI/Delta/releases/download/VERSION/delta-VERSION-linux-amd64.tar.gz
+
+# Extract the binary
+tar -xzf delta-VERSION-linux-amd64.tar.gz
+
+# Make executable and install
+chmod +x delta-linux-amd64
+sudo mv delta-linux-amd64 /usr/local/bin/delta
+
+# Verify installation
+echo ":help" | delta
+```
+
+### Option 2: Build from Source
 
 ```bash
 # Clone the repository
@@ -53,10 +76,42 @@ Delta uses a colon (`:`) prefix for internal commands (similar to Vim):
 - `:ai on` - Enable AI suggestions
 - `:ai off` - Disable AI suggestions
 - `:ai status` - Check if AI suggestions are enabled
+- `:i18n` - Internationalization commands (🆕 v0.1.0-alpha)
+- `:i18n locale zh-CN` - Switch to Chinese (🆕 v0.1.0-alpha)
+- `:i18n list` - List available languages (🆕 v0.1.0-alpha)
 - `:memory` - Memory system commands
 - `:tokenizer` - Command tokenization utilities
 - `:help` - Show all available commands
 - `:jump <location>` - Quick directory navigation
+
+### Internationalization (🆕 v0.1.0-alpha)
+
+Delta CLI now supports multiple languages with runtime switching:
+
+```bash
+# List available languages
+:i18n list
+
+# Switch to Chinese (Simplified)
+:i18n locale zh-CN
+
+# Switch to Spanish
+:i18n locale es
+
+# Switch back to English
+:i18n locale en
+
+# Show i18n status
+:i18n
+```
+
+**Supported Languages:**
+- English (en) - Default
+- 中文简体 (zh-CN) - Chinese Simplified
+- Español (es) - Spanish
+- Français (fr) - French
+- Italiano (it) - Italian
+- Nederlands (nl) - Dutch
 
 ### AI Features
 

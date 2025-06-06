@@ -2,7 +2,7 @@
 
 ## 🌍 Internationalization Alpha Release
 
-**Release Date**: December 2024  
+**Release Date**: June 4th, 2025  
 **Version**: v0.1.0-alpha  
 **Milestone**: Multi-Language Support  
 

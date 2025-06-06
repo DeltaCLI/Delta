@@ -5,7 +5,7 @@
 
 **Release Version**: `v0.1.0-alpha`  
 **Release Name**: "Multilingual Delta"  
-**Release Date**: December 2024  
+**Release Date**: June 4th, 2025  
 **Milestone**: Multi-Language Support Implementation  
 
 This alpha release introduces comprehensive internationalization (i18n) support to Delta CLI, enabling users worldwide to interact with the system in their preferred language while maintaining all existing functionality.
