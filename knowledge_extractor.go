@@ -18,22 +18,22 @@ type KnowledgeType string
 
 const (
 	KnowledgeCommandPattern KnowledgeType = "command_pattern"
-	KnowledgeDirectoryFlow KnowledgeType = "directory_flow"
-	KnowledgeToolUsage     KnowledgeType = "tool_usage"
-	KnowledgeFileOperation KnowledgeType = "file_operation"
-	KnowledgeEnvironment   KnowledgeType = "environment"
-	KnowledgeWorkflow      KnowledgeType = "workflow"
+	KnowledgeDirectoryFlow  KnowledgeType = "directory_flow"
+	KnowledgeToolUsage      KnowledgeType = "tool_usage"
+	KnowledgeFileOperation  KnowledgeType = "file_operation"
+	KnowledgeEnvironment    KnowledgeType = "environment"
+	KnowledgeWorkflow       KnowledgeType = "workflow"
 )
 
 // KnowledgeEntity represents an extracted piece of knowledge
 type KnowledgeEntity struct {
-	ID          string       `json:"id"`
-	Type        KnowledgeType `json:"type"`
-	Pattern     string       `json:"pattern"`
-	Examples    []string     `json:"examples"`
-	Confidence  float64      `json:"confidence"`
-	LastUpdated time.Time    `json:"last_updated"`
-	UsageCount  int          `json:"usage_count"`
+	ID          string            `json:"id"`
+	Type        KnowledgeType     `json:"type"`
+	Pattern     string            `json:"pattern"`
+	Examples    []string          `json:"examples"`
+	Confidence  float64           `json:"confidence"`
+	LastUpdated time.Time         `json:"last_updated"`
+	UsageCount  int               `json:"usage_count"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
@@ -46,19 +46,19 @@ type KnowledgeBatch struct {
 
 // KnowledgeExtractorConfig contains configuration for knowledge extraction
 type KnowledgeExtractorConfig struct {
-	Enabled             bool     `json:"enabled"`
-	StoragePath         string   `json:"storage_path"`
-	MinConfidence       float64  `json:"min_confidence"`
-	BatchSize           int      `json:"batch_size"`
-	MaxEntities         int      `json:"max_entities"`
-	ScanInterval        int      `json:"scan_interval"`         // in minutes
-	PatternThreshold    int      `json:"pattern_threshold"`    
-	ExtractEnvironment  bool     `json:"extract_environment"`
-	ExtractWorkflows    bool     `json:"extract_workflows"`
-	SensitivePatterns   []string `json:"sensitive_patterns"`
-	IncludeCommands     []string `json:"include_commands"`
-	ExcludeCommands     []string `json:"exclude_commands"`
-	ContextSize         int      `json:"context_size"`
+	Enabled            bool     `json:"enabled"`
+	StoragePath        string   `json:"storage_path"`
+	MinConfidence      float64  `json:"min_confidence"`
+	BatchSize          int      `json:"batch_size"`
+	MaxEntities        int      `json:"max_entities"`
+	ScanInterval       int      `json:"scan_interval"` // in minutes
+	PatternThreshold   int      `json:"pattern_threshold"`
+	ExtractEnvironment bool     `json:"extract_environment"`
+	ExtractWorkflows   bool     `json:"extract_workflows"`
+	SensitivePatterns  []string `json:"sensitive_patterns"`
+	IncludeCommands    []string `json:"include_commands"`
+	ExcludeCommands    []string `json:"exclude_commands"`
+	ContextSize        int      `json:"context_size"`
 }
 
 // KnowledgeExtractor handles extracting knowledge from command history
@@ -376,7 +376,7 @@ func (ke *KnowledgeExtractor) extractCommandPatterns(commands []CommandEntry) er
 				// Update existing entity
 				entity.UsageCount++
 				entity.LastUpdated = time.Now()
-				
+
 				// Add command as example if not already present
 				found := false
 				for _, example := range entity.Examples {
@@ -388,7 +388,7 @@ func (ke *KnowledgeExtractor) extractCommandPatterns(commands []CommandEntry) er
 				if !found && len(entity.Examples) < 5 {
 					entity.Examples = append(entity.Examples, cmd.Command)
 				}
-				
+
 				// Update confidence
 				entity.Confidence = minFloat(1.0, entity.Confidence+0.05)
 
@@ -452,19 +452,19 @@ func (ke *KnowledgeExtractor) extractDirectoryFlows(commands []CommandEntry) err
 
 		// Create flow pattern
 		flowPattern := fmt.Sprintf("%s -> [%s]", source, strings.Join(destinations, ", "))
-		
+
 		// Create entity ID
 		entityID := fmt.Sprintf("flow_%x", hash(flowPattern))
-		
+
 		// Check if entity already exists
 		entity, exists := ke.entities[entityID]
-		
+
 		if exists {
 			// Update existing entity
 			entity.UsageCount++
 			entity.LastUpdated = time.Now()
 			entity.Confidence = minFloat(1.0, entity.Confidence+0.05)
-			
+
 			// Save updated entity
 			ke.entities[entityID] = entity
 			ke.saveEntity(entity)
@@ -473,8 +473,8 @@ func (ke *KnowledgeExtractor) extractDirectoryFlows(commands []CommandEntry) err
 			examples := make([]string, 0)
 			for i := 0; i < len(commands)-1; i++ {
 				if commands[i].Directory == source && containsString(destinations, commands[i+1].Directory) {
-					cmdPair := fmt.Sprintf("%s (in %s) -> %s (in %s)", 
-						commands[i].Command, source, 
+					cmdPair := fmt.Sprintf("%s (in %s) -> %s (in %s)",
+						commands[i].Command, source,
 						commands[i+1].Command, commands[i+1].Directory)
 					examples = append(examples, cmdPair)
 					if len(examples) >= 3 {
@@ -482,7 +482,7 @@ func (ke *KnowledgeExtractor) extractDirectoryFlows(commands []CommandEntry) err
 					}
 				}
 			}
-			
+
 			newEntity := KnowledgeEntity{
 				ID:          entityID,
 				Type:        KnowledgeDirectoryFlow,
@@ -492,11 +492,11 @@ func (ke *KnowledgeExtractor) extractDirectoryFlows(commands []CommandEntry) err
 				LastUpdated: time.Now(),
 				UsageCount:  1,
 				Metadata: map[string]string{
-					"source": source,
+					"source":       source,
 					"destinations": strings.Join(destinations, ","),
 				},
 			}
-			
+
 			// Save new entity
 			ke.entities[entityID] = newEntity
 			ke.saveEntity(newEntity)
@@ -515,42 +515,42 @@ func (ke *KnowledgeExtractor) extractToolUsage(commands []CommandEntry) error {
 
 	// Extract tool usage
 	toolPatterns := make(map[string]int)
-	
+
 	for _, cmd := range commands {
 		// Skip if command is excluded
 		if ke.isExcludedCommand(cmd.Command) {
 			continue
 		}
-		
+
 		// Extract tool name
 		tool := ke.extractToolName(cmd.Command)
 		if tool == "" {
 			continue
 		}
-		
+
 		// Create tool pattern
 		toolPattern := fmt.Sprintf("%s %s", tool, ke.extractToolArgs(cmd.Command, tool))
-		
+
 		// Update pattern count
 		if _, ok := toolPatterns[toolPattern]; ok {
 			toolPatterns[toolPattern]++
 		} else {
 			toolPatterns[toolPattern] = 1
 		}
-		
+
 		// Check if pattern meets threshold
 		if toolPatterns[toolPattern] >= ke.config.PatternThreshold {
 			// Create entity ID
 			entityID := fmt.Sprintf("tool_%x", hash(toolPattern))
-			
+
 			// Check if entity already exists
 			entity, exists := ke.entities[entityID]
-			
+
 			if exists {
 				// Update existing entity
 				entity.UsageCount++
 				entity.LastUpdated = time.Now()
-				
+
 				// Add command as example if not already present
 				found := false
 				for _, example := range entity.Examples {
@@ -562,7 +562,7 @@ func (ke *KnowledgeExtractor) extractToolUsage(commands []CommandEntry) error {
 				if !found && len(entity.Examples) < 5 {
 					entity.Examples = append(entity.Examples, cmd.Command)
 				}
-				
+
 				// Update confidence
 				entity.Confidence = minFloat(1.0, entity.Confidence+0.05)
 
@@ -580,7 +580,7 @@ func (ke *KnowledgeExtractor) extractToolUsage(commands []CommandEntry) error {
 					LastUpdated: time.Now(),
 					UsageCount:  toolPatterns[toolPattern],
 					Metadata: map[string]string{
-						"tool": tool,
+						"tool":      tool,
 						"directory": cmd.Directory,
 					},
 				}
@@ -604,7 +604,7 @@ func (ke *KnowledgeExtractor) extractFileOperations(commands []CommandEntry) err
 
 	// File operation commands
 	fileOps := []string{"cp", "mv", "rm", "mkdir", "touch", "cat", "grep", "find", "sed", "awk"}
-	
+
 	// Extract file operations
 	for _, cmd := range commands {
 		// Check if command is a file operation
@@ -615,24 +615,24 @@ func (ke *KnowledgeExtractor) extractFileOperations(commands []CommandEntry) err
 				break
 			}
 		}
-		
+
 		if !isFileOp {
 			continue
 		}
-		
+
 		// Skip if command contains sensitive information
 		if ke.containsSensitiveInfo(cmd.Command) {
 			continue
 		}
-		
+
 		// Create file operation pattern
 		parts := strings.Fields(cmd.Command)
 		if len(parts) < 2 {
 			continue
 		}
-		
+
 		opType := parts[0]
-		
+
 		// Create pattern based on operation type
 		var pattern string
 		switch opType {
@@ -662,22 +662,22 @@ func (ke *KnowledgeExtractor) extractFileOperations(commands []CommandEntry) err
 				pattern = fmt.Sprintf("%s %s", opType, fileType)
 			}
 		}
-		
+
 		if pattern == "" {
 			continue
 		}
-		
+
 		// Create entity ID
 		entityID := fmt.Sprintf("fileop_%x", hash(pattern))
-		
+
 		// Check if entity already exists
 		entity, exists := ke.entities[entityID]
-		
+
 		if exists {
 			// Update existing entity
 			entity.UsageCount++
 			entity.LastUpdated = time.Now()
-			
+
 			// Add command as example if not already present
 			found := false
 			for _, example := range entity.Examples {
@@ -689,7 +689,7 @@ func (ke *KnowledgeExtractor) extractFileOperations(commands []CommandEntry) err
 			if !found && len(entity.Examples) < 5 {
 				entity.Examples = append(entity.Examples, cmd.Command)
 			}
-			
+
 			// Update confidence
 			entity.Confidence = minFloat(1.0, entity.Confidence+0.05)
 
@@ -730,45 +730,45 @@ func (ke *KnowledgeExtractor) extractEnvironmentInfo(commands []CommandEntry) er
 
 	// Collect environment variables from commands
 	envVars := make(map[string][]string)
-	
+
 	for _, cmd := range commands {
 		// Skip if no environment variables
 		if cmd.Environment == nil || len(cmd.Environment) == 0 {
 			continue
 		}
-		
+
 		// Extract environment variables
 		for key, value := range cmd.Environment {
 			if ke.containsSensitiveInfo(value) {
 				continue
 			}
-			
+
 			envVars[key] = append(envVars[key], value)
 		}
 	}
-	
+
 	// Process environment variables
 	for key, values := range envVars {
 		// Skip if not enough values
 		if len(values) < 2 {
 			continue
 		}
-		
+
 		// Create environment pattern
 		envPattern := fmt.Sprintf("%s=[%s]", key, strings.Join(uniqueStrings(values), ", "))
-		
+
 		// Create entity ID
 		entityID := fmt.Sprintf("env_%x", hash(envPattern))
-		
+
 		// Check if entity already exists
 		entity, exists := ke.entities[entityID]
-		
+
 		if exists {
 			// Update existing entity
 			entity.UsageCount++
 			entity.LastUpdated = time.Now()
 			entity.Confidence = minFloat(1.0, entity.Confidence+0.05)
-			
+
 			// Save updated entity
 			ke.entities[entityID] = entity
 			ke.saveEntity(entity)
@@ -778,7 +778,7 @@ func (ke *KnowledgeExtractor) extractEnvironmentInfo(commands []CommandEntry) er
 			for i := 0; i < min(3, len(values)); i++ {
 				examples = append(examples, fmt.Sprintf("%s=%s", key, values[i]))
 			}
-			
+
 			// Create new entity
 			newEntity := KnowledgeEntity{
 				ID:          entityID,
@@ -790,10 +790,10 @@ func (ke *KnowledgeExtractor) extractEnvironmentInfo(commands []CommandEntry) er
 				UsageCount:  1,
 				Metadata: map[string]string{
 					"variable": key,
-					"values": strings.Join(uniqueStrings(values), ","),
+					"values":   strings.Join(uniqueStrings(values), ","),
 				},
 			}
-			
+
 			// Save new entity
 			ke.entities[entityID] = newEntity
 			ke.saveEntity(newEntity)
@@ -814,42 +814,42 @@ func (ke *KnowledgeExtractor) extractWorkflows(commands []CommandEntry) error {
 	for i := 0; i <= len(commands)-ke.config.ContextSize; i++ {
 		// Create workflow from context window
 		workflow := make([]string, 0, ke.config.ContextSize)
-		
+
 		for j := 0; j < ke.config.ContextSize; j++ {
 			cmd := commands[i+j]
-			
+
 			// Skip if command contains sensitive information
 			if ke.containsSensitiveInfo(cmd.Command) {
 				continue
 			}
-			
+
 			// Add command pattern
 			pattern := ke.extractCommandPattern(cmd.Command)
 			if pattern != "" {
 				workflow = append(workflow, pattern)
 			}
 		}
-		
+
 		// Skip if workflow is empty or incomplete
 		if len(workflow) < ke.config.ContextSize {
 			continue
 		}
-		
+
 		// Create workflow pattern
 		workflowPattern := strings.Join(workflow, " -> ")
-		
+
 		// Create entity ID
 		entityID := fmt.Sprintf("workflow_%x", hash(workflowPattern))
-		
+
 		// Check if entity already exists
 		entity, exists := ke.entities[entityID]
-		
+
 		if exists {
 			// Update existing entity
 			entity.UsageCount++
 			entity.LastUpdated = time.Now()
 			entity.Confidence = minFloat(1.0, entity.Confidence+0.05)
-			
+
 			// Save updated entity
 			ke.entities[entityID] = entity
 			ke.saveEntity(entity)
@@ -859,7 +859,7 @@ func (ke *KnowledgeExtractor) extractWorkflows(commands []CommandEntry) error {
 			for j := 0; j < ke.config.ContextSize; j++ {
 				examples = append(examples, commands[i+j].Command)
 			}
-			
+
 			// Create new entity
 			newEntity := KnowledgeEntity{
 				ID:          entityID,
@@ -871,10 +871,10 @@ func (ke *KnowledgeExtractor) extractWorkflows(commands []CommandEntry) error {
 				UsageCount:  1,
 				Metadata: map[string]string{
 					"directory": commands[i].Directory,
-					"steps": fmt.Sprintf("%d", ke.config.ContextSize),
+					"steps":     fmt.Sprintf("%d", ke.config.ContextSize),
 				},
 			}
-			
+
 			// Save new entity
 			ke.entities[entityID] = newEntity
 			ke.saveEntity(newEntity)
@@ -895,13 +895,13 @@ func (ke *KnowledgeExtractor) Query(query string, entityType KnowledgeType, limi
 
 	// Filter entities by type and query
 	var results []KnowledgeEntity
-	
+
 	for _, entity := range ke.entities {
 		// Filter by type if specified
 		if entityType != "" && entity.Type != entityType {
 			continue
 		}
-		
+
 		// Filter by query
 		if !strings.Contains(strings.ToLower(entity.Pattern), strings.ToLower(query)) {
 			// Check examples
@@ -912,19 +912,19 @@ func (ke *KnowledgeExtractor) Query(query string, entityType KnowledgeType, limi
 					break
 				}
 			}
-			
+
 			if !matchFound {
 				continue
 			}
 		}
-		
+
 		// Add to results
 		results = append(results, entity)
 	}
-	
+
 	// Sort results by confidence and usage count
 	sortEntities(results)
-	
+
 	// Limit results
 	if limit > 0 && len(results) > limit {
 		results = results[:limit]
@@ -958,7 +958,7 @@ func (ke *KnowledgeExtractor) GetStats() map[string]interface{} {
 	entityIDsInVectorDB := make(map[string]bool)
 	vectorDB := GetVectorDBManager()
 	itemsWithEmbeddings := 0
-	
+
 	if vectorDB != nil && vectorDB.IsEnabled() {
 		// Check if we have items in the vector database
 		if db := vectorDB.db; db != nil {
@@ -968,7 +968,7 @@ func (ke *KnowledgeExtractor) GetStats() map[string]interface{} {
 			`)
 			if err == nil {
 				defer rows.Close()
-				
+
 				for rows.Next() {
 					var commandID string
 					if err := rows.Scan(&commandID); err == nil {
@@ -977,7 +977,7 @@ func (ke *KnowledgeExtractor) GetStats() map[string]interface{} {
 						entityIDsInVectorDB[entityID] = true
 					}
 				}
-				
+
 				// Count entities with embeddings
 				for id := range ke.entities {
 					if entityIDsInVectorDB[id] {
@@ -1021,14 +1021,14 @@ func (ke *KnowledgeExtractor) GetStats() map[string]interface{} {
 			"environment":     counts[KnowledgeEnvironment],
 			"workflow":        counts[KnowledgeWorkflow],
 		},
-		"environment_awareness": ke.config.ExtractEnvironment,
-		"command_awareness":     true,
-		"code_awareness":        false,
-		"project_awareness":     true,
-		"privacy_enabled":       len(ke.config.SensitivePatterns) > 0,
-		"max_file_size_kb":      100,
-		"max_scan_depth":        3,
-		"max_extracted_items":   ke.config.MaxEntities,
+		"environment_awareness":    ke.config.ExtractEnvironment,
+		"command_awareness":        true,
+		"code_awareness":           false,
+		"project_awareness":        true,
+		"privacy_enabled":          len(ke.config.SensitivePatterns) > 0,
+		"max_file_size_kb":         100,
+		"max_scan_depth":           3,
+		"max_extracted_items":      ke.config.MaxEntities,
 		"refresh_interval_minutes": ke.config.ScanInterval,
 		"config": map[string]interface{}{
 			"min_confidence":      ke.config.MinConfidence,
@@ -1041,21 +1041,21 @@ func (ke *KnowledgeExtractor) GetStats() map[string]interface{} {
 			"context_size":        ke.config.ContextSize,
 		},
 	}
-	
+
 	// Add vector database information if available
 	if vectorDB != nil && vectorDB.IsEnabled() {
 		vectorDBStats := vectorDB.GetStats()
 		stats["vector_db_enabled"] = true
 		stats["vector_db_status"] = "enabled"
-		
+
 		if vectorCount, ok := vectorDBStats["vector_count"].(int); ok {
 			stats["vector_db_count"] = vectorCount
 		}
-		
+
 		if metric, ok := vectorDBStats["metric"].(string); ok {
 			stats["vector_db_metric"] = metric
 		}
-		
+
 		if hasVectorExt, ok := vectorDBStats["has_vector_extension"].(bool); ok {
 			stats["vector_db_extension"] = hasVectorExt
 		}
@@ -1063,7 +1063,7 @@ func (ke *KnowledgeExtractor) GetStats() map[string]interface{} {
 		stats["vector_db_enabled"] = false
 		stats["vector_db_status"] = "disabled"
 	}
-	
+
 	return stats
 }
 
@@ -1115,10 +1115,10 @@ func (ke *KnowledgeExtractor) ImportEntities(filepath string) error {
 
 		// Update or add entity
 		ke.entities[entity.ID] = entity
-		
+
 		// Save entity to storage
 		ke.saveEntity(entity)
-		
+
 		// Update patterns map
 		if entity.Type == KnowledgeCommandPattern {
 			ke.patterns[entity.Pattern] = entity.UsageCount
@@ -1411,7 +1411,7 @@ func sortEntities(entities []KnowledgeEntity) {
 		if entities[i].Confidence < entities[j].Confidence {
 			return false
 		}
-		
+
 		// Then by usage count
 		if entities[i].UsageCount > entities[j].UsageCount {
 			return true
@@ -1419,7 +1419,7 @@ func sortEntities(entities []KnowledgeEntity) {
 		if entities[i].UsageCount < entities[j].UsageCount {
 			return false
 		}
-		
+
 		// Then by last updated
 		return entities[i].LastUpdated.After(entities[j].LastUpdated)
 	})
@@ -1516,9 +1516,9 @@ func (ke *KnowledgeExtractor) GenerateEmbeddings() error {
 	processedCount := 0
 	for id, entity := range ke.entities {
 		// Create text representation of entity for embedding
-		textToEmbed := fmt.Sprintf("%s %s %s", 
-			entity.Type, 
-			entity.Pattern, 
+		textToEmbed := fmt.Sprintf("%s %s %s",
+			entity.Type,
+			entity.Pattern,
 			strings.Join(entity.Examples, " "))
 
 		// Generate embedding
@@ -1530,14 +1530,14 @@ func (ke *KnowledgeExtractor) GenerateEmbeddings() error {
 
 		// Create command embedding for vector database
 		commandEmbedding := CommandEmbedding{
-			CommandID:   "knowledge_" + id,
-			Command:     entity.Pattern,
-			Directory:   entity.Metadata["directory"],
-			Timestamp:   entity.LastUpdated,
-			ExitCode:    0,
-			Embedding:   embedding,
-			Metadata:    fmt.Sprintf(`{"type":"%s","examples":%d,"confidence":%.2f}`, 
-							entity.Type, len(entity.Examples), entity.Confidence),
+			CommandID: "knowledge_" + id,
+			Command:   entity.Pattern,
+			Directory: entity.Metadata["directory"],
+			Timestamp: entity.LastUpdated,
+			ExitCode:  0,
+			Embedding: embedding,
+			Metadata: fmt.Sprintf(`{"type":"%s","examples":%d,"confidence":%.2f}`,
+				entity.Type, len(entity.Examples), entity.Confidence),
 			Frequency:   entity.UsageCount,
 			LastUsed:    entity.LastUpdated,
 			SuccessRate: float32(entity.Confidence),
@@ -1553,7 +1553,7 @@ func (ke *KnowledgeExtractor) GenerateEmbeddings() error {
 		processedCount++
 	}
 
-	fmt.Printf("Successfully generated embeddings for %d/%d knowledge entities\n", 
+	fmt.Printf("Successfully generated embeddings for %d/%d knowledge entities\n",
 		processedCount, entitiesCount)
 
 	return nil
@@ -1621,7 +1621,7 @@ func (ke *KnowledgeExtractor) searchKnowledgeWithVectors(query string, limit int
 
 		// Extract entity ID from command ID
 		entityID := strings.TrimPrefix(cmd.CommandID, "knowledge_")
-		
+
 		// Look up entity in our map
 		entity, exists := ke.entities[entityID]
 		if exists {
@@ -1632,7 +1632,7 @@ func (ke *KnowledgeExtractor) searchKnowledgeWithVectors(query string, limit int
 			var entityType KnowledgeType
 			var confidence float64
 			examples := []string{cmd.Command}
-			
+
 			// Try to parse metadata
 			var metadata map[string]interface{}
 			if err := json.Unmarshal([]byte(cmd.Metadata), &metadata); err == nil {
@@ -1643,7 +1643,7 @@ func (ke *KnowledgeExtractor) searchKnowledgeWithVectors(query string, limit int
 					confidence = conf
 				}
 			}
-			
+
 			// Create synthetic entity
 			syntheticEntity := KnowledgeEntity{
 				ID:          entityID,
@@ -1658,7 +1658,7 @@ func (ke *KnowledgeExtractor) searchKnowledgeWithVectors(query string, limit int
 					"synthetic": "true",
 				},
 			}
-			
+
 			results = append(results, syntheticEntity)
 		}
 	}
@@ -1670,7 +1670,7 @@ func (ke *KnowledgeExtractor) searchKnowledgeWithVectors(query string, limit int
 func (ke *KnowledgeExtractor) searchKnowledgeWithText(query string, limit int) []KnowledgeEntity {
 	query = strings.ToLower(query)
 	var results []KnowledgeEntity
-	
+
 	// Search all entities for text matches
 	for _, entity := range ke.entities {
 		// Check if query matches pattern
@@ -1678,7 +1678,7 @@ func (ke *KnowledgeExtractor) searchKnowledgeWithText(query string, limit int) [
 			results = append(results, entity)
 			continue
 		}
-		
+
 		// Check if query matches examples
 		for _, example := range entity.Examples {
 			if strings.Contains(strings.ToLower(example), query) {
@@ -1686,21 +1686,21 @@ func (ke *KnowledgeExtractor) searchKnowledgeWithText(query string, limit int) [
 				break
 			}
 		}
-		
+
 		// Stop if we have enough results
 		if len(results) >= limit {
 			break
 		}
 	}
-	
+
 	// Sort results by confidence and usage count
 	sortEntities(results)
-	
+
 	// Limit results
 	if len(results) > limit {
 		results = results[:limit]
 	}
-	
+
 	return results
 }
 
@@ -1719,107 +1719,107 @@ func (ke *KnowledgeExtractor) UpdateContext(directory string) error {
 
 // Context represents environment context information
 type Context struct {
-	OS                string              `json:"os"`
-	Arch              string              `json:"arch"`
-	Shell             string              `json:"shell"`
-	User              string              `json:"user"`
-	Hostname          string              `json:"hostname"`
-	CurrentDir        string              `json:"current_dir"`
-	HomeDir           string              `json:"home_dir"`
-	ShellEnvironment  map[string]string   `json:"shell_environment"`
-	ProjectType       string              `json:"project_type"`
-	GitBranch         string              `json:"git_branch"`
-	GitRepo           string              `json:"git_repo"`
-	LastCommands      []string            `json:"last_commands"`
-	PackageManagers   map[string]bool     `json:"package_managers"`
-	DetectedTools     map[string]string   `json:"detected_tools"`
-	FileExtensions    map[string]int      `json:"file_extensions"`
-	DirectoryStats    map[string]int      `json:"directory_stats"`
-	NetworkInterfaces []string            `json:"network_interfaces"`
-	DockerInfo        map[string]string   `json:"docker_info"`
-	KubernetesInfo    map[string]string   `json:"kubernetes_info"`
-	RuntimeVersions   map[string]string   `json:"runtime_versions"`
-	SystemLoad        map[string]float64  `json:"system_load"`
+	OS                string             `json:"os"`
+	Arch              string             `json:"arch"`
+	Shell             string             `json:"shell"`
+	User              string             `json:"user"`
+	Hostname          string             `json:"hostname"`
+	CurrentDir        string             `json:"current_dir"`
+	HomeDir           string             `json:"home_dir"`
+	ShellEnvironment  map[string]string  `json:"shell_environment"`
+	ProjectType       string             `json:"project_type"`
+	GitBranch         string             `json:"git_branch"`
+	GitRepo           string             `json:"git_repo"`
+	LastCommands      []string           `json:"last_commands"`
+	PackageManagers   map[string]bool    `json:"package_managers"`
+	DetectedTools     map[string]string  `json:"detected_tools"`
+	FileExtensions    map[string]int     `json:"file_extensions"`
+	DirectoryStats    map[string]int     `json:"directory_stats"`
+	NetworkInterfaces []string           `json:"network_interfaces"`
+	DockerInfo        map[string]string  `json:"docker_info"`
+	KubernetesInfo    map[string]string  `json:"kubernetes_info"`
+	RuntimeVersions   map[string]string  `json:"runtime_versions"`
+	SystemLoad        map[string]float64 `json:"system_load"`
 }
 
 // GetCurrentContext returns detailed information about the current environment
 func (ke *KnowledgeExtractor) GetCurrentContext() Context {
 	context := Context{
-		OS:               runtime.GOOS,
-		Arch:             runtime.GOARCH,
-		Shell:            os.Getenv("SHELL"),
-		User:             os.Getenv("USER"),
-		PackageManagers:  make(map[string]bool),
-		DetectedTools:    make(map[string]string),
-		FileExtensions:   make(map[string]int),
-		DirectoryStats:   make(map[string]int),
-		RuntimeVersions:  make(map[string]string),
-		SystemLoad:       make(map[string]float64),
+		OS:              runtime.GOOS,
+		Arch:            runtime.GOARCH,
+		Shell:           os.Getenv("SHELL"),
+		User:            os.Getenv("USER"),
+		PackageManagers: make(map[string]bool),
+		DetectedTools:   make(map[string]string),
+		FileExtensions:  make(map[string]int),
+		DirectoryStats:  make(map[string]int),
+		RuntimeVersions: make(map[string]string),
+		SystemLoad:      make(map[string]float64),
 	}
-	
+
 	// Get basic system info
 	var err error
 	context.HomeDir, err = os.UserHomeDir()
 	if err != nil {
 		context.HomeDir = os.Getenv("HOME")
 	}
-	
+
 	context.Hostname, _ = os.Hostname()
 	context.CurrentDir, _ = os.Getwd()
-	
+
 	// Collect shell environment variables
 	context.ShellEnvironment = make(map[string]string)
 	importantEnvVars := []string{
-		"TERM", "PATH", "LANG", "LC_ALL", "EDITOR", "PAGER", 
-		"PWD", "OLDPWD", "GOPATH", "GOROOT", "JAVA_HOME", 
+		"TERM", "PATH", "LANG", "LC_ALL", "EDITOR", "PAGER",
+		"PWD", "OLDPWD", "GOPATH", "GOROOT", "JAVA_HOME",
 		"PYTHONPATH", "NODE_PATH", "NVM_DIR", "VIRTUAL_ENV",
 		"HISTSIZE", "HISTFILESIZE", "PROMPT_COMMAND",
 	}
-	
+
 	for _, envVar := range importantEnvVars {
 		value := os.Getenv(envVar)
 		if value != "" {
 			context.ShellEnvironment[envVar] = value
 		}
 	}
-	
+
 	// Determine project type
 	context.ProjectType = detectProjectType(context.CurrentDir)
-	
+
 	// Get Git information
 	context.GitBranch = getGitBranch(context.CurrentDir)
 	context.GitRepo = getGitRemoteURL(context.CurrentDir)
-	
+
 	// Detect installed package managers
 	context.PackageManagers = detectPackageManagers()
-	
+
 	// Detect installed tools
 	context.DetectedTools = detectTools()
-	
+
 	// Collect file extension statistics
 	context.FileExtensions = collectFileExtensions(context.CurrentDir)
-	
+
 	// Collect directory statistics
 	context.DirectoryStats = collectDirectoryStats(context.CurrentDir)
-	
+
 	// Collect network interface information
 	context.NetworkInterfaces = collectNetworkInterfaces()
-	
+
 	// Get Docker information if available
 	context.DockerInfo = getDockerInfo()
-	
+
 	// Get Kubernetes information if available
 	context.KubernetesInfo = getKubernetesInfo()
-	
+
 	// Get runtime versions
 	context.RuntimeVersions = detectRuntimeVersions()
-	
+
 	// Get system load information
 	context.SystemLoad = getSystemLoad()
-	
+
 	// Get last commands (this would come from the history in a real implementation)
 	context.LastCommands = getLastCommands(5)
-	
+
 	return context
 }
 
@@ -1827,40 +1827,40 @@ func (ke *KnowledgeExtractor) GetCurrentContext() Context {
 func detectProjectType(dir string) string {
 	// Check for common project files
 	projectFiles := map[string]string{
-		"go.mod":        "go",
-		"package.json":  "javascript",
-		"Cargo.toml":    "rust",
-		"pom.xml":       "java",
-		"build.gradle":  "java",
-		"Gemfile":       "ruby",
+		"go.mod":           "go",
+		"package.json":     "javascript",
+		"Cargo.toml":       "rust",
+		"pom.xml":          "java",
+		"build.gradle":     "java",
+		"Gemfile":          "ruby",
 		"requirements.txt": "python",
-		"setup.py":      "python",
-		"composer.json": "php",
-		"Dockerfile":    "docker",
-		"CMakeLists.txt": "cmake",
-		"Makefile":      "make",
+		"setup.py":         "python",
+		"composer.json":    "php",
+		"Dockerfile":       "docker",
+		"CMakeLists.txt":   "cmake",
+		"Makefile":         "make",
 	}
-	
+
 	for file, projectType := range projectFiles {
 		if _, err := os.Stat(filepath.Join(dir, file)); err == nil {
 			return projectType
 		}
 	}
-	
+
 	// Check for language-specific directories
 	projectDirs := map[string]string{
 		"src/main/java": "java",
-		"node_modules": "javascript",
-		".venv":        "python",
+		"node_modules":  "javascript",
+		".venv":         "python",
 		"vendor/bundle": "ruby",
 	}
-	
+
 	for directory, projectType := range projectDirs {
 		if _, err := os.Stat(filepath.Join(dir, directory)); err == nil {
 			return projectType
 		}
 	}
-	
+
 	return "unknown"
 }
 
@@ -1870,20 +1870,20 @@ func getGitBranch(dir string) string {
 	if _, err := os.Stat(filepath.Join(dir, ".git")); os.IsNotExist(err) {
 		return ""
 	}
-	
+
 	// Try to read .git/HEAD file
 	headFile := filepath.Join(dir, ".git", "HEAD")
 	content, err := os.ReadFile(headFile)
 	if err != nil {
 		return ""
 	}
-	
+
 	// Parse the content to extract branch name
 	headContent := string(content)
 	if strings.HasPrefix(headContent, "ref: refs/heads/") {
 		return strings.TrimSpace(strings.TrimPrefix(headContent, "ref: refs/heads/"))
 	}
-	
+
 	return strings.TrimSpace(headContent)
 }
 
@@ -1893,36 +1893,36 @@ func getGitRemoteURL(dir string) string {
 	if _, err := os.Stat(filepath.Join(dir, ".git")); os.IsNotExist(err) {
 		return ""
 	}
-	
+
 	// Try to read .git/config file
 	configFile := filepath.Join(dir, ".git", "config")
 	content, err := os.ReadFile(configFile)
 	if err != nil {
 		return ""
 	}
-	
+
 	// Look for remote "origin" URL
 	configContent := string(content)
 	lines := strings.Split(configContent, "\n")
 	inOriginSection := false
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		if line == "[remote \"origin\"]" {
 			inOriginSection = true
 			continue
 		}
-		
+
 		if inOriginSection && strings.HasPrefix(line, "url = ") {
 			return strings.TrimSpace(strings.TrimPrefix(line, "url = "))
 		}
-		
+
 		if inOriginSection && strings.HasPrefix(line, "[") {
 			inOriginSection = false
 		}
 	}
-	
+
 	return ""
 }
 
@@ -1941,7 +1941,7 @@ func detectPackageManagers() map[string]bool {
 		"kubectl": checkCommandExists("kubectl"),
 		"helm":    checkCommandExists("helm"),
 	}
-	
+
 	return packageManagers
 }
 
@@ -1950,14 +1950,14 @@ func checkCommandExists(command string) bool {
 	// This is a simple implementation - in a real environment you would use exec.LookPath
 	path := os.Getenv("PATH")
 	dirs := strings.Split(path, string(os.PathListSeparator))
-	
+
 	for _, dir := range dirs {
 		fullPath := filepath.Join(dir, command)
 		if knowledgeFileExists(fullPath) || knowledgeFileExists(fullPath+".exe") {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -1970,13 +1970,13 @@ func knowledgeFileExists(path string) bool {
 // detectTools detects installed development tools
 func detectTools() map[string]string {
 	tools := make(map[string]string)
-	
+
 	// Check for common development tools
 	toolCommands := []string{
 		"git", "python", "python3", "node", "java", "javac", "ruby", "gcc", "g++",
 		"make", "docker", "kubectl", "terraform", "ansible", "vagrant", "virtualbox",
 	}
-	
+
 	for _, tool := range toolCommands {
 		if checkCommandExists(tool) {
 			// In a real implementation, you would get version information
@@ -1984,32 +1984,32 @@ func detectTools() map[string]string {
 			tools[tool] = "installed"
 		}
 	}
-	
+
 	return tools
 }
 
 // collectFileExtensions collects statistics about file extensions in a directory
 func collectFileExtensions(dir string) map[string]int {
 	extensions := make(map[string]int)
-	
+
 	// In a real implementation, you would walk the directory tree
 	// This is a simplified version that just checks the current directory
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return extensions
 	}
-	
+
 	for _, file := range files {
 		if file.IsDir() {
 			continue
 		}
-		
+
 		ext := filepath.Ext(file.Name())
 		if ext != "" {
 			extensions[ext]++
 		}
 	}
-	
+
 	return extensions
 }
 
@@ -2019,14 +2019,14 @@ func collectDirectoryStats(dir string) map[string]int {
 		"total_files": 0,
 		"total_dirs":  0,
 	}
-	
+
 	// In a real implementation, you would walk the directory tree
 	// This is a simplified version that just checks the current directory
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return stats
 	}
-	
+
 	for _, file := range files {
 		if file.IsDir() {
 			stats["total_dirs"]++
@@ -2034,7 +2034,7 @@ func collectDirectoryStats(dir string) map[string]int {
 			stats["total_files"]++
 		}
 	}
-	
+
 	return stats
 }
 
@@ -2050,12 +2050,12 @@ func getDockerInfo() map[string]string {
 	// In a real implementation, you would run docker commands to get info
 	// This is a simplified version
 	dockerInfo := make(map[string]string)
-	
+
 	if checkCommandExists("docker") {
 		dockerInfo["installed"] = "true"
 		dockerInfo["version"] = "detected"
 	}
-	
+
 	return dockerInfo
 }
 
@@ -2064,12 +2064,12 @@ func getKubernetesInfo() map[string]string {
 	// In a real implementation, you would run kubectl commands to get info
 	// This is a simplified version
 	kubeInfo := make(map[string]string)
-	
+
 	if checkCommandExists("kubectl") {
 		kubeInfo["installed"] = "true"
 		kubeInfo["version"] = "detected"
 	}
-	
+
 	return kubeInfo
 }
 
@@ -2078,9 +2078,9 @@ func detectRuntimeVersions() map[string]string {
 	// In a real implementation, you would run commands to get version info
 	// This is a simplified version
 	versions := make(map[string]string)
-	
+
 	versions["go"] = runtime.Version()
-	
+
 	return versions
 }
 
@@ -2089,10 +2089,10 @@ func getSystemLoad() map[string]float64 {
 	// In a real implementation, you would get actual system load
 	// This is a simplified version
 	load := make(map[string]float64)
-	
+
 	load["cpu"] = 0.0
 	load["memory"] = 0.0
-	
+
 	return load
 }
 
@@ -2107,37 +2107,37 @@ func getLastCommands(n int) []string {
 		"./deltacli",
 		"go test ./...",
 	}
-	
+
 	if len(commands) > n {
 		return commands[:n]
 	}
-	
+
 	return commands
 }
 
 // ProjectInfo represents information about a detected project
 type ProjectInfo struct {
-	Type           string            `json:"type"`
-	Path           string            `json:"path"`
-	Name           string            `json:"name"`
-	Version        string            `json:"version"`
-	Dependencies   []string          `json:"dependencies"`
-	Languages      []string          `json:"languages"`
-	BuildSystem    string            `json:"build_system"`
-	TestFramework  string            `json:"test_framework"`
-	Config         map[string]string `json:"config"`
-	RepoURL        string            `json:"repo_url"`
-	Branch         string            `json:"branch"`
-	LastModified   time.Time         `json:"last_modified"`
-	CodeStats      map[string]int    `json:"code_stats"`
-	Contributors   []string          `json:"contributors"`
-	Readme         string            `json:"readme"`
+	Type          string            `json:"type"`
+	Path          string            `json:"path"`
+	Name          string            `json:"name"`
+	Version       string            `json:"version"`
+	Dependencies  []string          `json:"dependencies"`
+	Languages     []string          `json:"languages"`
+	BuildSystem   string            `json:"build_system"`
+	TestFramework string            `json:"test_framework"`
+	Config        map[string]string `json:"config"`
+	RepoURL       string            `json:"repo_url"`
+	Branch        string            `json:"branch"`
+	LastModified  time.Time         `json:"last_modified"`
+	CodeStats     map[string]int    `json:"code_stats"`
+	Contributors  []string          `json:"contributors"`
+	Readme        string            `json:"readme"`
 }
 
 // GetProjectInfo returns detailed information about the current project
 func (ke *KnowledgeExtractor) GetProjectInfo() ProjectInfo {
 	context := ke.GetCurrentContext()
-	
+
 	// Initialize the project info with data from the context
 	projectInfo := ProjectInfo{
 		Type:         context.ProjectType,
@@ -2149,42 +2149,42 @@ func (ke *KnowledgeExtractor) GetProjectInfo() ProjectInfo {
 		Config:       make(map[string]string),
 		CodeStats:    make(map[string]int),
 	}
-	
+
 	// Copy file extension stats to code stats
 	for ext, count := range context.FileExtensions {
 		projectInfo.CodeStats[ext] = count
 	}
-	
+
 	// Set languages based on file extensions and project type
 	projectInfo.Languages = detectProjectLanguages(context)
-	
+
 	// Determine build system
 	projectInfo.BuildSystem = detectBuildSystem(context)
-	
+
 	// Determine test framework
 	projectInfo.TestFramework = detectTestFramework(context.ProjectType, projectInfo.BuildSystem)
-	
+
 	// Check for version information
 	projectInfo.Version = detectProjectVersion(context.CurrentDir, context.ProjectType)
-	
+
 	// Get dependencies from appropriate files
 	projectInfo.Dependencies = detectDependencies(context.CurrentDir, context.ProjectType)
-	
+
 	// Try to find README file
 	projectInfo.Readme = findReadmeContent(context.CurrentDir)
-	
+
 	// Get contributors if git repo
 	if context.GitRepo != "" {
 		projectInfo.Contributors = getGitContributors(context.CurrentDir)
 	}
-	
+
 	return projectInfo
 }
 
 // detectProjectLanguages determines the programming languages used in a project
 func detectProjectLanguages(context Context) []string {
 	languages := make(map[string]bool)
-	
+
 	// Add language based on project type
 	switch context.ProjectType {
 	case "go":
@@ -2206,7 +2206,7 @@ func detectProjectLanguages(context Context) []string {
 	case "php":
 		languages["PHP"] = true
 	}
-	
+
 	// Add languages based on file extensions
 	for ext := range context.FileExtensions {
 		switch ext {
@@ -2244,16 +2244,16 @@ func detectProjectLanguages(context Context) []string {
 			languages["CSS"] = true
 		}
 	}
-	
+
 	// Convert map to slice
 	result := make([]string, 0, len(languages))
 	for lang := range languages {
 		result = append(result, lang)
 	}
-	
+
 	// Sort languages alphabetically
 	sort.Strings(result)
-	
+
 	return result
 }
 
@@ -2263,7 +2263,7 @@ func detectBuildSystem(context Context) string {
 	if _, ok := context.FileExtensions[".mk"]; ok || knowledgeFileExists(filepath.Join(context.CurrentDir, "Makefile")) {
 		return "make"
 	}
-	
+
 	// Determine build system based on project type
 	switch context.ProjectType {
 	case "go":
@@ -2301,7 +2301,7 @@ func detectBuildSystem(context Context) string {
 			return "composer"
 		}
 	}
-	
+
 	return "unknown"
 }
 
@@ -2330,7 +2330,7 @@ func detectTestFramework(projectType string, buildSystem string) string {
 	case "ruby":
 		return "rspec"
 	}
-	
+
 	return "unknown"
 }
 
@@ -2370,14 +2370,14 @@ func detectProjectVersion(dir string, projectType string) string {
 			}
 		}
 	}
-	
+
 	return "0.1.0" // Default version if not found
 }
 
 // detectDependencies tries to extract project dependencies
 func detectDependencies(dir string, projectType string) []string {
 	dependencies := []string{}
-	
+
 	switch projectType {
 	case "go":
 		// Read from go.mod
@@ -2390,9 +2390,9 @@ func detectDependencies(dir string, projectType string) []string {
 					if strings.HasPrefix(line, "require ") && !strings.HasSuffix(line, "(") {
 						dep := strings.TrimPrefix(line, "require ")
 						dependencies = append(dependencies, dep)
-					} else if strings.HasPrefix(line, "github.com/") || 
-							  strings.HasPrefix(line, "golang.org/") || 
-							  strings.HasPrefix(line, "gopkg.in/") {
+					} else if strings.HasPrefix(line, "github.com/") ||
+						strings.HasPrefix(line, "golang.org/") ||
+						strings.HasPrefix(line, "gopkg.in/") {
 						dependencies = append(dependencies, line)
 					}
 				}
@@ -2421,16 +2421,16 @@ func detectDependencies(dir string, projectType string) []string {
 			}
 		}
 	}
-	
+
 	// Sort dependencies
 	sort.Strings(dependencies)
-	
+
 	// Limit number of dependencies to return
 	maxDeps := 20
 	if len(dependencies) > maxDeps {
 		dependencies = dependencies[:maxDeps]
 	}
-	
+
 	return dependencies
 }
 
@@ -2443,7 +2443,7 @@ func findReadmeContent(dir string) string {
 		"README.markdown",
 		"readme.md",
 	}
-	
+
 	for _, name := range readmeFiles {
 		path := filepath.Join(dir, name)
 		if knowledgeFileExists(path) {
@@ -2458,7 +2458,7 @@ func findReadmeContent(dir string) string {
 			}
 		}
 	}
-	
+
 	return ""
 }
 
@@ -2466,7 +2466,7 @@ func findReadmeContent(dir string) string {
 func getGitContributors(dir string) []string {
 	// In a real implementation, you would run:
 	// git log --format='%aN' | sort -u
-	
+
 	// Return a default list
 	return []string{"User", "Contributor"}
 }
@@ -2522,7 +2522,6 @@ func (ke *KnowledgeExtractor) GetKnowledgeItems() []struct {
 		},
 	}
 }
-
 
 // Global KnowledgeExtractor instance
 var globalKnowledgeExtractor *KnowledgeExtractor

@@ -25,7 +25,7 @@ func NewJumpManager() *JumpManager {
 	if err != nil {
 		homeDir = os.Getenv("HOME")
 	}
-	
+
 	// Use ~/.config/delta directory for config file
 	configDir := filepath.Join(homeDir, ".config", "delta")
 	err = os.MkdirAll(configDir, 0755)
@@ -33,15 +33,15 @@ func NewJumpManager() *JumpManager {
 		// Fall back to home directory if we can't create .config/delta
 		configDir = homeDir
 	}
-	
+
 	configPath := filepath.Join(configDir, "jump_locations.json")
-	
+
 	// Create initial JumpManager instance
 	jm := &JumpManager{
 		locations:  make(map[string]string),
 		configPath: configPath,
 	}
-	
+
 	// Try to load saved locations
 	err = jm.loadLocations()
 	if err != nil || len(jm.locations) == 0 {
@@ -50,10 +50,10 @@ func NewJumpManager() *JumpManager {
 			"delta": "/home/bleepbloop/deltacli",
 			"home":  homeDir,
 		}
-		
+
 		// Try to import locations from jump.sh
 		jm.importLocationsFromJumpSh()
-		
+
 		// Save the locations
 		jm.saveLocations()
 	}
@@ -68,13 +68,13 @@ func (jm *JumpManager) loadLocations() error {
 	if os.IsNotExist(err) {
 		return fmt.Errorf("config file does not exist")
 	}
-	
+
 	// Read the file
 	data, err := ioutil.ReadFile(jm.configPath)
 	if err != nil {
 		return err
 	}
-	
+
 	// Unmarshal the JSON data
 	return json.Unmarshal(data, &jm.locations)
 }
@@ -86,13 +86,13 @@ func (jm *JumpManager) saveLocations() error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(jm.configPath)
 	if err = os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	
+
 	// Write to file
 	return ioutil.WriteFile(jm.configPath, data, 0644)
 }
@@ -135,7 +135,7 @@ func (jm *JumpManager) RemoveLocation(name string) error {
 	if _, exists := jm.locations[name]; !exists {
 		return fmt.Errorf("location '%s' not found", name)
 	}
-	
+
 	delete(jm.locations, name)
 	return jm.saveLocations()
 }
@@ -143,23 +143,23 @@ func (jm *JumpManager) RemoveLocation(name string) error {
 // importLocationsFromJumpSh tries to import locations from the jump.sh script
 func (jm *JumpManager) importLocationsFromJumpSh() {
 	jumpshPath := "/home/bleepbloop/black/bin/jump.sh"
-	
+
 	// Check if jump.sh exists
 	_, err := os.Stat(jumpshPath)
 	if os.IsNotExist(err) {
 		return
 	}
-	
+
 	// Read the jump.sh file
 	data, err := ioutil.ReadFile(jumpshPath)
 	if err != nil {
 		return
 	}
-	
+
 	// Convert to string and split into lines
 	content := string(data)
 	lines := strings.Split(content, "\n")
-	
+
 	// Process jump.sh file
 	processJumpShFile(jm, lines)
 }
@@ -236,7 +236,7 @@ func processJumpShFile(jm *JumpManager, lines []string) {
 
 			// End of Jump Gate section
 			if strings.Contains(line, "###############################################################################") &&
-			   i > 0 && strings.Contains(lines[i-1], "fi") {
+				i > 0 && strings.Contains(lines[i-1], "fi") {
 				inJumpGate = false
 			}
 		}
@@ -262,14 +262,14 @@ func HandleJumpCommand(args []string) bool {
 	// Handle special commands
 	if len(args) >= 1 {
 		cmd := args[0]
-		
+
 		// Handle add command
 		if cmd == "add" {
 			if len(args) >= 3 {
 				// Add with specified path
 				name := args[1]
 				path := args[2]
-				
+
 				// Expand ~ and $HOME in paths
 				if path == "~" || path == "$HOME" {
 					home, _ := os.UserHomeDir()
@@ -281,7 +281,7 @@ func HandleJumpCommand(args []string) bool {
 					home, _ := os.UserHomeDir()
 					path = filepath.Join(home, path[6:])
 				}
-				
+
 				err := jm.AddLocation(name, path)
 				if err != nil {
 					fmt.Printf("Error adding location: %v\n", err)
@@ -309,7 +309,7 @@ func HandleJumpCommand(args []string) bool {
 				return true
 			}
 		}
-		
+
 		// Handle remove command
 		if cmd == "remove" || cmd == "rm" {
 			if len(args) >= 2 {
@@ -326,7 +326,7 @@ func HandleJumpCommand(args []string) bool {
 				return true
 			}
 		}
-		
+
 		// Handle import command for jump.sh
 		if cmd == "import" {
 			if len(args) >= 2 && args[1] == "jumpsh" {
@@ -338,7 +338,7 @@ func HandleJumpCommand(args []string) bool {
 				return true
 			}
 		}
-		
+
 		// Normal jump operation
 		location := args[0]
 		path, err := jm.Jump(location)

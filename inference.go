@@ -14,54 +14,54 @@ import (
 
 // InferenceConfig contains configuration for model inference
 type InferenceConfig struct {
-	Enabled           bool    `json:"enabled"`            // Whether inference is enabled
-	ModelPath         string  `json:"model_path"`         // Path to the model file
-	ModelType         string  `json:"model_type"`         // "onnx" or "pytorch"
-	MaxTokens         int     `json:"max_tokens"`         // Maximum number of tokens to generate
-	Temperature       float64 `json:"temperature"`        // Sampling temperature (0.0-1.0)
-	TopK              int     `json:"top_k"`              // Top-k sampling parameter
-	TopP              float64 `json:"top_p"`              // Top-p (nucleus) sampling parameter
-	UseSpeculative    bool    `json:"use_speculative"`    // Whether to use speculative decoding
-	BatchSize         int     `json:"batch_size"`         // Batch size for inference
-	UseOllama         bool    `json:"use_ollama"`         // Whether to use Ollama for inference
-	OllamaURL         string  `json:"ollama_url"`         // URL for Ollama API
+	Enabled           bool    `json:"enabled"`             // Whether inference is enabled
+	ModelPath         string  `json:"model_path"`          // Path to the model file
+	ModelType         string  `json:"model_type"`          // "onnx" or "pytorch"
+	MaxTokens         int     `json:"max_tokens"`          // Maximum number of tokens to generate
+	Temperature       float64 `json:"temperature"`         // Sampling temperature (0.0-1.0)
+	TopK              int     `json:"top_k"`               // Top-k sampling parameter
+	TopP              float64 `json:"top_p"`               // Top-p (nucleus) sampling parameter
+	UseSpeculative    bool    `json:"use_speculative"`     // Whether to use speculative decoding
+	BatchSize         int     `json:"batch_size"`          // Batch size for inference
+	UseOllama         bool    `json:"use_ollama"`          // Whether to use Ollama for inference
+	OllamaURL         string  `json:"ollama_url"`          // URL for Ollama API
 	UseLocalInference bool    `json:"use_local_inference"` // Whether to use local inference
 }
 
 // LearningConfig contains configuration for the learning system
 type LearningConfig struct {
-	Enabled                bool    `json:"enabled"`                  // Whether learning is enabled
-	CollectFeedback        bool    `json:"collect_feedback"`         // Whether to collect user feedback
-	AutomaticFeedback      bool    `json:"automatic_feedback"`       // Whether to use automatic feedback
-	FeedbackThreshold      float64 `json:"feedback_threshold"`       // Threshold for automatic feedback
-	AdaptationRate         float64 `json:"adaptation_rate"`          // Rate at which model adapts to feedback
-	UseCustomModel         bool    `json:"use_custom_model"`         // Whether to use a custom-trained model
-	CustomModelPath        string  `json:"custom_model_path"`        // Path to custom model
-	PeriodicTraining       bool    `json:"periodic_training"`        // Whether to periodically train model
-	TrainingInterval       int     `json:"training_interval"`        // Interval between training sessions (days)
-	LastTrainingTimestamp  int64   `json:"last_training_timestamp"`  // Timestamp of last training
-	AccumulatedTrainingExamples int `json:"accumulated_training_examples"` // Number of accumulated training examples
-	TrainingThreshold      int     `json:"training_threshold"`      // Number of examples before training
+	Enabled                     bool    `json:"enabled"`                       // Whether learning is enabled
+	CollectFeedback             bool    `json:"collect_feedback"`              // Whether to collect user feedback
+	AutomaticFeedback           bool    `json:"automatic_feedback"`            // Whether to use automatic feedback
+	FeedbackThreshold           float64 `json:"feedback_threshold"`            // Threshold for automatic feedback
+	AdaptationRate              float64 `json:"adaptation_rate"`               // Rate at which model adapts to feedback
+	UseCustomModel              bool    `json:"use_custom_model"`              // Whether to use a custom-trained model
+	CustomModelPath             string  `json:"custom_model_path"`             // Path to custom model
+	PeriodicTraining            bool    `json:"periodic_training"`             // Whether to periodically train model
+	TrainingInterval            int     `json:"training_interval"`             // Interval between training sessions (days)
+	LastTrainingTimestamp       int64   `json:"last_training_timestamp"`       // Timestamp of last training
+	AccumulatedTrainingExamples int     `json:"accumulated_training_examples"` // Number of accumulated training examples
+	TrainingThreshold           int     `json:"training_threshold"`            // Number of examples before training
 }
 
 // FeedbackEntry represents a user feedback entry
 type FeedbackEntry struct {
-	Timestamp   time.Time `json:"timestamp"`
-	Command     string    `json:"command"`
-	Prediction  string    `json:"prediction"`
-	FeedbackType string   `json:"feedback_type"` // "helpful", "unhelpful", or "correction"
-	Correction  string    `json:"correction,omitempty"`
-	UserContext string    `json:"user_context,omitempty"`
+	Timestamp    time.Time `json:"timestamp"`
+	Command      string    `json:"command"`
+	Prediction   string    `json:"prediction"`
+	FeedbackType string    `json:"feedback_type"` // "helpful", "unhelpful", or "correction"
+	Correction   string    `json:"correction,omitempty"`
+	UserContext  string    `json:"user_context,omitempty"`
 }
 
 // TrainingExample represents a training example derived from feedback
 type TrainingExample struct {
-	Command    string `json:"command"`
-	Context    string `json:"context,omitempty"`
-	Prediction string `json:"prediction"`
-	Label      int    `json:"label"` // 1: positive, 0: neutral, -1: negative
+	Command    string  `json:"command"`
+	Context    string  `json:"context,omitempty"`
+	Prediction string  `json:"prediction"`
+	Label      int     `json:"label"` // 1: positive, 0: neutral, -1: negative
 	Weight     float64 `json:"weight"`
-	Source     string `json:"source"` // "feedback", "automatic", "synthetic"
+	Source     string  `json:"source"` // "feedback", "automatic", "synthetic"
 }
 
 // InferenceManager handles model inference and learning
@@ -120,16 +120,16 @@ func NewInferenceManager() (*InferenceManager, error) {
 			UseLocalInference: false,
 		},
 		learningConfig: LearningConfig{
-			Enabled:                true,
-			CollectFeedback:        true,
-			AutomaticFeedback:      true,
-			FeedbackThreshold:      0.8,
-			AdaptationRate:         0.1,
-			UseCustomModel:         false,
-			CustomModelPath:        "",
-			PeriodicTraining:       true,
-			TrainingInterval:       7, // 7 days
-			LastTrainingTimestamp:  0,
+			Enabled:                     true,
+			CollectFeedback:             true,
+			AutomaticFeedback:           true,
+			FeedbackThreshold:           0.8,
+			AdaptationRate:              0.1,
+			UseCustomModel:              false,
+			CustomModelPath:             "",
+			PeriodicTraining:            true,
+			TrainingInterval:            7, // 7 days
+			LastTrainingTimestamp:       0,
 			AccumulatedTrainingExamples: 0,
 		},
 		configPath:    configPath,
@@ -255,18 +255,18 @@ func (im *InferenceManager) EnableLearning() error {
 	im.mutex.Lock()
 	im.learningConfig.Enabled = true
 	im.mutex.Unlock()
-	
+
 	// Save local config
 	if err := im.saveConfig(); err != nil {
 		return err
 	}
-	
+
 	// Update ConfigManager
 	cm := GetConfigManager()
 	if cm != nil {
 		cm.UpdateLearningConfig(&im.learningConfig)
 	}
-	
+
 	return nil
 }
 
@@ -275,18 +275,18 @@ func (im *InferenceManager) DisableLearning() error {
 	im.mutex.Lock()
 	im.learningConfig.Enabled = false
 	im.mutex.Unlock()
-	
+
 	// Save local config
 	if err := im.saveConfig(); err != nil {
 		return err
 	}
-	
+
 	// Update ConfigManager
 	cm := GetConfigManager()
 	if cm != nil {
 		cm.UpdateLearningConfig(&im.learningConfig)
 	}
-	
+
 	return nil
 }
 

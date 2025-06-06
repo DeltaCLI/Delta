@@ -42,23 +42,23 @@ type ModelEvaluationConfig struct {
 
 // ModelEvaluationResult contains the results of model evaluation
 type ModelEvaluationResult struct {
-	ModelPath      string                 // Path to the evaluated model
-	ModelType      string                 // Type of model
-	TestDataPath   string                 // Path to test data
-	Timestamp      time.Time              // When evaluation was performed
-	Metrics        map[string]float64     // Computed metrics
-	ConfusionMatrix [][]int               // Confusion matrix (if computed)
-	ExampleResults  []ExampleEvaluation   // Per-example evaluation results
-	ErrorAnalysis   map[string]int        // Error analysis
+	ModelPath       string              // Path to the evaluated model
+	ModelType       string              // Type of model
+	TestDataPath    string              // Path to test data
+	Timestamp       time.Time           // When evaluation was performed
+	Metrics         map[string]float64  // Computed metrics
+	ConfusionMatrix [][]int             // Confusion matrix (if computed)
+	ExampleResults  []ExampleEvaluation // Per-example evaluation results
+	ErrorAnalysis   map[string]int      // Error analysis
 }
 
 // ExampleEvaluation contains evaluation for a single example
 type ExampleEvaluation struct {
-	Command         string  // Input command
-	ActualPrediction string  // Actual model prediction
-	ExpectedPrediction string // Expected prediction
-	Correct         bool    // Whether prediction was correct
-	Confidence      float64 // Model confidence in prediction
+	Command            string  // Input command
+	ActualPrediction   string  // Actual model prediction
+	ExpectedPrediction string  // Expected prediction
+	Correct            bool    // Whether prediction was correct
+	Confidence         float64 // Model confidence in prediction
 }
 
 // ModelEvaluator manages evaluation of AI models
@@ -117,7 +117,7 @@ func (e *ModelEvaluator) EvaluateModel(config ModelEvaluationConfig) (*ModelEval
 		if err != nil {
 			return nil, fmt.Errorf("failed to get home directory: %v", err)
 		}
-		
+
 		testDataDir := filepath.Join(homeDir, ".config", "delta", "memory", "training_data")
 		files, err := os.ReadDir(testDataDir)
 		if err != nil {
@@ -133,14 +133,14 @@ func (e *ModelEvaluator) EvaluateModel(config ModelEvaluationConfig) (*ModelEval
 				if err != nil {
 					continue
 				}
-				
+
 				if newestValidation == nil || info.ModTime().After(newestValidation.ModTime()) {
 					newestValidation = info
 					newestValidationPath = filepath.Join(testDataDir, file.Name())
 				}
 			}
 		}
-		
+
 		if newestValidationPath != "" {
 			config.TestDataPath = newestValidationPath
 		} else {
@@ -151,14 +151,14 @@ func (e *ModelEvaluator) EvaluateModel(config ModelEvaluationConfig) (*ModelEval
 					if err != nil {
 						continue
 					}
-					
+
 					if newestValidation == nil || info.ModTime().After(newestValidation.ModTime()) {
 						newestValidation = info
 						newestValidationPath = filepath.Join(testDataDir, file.Name())
 					}
 				}
 			}
-			
+
 			if newestValidationPath != "" {
 				config.TestDataPath = newestValidationPath
 			} else {
@@ -212,11 +212,11 @@ func (e *ModelEvaluator) EvaluateModel(config ModelEvaluationConfig) (*ModelEval
 
 	// Compute metrics
 	result := &ModelEvaluationResult{
-		ModelPath:    config.ModelPath,
-		ModelType:    config.ModelType,
-		TestDataPath: config.TestDataPath,
-		Timestamp:    time.Now(),
-		Metrics:      make(map[string]float64),
+		ModelPath:      config.ModelPath,
+		ModelType:      config.ModelType,
+		TestDataPath:   config.TestDataPath,
+		Timestamp:      time.Now(),
+		Metrics:        make(map[string]float64),
 		ExampleResults: evaluations,
 	}
 
@@ -271,16 +271,16 @@ func (e *ModelEvaluator) loadTestData(path string) ([]TrainingExtendedExample, e
 }
 
 // evaluateExamples runs model predictions on test examples
-func (e *ModelEvaluator) evaluateExamples(config ModelEvaluationConfig, 
+func (e *ModelEvaluator) evaluateExamples(config ModelEvaluationConfig,
 	examples []TrainingExtendedExample) ([]ExampleEvaluation, error) {
-	
+
 	// In a real implementation, we'd load the model and run inference
 	// Since we don't have the actual model inference code yet, we'll simulate it
-	
+
 	// For now, simulate predictions with a simple heuristic
 	// In the full implementation, this would use the actual model
 	results := make([]ExampleEvaluation, 0, len(examples))
-	
+
 	// Group examples for batch processing
 	batches := make([][]TrainingExtendedExample, 0)
 	for i := 0; i < len(examples); i += config.BatchSize {
@@ -290,18 +290,18 @@ func (e *ModelEvaluator) evaluateExamples(config ModelEvaluationConfig,
 		}
 		batches = append(batches, examples[i:end])
 	}
-	
+
 	// Process each batch
 	for _, batch := range batches {
 		// Simulate batch prediction
 		for _, example := range batch {
 			// In the actual implementation, we'd run model inference here
 			// For now, simulate with a simplistic approach
-			
+
 			// Simulate model prediction
 			var actualPrediction string
 			var confidence float64
-			
+
 			// Simple simulation - in real implementation we'd use the model
 			if example.Label > 0 {
 				// For positive examples, 80% chance of correct prediction
@@ -331,21 +331,21 @@ func (e *ModelEvaluator) evaluateExamples(config ModelEvaluationConfig,
 					confidence = 0.5 + random()*0.15
 				}
 			}
-			
+
 			// Check if prediction matches expected
 			correct := actualPrediction == example.Prediction
-			
+
 			// Add to results
 			results = append(results, ExampleEvaluation{
-				Command:          example.Command,
-				ActualPrediction: actualPrediction,
+				Command:            example.Command,
+				ActualPrediction:   actualPrediction,
 				ExpectedPrediction: example.Prediction,
-				Correct:          correct,
-				Confidence:       confidence,
+				Correct:            correct,
+				Confidence:         confidence,
 			})
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -354,14 +354,14 @@ func (e *ModelEvaluator) computeAccuracy(evaluations []ExampleEvaluation) float6
 	if len(evaluations) == 0 {
 		return 0.0
 	}
-	
+
 	correct := 0
 	for _, eval := range evaluations {
 		if eval.Correct {
 			correct++
 		}
 	}
-	
+
 	return float64(correct) / float64(len(evaluations))
 }
 
@@ -369,7 +369,7 @@ func (e *ModelEvaluator) computeAccuracy(evaluations []ExampleEvaluation) float6
 func (e *ModelEvaluator) computePrecision(evaluations []ExampleEvaluation) float64 {
 	truePositives := 0
 	falsePositives := 0
-	
+
 	for _, eval := range evaluations {
 		// Simplistic approach - in real implementation would use labels
 		if eval.Correct && strings.Contains(eval.ActualPrediction, "helpful") {
@@ -378,11 +378,11 @@ func (e *ModelEvaluator) computePrecision(evaluations []ExampleEvaluation) float
 			falsePositives++
 		}
 	}
-	
+
 	if truePositives+falsePositives == 0 {
 		return 0.0
 	}
-	
+
 	return float64(truePositives) / float64(truePositives+falsePositives)
 }
 
@@ -390,7 +390,7 @@ func (e *ModelEvaluator) computePrecision(evaluations []ExampleEvaluation) float
 func (e *ModelEvaluator) computeRecall(evaluations []ExampleEvaluation) float64 {
 	truePositives := 0
 	falseNegatives := 0
-	
+
 	for _, eval := range evaluations {
 		// Simplistic approach - in real implementation would use labels
 		if eval.Correct && strings.Contains(eval.ActualPrediction, "helpful") {
@@ -399,11 +399,11 @@ func (e *ModelEvaluator) computeRecall(evaluations []ExampleEvaluation) float64 
 			falseNegatives++
 		}
 	}
-	
+
 	if truePositives+falseNegatives == 0 {
 		return 0.0
 	}
-	
+
 	return float64(truePositives) / float64(truePositives+falseNegatives)
 }
 
@@ -412,7 +412,7 @@ func (e *ModelEvaluator) computeF1Score(precision, recall float64) float64 {
 	if precision+recall == 0 {
 		return 0.0
 	}
-	
+
 	return 2 * (precision * recall) / (precision + recall)
 }
 
@@ -420,11 +420,11 @@ func (e *ModelEvaluator) computeF1Score(precision, recall float64) float64 {
 func (e *ModelEvaluator) computePerplexity(evaluations []ExampleEvaluation) float64 {
 	// Simplified perplexity calculation
 	// In a real implementation, we'd use the model's actual probabilities
-	
+
 	// For each prediction, use confidence as a proxy for probability
 	logProb := 0.0
 	count := 0
-	
+
 	for _, eval := range evaluations {
 		prob := eval.Confidence
 		if prob < 0.01 {
@@ -433,11 +433,11 @@ func (e *ModelEvaluator) computePerplexity(evaluations []ExampleEvaluation) floa
 		logProb += math.Log(prob)
 		count++
 	}
-	
+
 	if count == 0 {
 		return 0.0
 	}
-	
+
 	// Perplexity = exp(-1/N * sum(log(p)))
 	return math.Exp(-logProb / float64(count))
 }
@@ -451,7 +451,7 @@ func (e *ModelEvaluator) computeConfusionMatrix(evaluations []ExampleEvaluation)
 		{0, 0},
 		{0, 0},
 	}
-	
+
 	for _, eval := range evaluations {
 		if eval.Correct {
 			if strings.Contains(eval.ActualPrediction, "helpful") {
@@ -467,27 +467,27 @@ func (e *ModelEvaluator) computeConfusionMatrix(evaluations []ExampleEvaluation)
 			}
 		}
 	}
-	
+
 	return matrix
 }
 
 // analyzeErrors analyzes common error types
 func (e *ModelEvaluator) analyzeErrors(evaluations []ExampleEvaluation) map[string]int {
 	errors := make(map[string]int)
-	
+
 	for _, eval := range evaluations {
 		if !eval.Correct {
 			// Analyze the nature of the error
-			
+
 			// Check for certain error patterns
 			if len(eval.ActualPrediction) < len(eval.ExpectedPrediction)/2 {
 				errors["too_short"]++
 			} else if len(eval.ActualPrediction) > len(eval.ExpectedPrediction)*2 {
 				errors["too_long"]++
-			} else if strings.Contains(eval.ActualPrediction, "git") && 
+			} else if strings.Contains(eval.ActualPrediction, "git") &&
 				!strings.Contains(eval.ExpectedPrediction, "git") {
 				errors["wrong_tool"]++
-			} else if !strings.Contains(eval.ActualPrediction, "git") && 
+			} else if !strings.Contains(eval.ActualPrediction, "git") &&
 				strings.Contains(eval.ExpectedPrediction, "git") {
 				errors["missed_tool"]++
 			} else if eval.Confidence < 0.6 {
@@ -497,7 +497,7 @@ func (e *ModelEvaluator) analyzeErrors(evaluations []ExampleEvaluation) map[stri
 			}
 		}
 	}
-	
+
 	return errors
 }
 
@@ -508,63 +508,63 @@ func (e *ModelEvaluator) saveEvaluationResults(result *ModelEvaluationResult, ou
 	if err != nil {
 		return fmt.Errorf("failed to create output directory: %v", err)
 	}
-	
+
 	// Create a filename with timestamp
 	timestamp := result.Timestamp.Format("20060102_150405")
 	modelName := filepath.Base(result.ModelPath)
 	filename := fmt.Sprintf("%s_eval_%s.json", modelName, timestamp)
 	outputPath := filepath.Join(outputDir, filename)
-	
+
 	// Marshal to JSON
 	data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal evaluation results: %v", err)
 	}
-	
+
 	// Write to file
 	err = os.WriteFile(outputPath, data, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write evaluation results: %v", err)
 	}
-	
+
 	// Also save a summary file for quick reference
 	summaryPath := filepath.Join(outputDir, fmt.Sprintf("%s_summary_%s.txt", modelName, timestamp))
 	summary := e.generateSummary(result)
-	
+
 	err = os.WriteFile(summaryPath, []byte(summary), 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write evaluation summary: %v", err)
 	}
-	
+
 	return nil
 }
 
 // generateSummary generates a human-readable summary of evaluation results
 func (e *ModelEvaluator) generateSummary(result *ModelEvaluationResult) string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("Model Evaluation Summary\n")
 	sb.WriteString("=======================\n\n")
-	
+
 	sb.WriteString(fmt.Sprintf("Model: %s\n", result.ModelPath))
 	sb.WriteString(fmt.Sprintf("Type: %s\n", result.ModelType))
 	sb.WriteString(fmt.Sprintf("Test Data: %s\n", result.TestDataPath))
 	sb.WriteString(fmt.Sprintf("Timestamp: %s\n\n", result.Timestamp.Format(time.RFC1123)))
-	
+
 	sb.WriteString("Metrics:\n")
-	
+
 	// Sort metrics for consistent output
 	metricNames := make([]string, 0, len(result.Metrics))
 	for name := range result.Metrics {
 		metricNames = append(metricNames, name)
 	}
 	sort.Strings(metricNames)
-	
+
 	for _, name := range metricNames {
 		value := result.Metrics[name]
 		sb.WriteString(fmt.Sprintf("  %s: %.4f\n", name, value))
 	}
-	
+
 	// Add confusion matrix if available
 	if result.ConfusionMatrix != nil && len(result.ConfusionMatrix) >= 2 {
 		sb.WriteString("\nConfusion Matrix:\n")
@@ -573,23 +573,23 @@ func (e *ModelEvaluator) generateSummary(result *ModelEvaluationResult) string {
 		sb.WriteString("  FP: " + fmt.Sprint(result.ConfusionMatrix[1][0]))
 		sb.WriteString(" | TP: " + fmt.Sprint(result.ConfusionMatrix[1][1]) + "\n")
 	}
-	
+
 	// Add error analysis if available
 	if result.ErrorAnalysis != nil && len(result.ErrorAnalysis) > 0 {
 		sb.WriteString("\nError Analysis:\n")
-		
+
 		errorTypes := make([]string, 0, len(result.ErrorAnalysis))
 		for errorType := range result.ErrorAnalysis {
 			errorTypes = append(errorTypes, errorType)
 		}
 		sort.Strings(errorTypes)
-		
+
 		for _, errorType := range errorTypes {
 			count := result.ErrorAnalysis[errorType]
 			sb.WriteString(fmt.Sprintf("  %s: %d\n", errorType, count))
 		}
 	}
-	
+
 	// Add a sample of incorrect predictions
 	incorrectCount := 0
 	for _, eval := range result.ExampleResults {
@@ -597,17 +597,17 @@ func (e *ModelEvaluator) generateSummary(result *ModelEvaluationResult) string {
 			incorrectCount++
 		}
 	}
-	
+
 	sb.WriteString(fmt.Sprintf("\nExamples Evaluated: %d\n", len(result.ExampleResults)))
-	sb.WriteString(fmt.Sprintf("Correct: %d (%.1f%%)\n", len(result.ExampleResults)-incorrectCount, 
+	sb.WriteString(fmt.Sprintf("Correct: %d (%.1f%%)\n", len(result.ExampleResults)-incorrectCount,
 		100.0*float64(len(result.ExampleResults)-incorrectCount)/float64(len(result.ExampleResults))))
-	sb.WriteString(fmt.Sprintf("Incorrect: %d (%.1f%%)\n", incorrectCount, 
+	sb.WriteString(fmt.Sprintf("Incorrect: %d (%.1f%%)\n", incorrectCount,
 		100.0*float64(incorrectCount)/float64(len(result.ExampleResults))))
-	
+
 	// Include a few example errors
 	if incorrectCount > 0 {
 		sb.WriteString("\nSample Errors:\n")
-		
+
 		// Find a few interesting examples
 		errCount := 0
 		for _, eval := range result.ExampleResults {
@@ -620,7 +620,7 @@ func (e *ModelEvaluator) generateSummary(result *ModelEvaluationResult) string {
 			}
 		}
 	}
-	
+
 	return sb.String()
 }
 
@@ -631,7 +631,7 @@ func (e *ModelEvaluator) ListEvaluations() ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read evaluations directory: %v", err)
 	}
-	
+
 	// Filter for evaluation files
 	evaluations := make([]string, 0)
 	for _, file := range files {
@@ -639,7 +639,7 @@ func (e *ModelEvaluator) ListEvaluations() ([]string, error) {
 			evaluations = append(evaluations, filepath.Join(e.outputDir, file.Name()))
 		}
 	}
-	
+
 	return evaluations, nil
 }
 
@@ -648,7 +648,7 @@ func (e *ModelEvaluator) CompareModels(evalPaths []string) (string, error) {
 	if len(evalPaths) == 0 {
 		return "", fmt.Errorf("no evaluations to compare")
 	}
-	
+
 	// Load evaluation results
 	results := make([]*ModelEvaluationResult, 0, len(evalPaths))
 	for _, path := range evalPaths {
@@ -657,23 +657,23 @@ func (e *ModelEvaluator) CompareModels(evalPaths []string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("failed to read evaluation results: %v", err)
 		}
-		
+
 		// Parse the JSON data
 		var result ModelEvaluationResult
 		err = json.Unmarshal(data, &result)
 		if err != nil {
 			return "", fmt.Errorf("failed to parse evaluation results: %v", err)
 		}
-		
+
 		results = append(results, &result)
 	}
-	
+
 	// Generate comparison report
 	var sb strings.Builder
-	
+
 	sb.WriteString("Model Comparison Report\n")
 	sb.WriteString("======================\n\n")
-	
+
 	// Table header
 	sb.WriteString("| Metric      |")
 	for i, result := range results {
@@ -681,19 +681,19 @@ func (e *ModelEvaluator) CompareModels(evalPaths []string) (string, error) {
 		sb.WriteString(fmt.Sprintf(" Model %d (%s) |", i+1, modelName))
 	}
 	sb.WriteString("\n")
-	
+
 	sb.WriteString("|-------------|")
 	for range results {
 		sb.WriteString("----------------|")
 	}
 	sb.WriteString("\n")
-	
+
 	// Common metrics
 	commonMetrics := []string{"accuracy", "precision", "recall", "f1_score"}
-	
+
 	for _, metric := range commonMetrics {
 		sb.WriteString(fmt.Sprintf("| %-11s |", metric))
-		
+
 		for _, result := range results {
 			if value, ok := result.Metrics[metric]; ok {
 				sb.WriteString(fmt.Sprintf(" %-14.4f |", value))
@@ -703,18 +703,18 @@ func (e *ModelEvaluator) CompareModels(evalPaths []string) (string, error) {
 		}
 		sb.WriteString("\n")
 	}
-	
+
 	// Test data info
 	sb.WriteString("\nTest Data Information:\n")
 	for i, result := range results {
 		modelName := filepath.Base(result.ModelPath)
 		testData := filepath.Base(result.TestDataPath)
 		timestamp := result.Timestamp.Format("2006-01-02 15:04:05")
-		
+
 		sb.WriteString(fmt.Sprintf("Model %d (%s):\n", i+1, modelName))
 		sb.WriteString(fmt.Sprintf("  Test Data: %s\n", testData))
 		sb.WriteString(fmt.Sprintf("  Evaluated: %s\n", timestamp))
-		
+
 		// Count examples
 		exampleCount := len(result.ExampleResults)
 		correctCount := 0
@@ -723,11 +723,11 @@ func (e *ModelEvaluator) CompareModels(evalPaths []string) (string, error) {
 				correctCount++
 			}
 		}
-		
-		sb.WriteString(fmt.Sprintf("  Examples: %d (%.1f%% correct)\n", 
+
+		sb.WriteString(fmt.Sprintf("  Examples: %d (%.1f%% correct)\n",
 			exampleCount, 100.0*float64(correctCount)/float64(exampleCount)))
 	}
-	
+
 	return sb.String(), nil
 }
 
@@ -741,7 +741,7 @@ func random() float64 {
 // simulateIncorrectPrediction generates an incorrect prediction
 func simulateIncorrectPrediction(correct string) string {
 	// Simplistic approach - in real implementation would use model
-	
+
 	alternatives := []string{
 		"This command is used for managing git repositories",
 		"This looks like a Docker command for container management",
@@ -751,7 +751,7 @@ func simulateIncorrectPrediction(correct string) string {
 		"You're working with database operations here",
 		"This is related to text processing and manipulation",
 	}
-	
+
 	// Pick a random alternative that's different from the correct one
 	for {
 		index := int(random() * float64(len(alternatives)))

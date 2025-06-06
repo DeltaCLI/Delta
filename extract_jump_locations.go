@@ -12,46 +12,46 @@ import (
 func main() {
 	// Path to jump.sh
 	jumpshPath := "/home/bleepbloop/black/bin/jump.sh"
-	
+
 	// Output file path
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Printf("Error getting home directory: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	outputPath := filepath.Join(homeDir, ".config", "delta", "jump_locations.json")
-	
+
 	// Check if jump.sh exists
 	_, err = os.Stat(jumpshPath)
 	if os.IsNotExist(err) {
 		fmt.Printf("Error: jump.sh not found at %s\n", jumpshPath)
 		os.Exit(1)
 	}
-	
+
 	// Read the jump.sh file
 	data, err := ioutil.ReadFile(jumpshPath)
 	if err != nil {
 		fmt.Printf("Error reading jump.sh: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Extract locations
 	locations := extractLocations(string(data))
-	
+
 	// Write to output file
 	jsonData, err := json.MarshalIndent(locations, "", "  ")
 	if err != nil {
 		fmt.Printf("Error marshaling JSON: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	err = ioutil.WriteFile(outputPath, jsonData, 0644)
 	if err != nil {
 		fmt.Printf("Error writing to output file: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	fmt.Printf("Successfully wrote %d locations to %s\n", len(locations), outputPath)
 }
 
@@ -103,7 +103,7 @@ func extractLocations(data string) map[string]string {
 		if inJumpGate {
 			// Look for elif statements like: elif [[ ${query} == "delta" ]]; then
 			if (strings.Contains(line, "if [[") || strings.Contains(line, "elif [[")) &&
-			   strings.Contains(line, "${query}") && strings.Contains(line, "==") {
+				strings.Contains(line, "${query}") && strings.Contains(line, "==") {
 				// Extract the location name
 				parts := strings.Split(line, "==")
 				if len(parts) >= 2 {
@@ -164,7 +164,7 @@ func extractLocations(data string) map[string]string {
 
 			// End of Jump Gate section
 			if strings.Contains(line, "###############################################################################") &&
-			   i > 0 && strings.Contains(lines[i-1], "fi") {
+				i > 0 && strings.Contains(lines[i-1], "fi") {
 				inJumpGate = false
 			}
 		}

@@ -49,7 +49,7 @@ func HandleHistoryCommand(args []string) bool {
 		// Show history statistics
 		showHistoryStats(ha)
 		return true
-		
+
 	case "analyze":
 		// Force pattern analysis
 		fmt.Println("Analyzing command history to detect patterns...")
@@ -178,20 +178,20 @@ func showRecentHistory(ha *HistoryAnalyzer, limit int) {
 	for i, entry := range sortedHistory {
 		// Format the timestamp
 		timeStr := entry.LastUsed.Format("2006-01-02 15:04:05")
-		
+
 		// Mark important commands with a star
 		star := " "
 		if entry.IsImportant {
 			star = "*"
 		}
-		
+
 		// Format the command (truncate if too long)
 		cmd := entry.Command
 		if len(cmd) > 60 {
 			cmd = cmd[:57] + "..."
 		}
-		
-		fmt.Printf("%s %3d. [%s] %s (%s, %dx)\n", 
+
+		fmt.Printf("%s %3d. [%s] %s (%s, %dx)\n",
 			star, i+1, timeStr, cmd, entry.Category, entry.Frequency)
 	}
 }
@@ -206,14 +206,14 @@ func showHistoryStatus(ha *HistoryAnalyzer) {
 	fmt.Printf("Enabled: %v\n", ha.config.Enabled)
 	fmt.Printf("Total entries: %d\n", len(ha.history))
 	fmt.Printf("Unique commands: %d\n", len(ha.commandFrequency))
-	
+
 	// Count total command executions
 	totalExecutions := 0
 	for _, freq := range ha.commandFrequency {
 		totalExecutions += freq
 	}
 	fmt.Printf("Total command executions: %d\n", totalExecutions)
-	
+
 	// Find most popular commands
 	type CommandCount struct {
 		Command string
@@ -223,12 +223,12 @@ func showHistoryStatus(ha *HistoryAnalyzer) {
 	for cmd, count := range ha.commandFrequency {
 		topCommands = append(topCommands, CommandCount{cmd, count})
 	}
-	
+
 	// Sort by frequency (most used first)
 	sort.Slice(topCommands, func(i, j int) bool {
 		return topCommands[i].Count > topCommands[j].Count
 	})
-	
+
 	// Show top 5 most used commands
 	fmt.Println("\nMost Used Commands:")
 	for i := 0; i < min(5, len(topCommands)); i++ {
@@ -238,12 +238,12 @@ func showHistoryStatus(ha *HistoryAnalyzer) {
 		}
 		fmt.Printf("  %d. %s (%d times)\n", i+1, cmd, topCommands[i].Count)
 	}
-	
+
 	// Show command sequence info
 	fmt.Printf("\nCommand sequences tracked: %d\n", len(ha.commandSequences))
-	
+
 	// Show auto-suggest status
-	fmt.Printf("Auto-suggestions: %v (threshold: %.2f)\n", 
+	fmt.Printf("Auto-suggestions: %v (threshold: %.2f)\n",
 		ha.config.AutoSuggest, ha.config.MinConfidenceThreshold)
 }
 
@@ -277,7 +277,7 @@ func showHistoryStats(ha *HistoryAnalyzer) {
 		}
 		fmt.Printf("  %d. %s (%d times)\n", i+1, cmdText, cmd.Count)
 	}
-	
+
 	// Show category stats
 	fmt.Println("\nCommand Categories:")
 	categoryStats := stats["category_stats"].(map[string]int)
@@ -288,11 +288,11 @@ func showHistoryStats(ha *HistoryAnalyzer) {
 	sort.Slice(categories, func(i, j int) bool {
 		return categoryStats[categories[i]] > categoryStats[categories[j]]
 	})
-	
+
 	for _, category := range categories {
 		fmt.Printf("  %s: %d commands\n", category, categoryStats[category])
 	}
-	
+
 	// Show time distribution
 	fmt.Println("\nTime Distribution:")
 	timeStats := stats["time_stats"].(map[int]int)
@@ -301,7 +301,7 @@ func showHistoryStats(ha *HistoryAnalyzer) {
 		hours = append(hours, hour)
 	}
 	sort.Ints(hours)
-	
+
 	// Find the max count for scaling
 	maxCount := 0
 	for _, count := range timeStats {
@@ -309,7 +309,7 @@ func showHistoryStats(ha *HistoryAnalyzer) {
 			maxCount = count
 		}
 	}
-	
+
 	// Show a simple text-based histogram
 	for _, hour := range hours {
 		hourStr := fmt.Sprintf("%02d:00", hour)
@@ -318,7 +318,7 @@ func showHistoryStats(ha *HistoryAnalyzer) {
 		bar := strings.Repeat("■", barLength)
 		fmt.Printf("  %s: %s (%d)\n", hourStr, bar, count)
 	}
-	
+
 	// Show command sequences
 	fmt.Printf("\nCommand sequences tracked: %d\n", stats["command_sequences"])
 }
@@ -326,32 +326,32 @@ func showHistoryStats(ha *HistoryAnalyzer) {
 // searchHistory searches command history
 func searchHistory(ha *HistoryAnalyzer, query string) {
 	results := ha.SearchHistory(query, 10)
-	
+
 	fmt.Printf("Search Results for '%s'\n", query)
 	fmt.Println("========================" + strings.Repeat("=", len(query)))
-	
+
 	if len(results) == 0 {
 		fmt.Println("No matching commands found.")
 		return
 	}
-	
+
 	for i, entry := range results {
 		// Format the timestamp
 		timeStr := entry.LastUsed.Format("2006-01-02 15:04:05")
-		
+
 		// Mark important commands with a star
 		star := " "
 		if entry.IsImportant {
 			star = "*"
 		}
-		
+
 		// Format the command (truncate if too long)
 		cmd := entry.Command
 		if len(cmd) > 60 {
 			cmd = cmd[:57] + "..."
 		}
-		
-		fmt.Printf("%s %3d. [%s] %s (%s, %dx)\n", 
+
+		fmt.Printf("%s %3d. [%s] %s (%s, %dx)\n",
 			star, i+1, timeStr, cmd, entry.Category, entry.Frequency)
 	}
 }
@@ -364,34 +364,34 @@ func showSuggestions(ha *HistoryAnalyzer) {
 		fmt.Printf("Error getting current directory: %v\n", err)
 		return
 	}
-	
+
 	suggestions := ha.GetSuggestions(dir)
-	
+
 	fmt.Println("Command Suggestions")
 	fmt.Println("==================")
-	
+
 	if len(suggestions) == 0 {
 		fmt.Println("No suggestions available yet.")
 		fmt.Println("Try using more commands to build up history data.")
 		return
 	}
-	
+
 	for i, suggestion := range suggestions {
 		// Format the command
 		cmd := suggestion.Command
 		if len(cmd) > 60 {
 			cmd = cmd[:57] + "..."
 		}
-		
+
 		// Format confidence as percentage
 		confidence := int(suggestion.Confidence * 100)
-		
+
 		// Show if it's part of a sequence
 		seqInfo := ""
 		if suggestion.IsSequence {
 			seqInfo = fmt.Sprintf(" (part of sequence: %s)", suggestion.SequenceName)
 		}
-		
+
 		fmt.Printf("%d. %s [%d%%]%s\n", i+1, cmd, confidence, seqInfo)
 		fmt.Printf("   Reason: %s\n", suggestion.Reason)
 	}
@@ -413,14 +413,14 @@ func showHistoryConfig(ha *HistoryAnalyzer) {
 	fmt.Printf("Sequence max length: %d\n", ha.config.SequenceMaxLength)
 	fmt.Printf("Enable natural language search: %v\n", ha.config.EnableNLSearch)
 	fmt.Printf("Enable command categories: %v\n", ha.config.EnableCommandCategories)
-	
+
 	// Show weights
 	fmt.Println("\nSuggestion Weights:")
 	fmt.Printf("  Context weight: %.2f\n", ha.config.ContextWeight)
 	fmt.Printf("  Time weight: %.2f\n", ha.config.TimeWeight)
 	fmt.Printf("  Frequency weight: %.2f\n", ha.config.FrequencyWeight)
 	fmt.Printf("  Recency weight: %.2f\n", ha.config.RecencyWeight)
-	
+
 	// Show privacy filters
 	fmt.Println("\nPrivacy Filters:")
 	for _, filter := range ha.config.PrivacyFilter {
@@ -589,17 +589,17 @@ func showCommandPatterns(ha *HistoryAnalyzer) {
 
 	// Find command patterns
 	patterns := ha.findCommandPatterns()
-	
+
 	// Display original command sequences
 	fmt.Println("Command Sequence Patterns")
 	fmt.Println("=======================")
-	
+
 	if len(ha.commandSequences) == 0 && len(patterns) == 0 {
 		fmt.Println("No command patterns detected yet.")
 		fmt.Println("Use more commands to build up a history, or run ':history analyze' to force pattern detection.")
 		return
 	}
-	
+
 	// Display basic command sequences first
 	if len(ha.commandSequences) > 0 {
 		// Sort sequences by frequency
@@ -608,58 +608,58 @@ func showCommandPatterns(ha *HistoryAnalyzer) {
 		sort.Slice(sequences, func(i, j int) bool {
 			return sequences[i].Frequency > sequences[j].Frequency
 		})
-	
-	// Display the top 10 sequences
-	for i, seq := range sequences {
-		if i >= 10 {
-			break
-		}
-		
-		fmt.Printf("%d. Sequence: %s (%d times, last: %s)\n", 
-			i+1, seq.MeaningfulName, seq.Frequency, 
-			seq.LastUsed.Format("2006-01-02 15:04:05"))
-		
-		fmt.Println("   Commands:")
-		for j, cmd := range seq.Commands {
-			if len(cmd) > 60 {
-				cmd = cmd[:57] + "..."
+
+		// Display the top 10 sequences
+		for i, seq := range sequences {
+			if i >= 10 {
+				break
 			}
-			fmt.Printf("   %d. %s\n", j+1, cmd)
+
+			fmt.Printf("%d. Sequence: %s (%d times, last: %s)\n",
+				i+1, seq.MeaningfulName, seq.Frequency,
+				seq.LastUsed.Format("2006-01-02 15:04:05"))
+
+			fmt.Println("   Commands:")
+			for j, cmd := range seq.Commands {
+				if len(cmd) > 60 {
+					cmd = cmd[:57] + "..."
+				}
+				fmt.Printf("   %d. %s\n", j+1, cmd)
+			}
+			fmt.Println()
 		}
-		fmt.Println()
-	}
 	}
 
 	// Display advanced patterns if available
 	if len(patterns) > 0 {
 		fmt.Println("\nAdvanced Command Patterns")
 		fmt.Println("=======================")
-		
+
 		// Group patterns by type
 		patternsByType := make(map[string][]CommandPattern)
 		for _, pattern := range patterns {
 			patternsByType[pattern.Type] = append(patternsByType[pattern.Type], pattern)
 		}
-		
+
 		// Display patterns by type
 		for patternType, typePatterns := range patternsByType {
 			fmt.Printf("\n%s Patterns:\n", strings.Title(patternType))
-			
+
 			// Sort by confidence
 			sort.Slice(typePatterns, func(i, j int) bool {
 				return typePatterns[i].Confidence > typePatterns[j].Confidence
 			})
-			
+
 			// Display patterns
 			for i, pattern := range typePatterns {
 				if i >= 5 {
 					fmt.Printf("  ... and %d more %s patterns\n", len(typePatterns)-5, patternType)
 					break
 				}
-				
+
 				fmt.Printf("  [%.0f%%] %s\n", pattern.Confidence*100, pattern.Description)
 				if pattern.Type == "sequence" {
-					fmt.Printf("       %s → %s (used %d times)\n", 
+					fmt.Printf("       %s → %s (used %d times)\n",
 						pattern.Commands[0], pattern.Commands[1], pattern.Frequency)
 				} else {
 					commandStr := strings.Join(pattern.Commands, ", ")
@@ -667,7 +667,7 @@ func showCommandPatterns(ha *HistoryAnalyzer) {
 				}
 			}
 		}
-		
+
 		// Display workflows
 		workflows := ha.identifyTaskWorkflows()
 		if len(workflows) > 0 {
@@ -677,9 +677,9 @@ func showCommandPatterns(ha *HistoryAnalyzer) {
 					fmt.Printf("  ... and %d more workflows\n", len(workflows)-3)
 					break
 				}
-				
+
 				fmt.Printf("  %s: %s\n", workflow.Name, workflow.Description)
-				fmt.Printf("    Contains %d command patterns, used approximately %d times\n", 
+				fmt.Printf("    Contains %d command patterns, used approximately %d times\n",
 					len(workflow.Patterns), workflow.Frequency)
 			}
 		}
@@ -689,24 +689,24 @@ func showCommandPatterns(ha *HistoryAnalyzer) {
 // showCommandInfo displays detailed information about a specific command
 func showCommandInfo(ha *HistoryAnalyzer, command string) {
 	stats := ha.GetCommandStats(command)
-	
+
 	if stats == nil || stats["found"] == false {
 		fmt.Printf("No information found for command: %s\n", command)
 		return
 	}
-	
+
 	fmt.Printf("Command Information: %s\n", command)
-	fmt.Println(strings.Repeat("=", 20 + len(command)))
+	fmt.Println(strings.Repeat("=", 20+len(command)))
 	fmt.Printf("Category: %s\n", stats["category"])
 	fmt.Printf("Used %d times\n", stats["frequency"])
 	fmt.Printf("Last used: %s\n", stats["last_used"].(time.Time).Format("2006-01-02 15:04:05"))
-	
+
 	// Show tags
 	fmt.Println("\nTags:")
 	for _, tag := range stats["tags"].([]string) {
 		fmt.Printf("  - %s\n", tag)
 	}
-	
+
 	// Show directory distribution
 	fmt.Println("\nDirectory Distribution:")
 	dirStats := stats["directory_stats"].(map[string]int)
@@ -714,19 +714,19 @@ func showCommandInfo(ha *HistoryAnalyzer, command string) {
 	for dir := range dirStats {
 		dirs = append(dirs, dir)
 	}
-	
+
 	// Sort directories by usage count
 	sort.Slice(dirs, func(i, j int) bool {
 		return dirStats[dirs[i]] > dirStats[dirs[j]]
 	})
-	
+
 	for i, dir := range dirs {
 		if i >= 5 { // Show only top 5 directories
 			break
 		}
 		fmt.Printf("  %s: %d times\n", dir, dirStats[dir])
 	}
-	
+
 	// Show time distribution
 	fmt.Println("\nTime Distribution:")
 	timeStats := stats["time_stats"].(map[int]int)
@@ -734,19 +734,19 @@ func showCommandInfo(ha *HistoryAnalyzer, command string) {
 	for hour := range timeStats {
 		hours = append(hours, hour)
 	}
-	
+
 	// Sort hours by usage count
 	sort.Slice(hours, func(i, j int) bool {
 		return timeStats[hours[i]] > timeStats[hours[j]]
 	})
-	
+
 	for i, hour := range hours {
 		if i >= 5 { // Show only top 5 hours
 			break
 		}
 		fmt.Printf("  %02d:00-%02d:59: %d times\n", hour, hour, timeStats[hour])
 	}
-	
+
 	// Show related commands if available
 	if relatedCmds, ok := stats["related_commands"].([]string); ok && len(relatedCmds) > 0 {
 		fmt.Println("\nRelated Commands:")

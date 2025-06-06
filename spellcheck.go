@@ -12,31 +12,31 @@ import (
 
 // SpellCheckConfig holds configuration for spell checking
 type SpellCheckConfig struct {
-	Enabled             bool    `json:"enabled"`               // Whether spell checking is enabled
-	SuggestionThreshold float64 `json:"suggestion_threshold"`  // Threshold for suggesting corrections (0.0-1.0)
-	MaxSuggestions      int     `json:"max_suggestions"`       // Maximum number of suggestions to provide
-	AutoCorrect         bool    `json:"auto_correct"`          // Whether to auto-correct high confidence matches
-	AutoCorrectThreshold float64 `json:"auto_correct_threshold"` // Threshold for auto-correction (0.0-1.0)
-	CaseSensitive       bool    `json:"case_sensitive"`        // Whether matching is case sensitive
-	CustomDictionary    []string `json:"custom_dictionary"`    // Additional valid commands
+	Enabled              bool     `json:"enabled"`                // Whether spell checking is enabled
+	SuggestionThreshold  float64  `json:"suggestion_threshold"`   // Threshold for suggesting corrections (0.0-1.0)
+	MaxSuggestions       int      `json:"max_suggestions"`        // Maximum number of suggestions to provide
+	AutoCorrect          bool     `json:"auto_correct"`           // Whether to auto-correct high confidence matches
+	AutoCorrectThreshold float64  `json:"auto_correct_threshold"` // Threshold for auto-correction (0.0-1.0)
+	CaseSensitive        bool     `json:"case_sensitive"`         // Whether matching is case sensitive
+	CustomDictionary     []string `json:"custom_dictionary"`      // Additional valid commands
 }
 
 // CommandSimilarity represents a possible correction with similarity score
 type CommandSimilarity struct {
-	Command   string  // The command name
-	Score     float64 // Similarity score (0.0-1.0)
-	Full      string  // Full command representation (with colon prefix if applicable)
-	IsInternal bool   // Whether it's an internal command
+	Command    string  // The command name
+	Score      float64 // Similarity score (0.0-1.0)
+	Full       string  // Full command representation (with colon prefix if applicable)
+	IsInternal bool    // Whether it's an internal command
 }
 
 // SpellChecker provides spell checking and correction for commands
 type SpellChecker struct {
-	config          SpellCheckConfig
-	configPath      string
-	mutex           sync.RWMutex
+	config           SpellCheckConfig
+	configPath       string
+	mutex            sync.RWMutex
 	internalCommands map[string]bool // Map of valid internal commands
-	popularCommands map[string]int   // Map of commands to usage count
-	isInitialized   bool
+	popularCommands  map[string]int  // Map of commands to usage count
+	isInitialized    bool
 }
 
 // NewSpellChecker creates a new spell checker
@@ -59,13 +59,13 @@ func NewSpellChecker() (*SpellChecker, error) {
 	// Create default SpellChecker instance
 	sc := &SpellChecker{
 		config: SpellCheckConfig{
-			Enabled:             true,
-			SuggestionThreshold: 0.7,  // 70% similarity for suggestions
-			MaxSuggestions:      3,
-			AutoCorrect:         false,
+			Enabled:              true,
+			SuggestionThreshold:  0.7, // 70% similarity for suggestions
+			MaxSuggestions:       3,
+			AutoCorrect:          false,
 			AutoCorrectThreshold: 0.9, // 90% similarity for auto-correction
-			CaseSensitive:       false,
-			CustomDictionary:    []string{},
+			CaseSensitive:        false,
+			CustomDictionary:     []string{},
 		},
 		configPath:       configPath,
 		internalCommands: make(map[string]bool),
@@ -158,14 +158,14 @@ func (sc *SpellChecker) initializeCommands() {
 		"ai", "help", "jump", "j", "memory", "mem", "tokenizer", "tok",
 		"inference", "inf", "feedback", "vector", "embedding", "speculative",
 		"specd", "knowledge", "know", "agent", "config", "init",
-			"pattern", "pat",
+		"pattern", "pat",
 		"spellcheck", "spell",
 	}
 
 	for _, cmd := range knownCommands {
 		sc.internalCommands[cmd] = true
 	}
-	
+
 	// Add command aliases
 	sc.internalCommands["inference"] = true
 	sc.internalCommands["inf"] = true
@@ -187,9 +187,9 @@ func (sc *SpellChecker) initializeCommands() {
 	sc.internalCommands["feedback"] = true
 	sc.internalCommands["init"] = true
 	sc.internalCommands["ai"] = true
-		sc.internalCommands["pattern"] = true
-		sc.internalCommands["pat"] = true
-	
+	sc.internalCommands["pattern"] = true
+	sc.internalCommands["pat"] = true
+
 	// Add custom dictionary entries
 	for _, cmd := range sc.config.CustomDictionary {
 		sc.internalCommands[cmd] = true
@@ -200,25 +200,25 @@ func (sc *SpellChecker) initializeCommands() {
 func (sc *SpellChecker) CheckCommand(input string) []CommandSimilarity {
 	sc.mutex.RLock()
 	defer sc.mutex.RUnlock()
-	
+
 	if !sc.isInitialized || !sc.config.Enabled {
 		return nil
 	}
-	
+
 	// Handle internal commands (those that start with :)
 	if strings.HasPrefix(input, ":") {
 		cmdWithoutColon := strings.TrimPrefix(input, ":")
 		firstWord := strings.Fields(cmdWithoutColon)[0]
-		
+
 		// If it's a valid command, no need for spell checking
 		if sc.internalCommands[firstWord] {
 			return nil
 		}
-		
+
 		// Generate suggestions for internal commands
 		return sc.findSimilarInternalCommands(firstWord)
 	}
-	
+
 	// For now, we only check internal commands
 	return nil
 }
@@ -228,16 +228,16 @@ func (sc *SpellChecker) GetCorrectionText(cmd string, suggestions []CommandSimil
 	if len(suggestions) == 0 {
 		return ""
 	}
-	
+
 	// Format based on number of suggestions
 	if len(suggestions) == 1 {
 		return fmt.Sprintf("Did you mean ':%s'?", suggestions[0].Command)
 	}
-	
+
 	// Multiple suggestions
 	var sb strings.Builder
 	sb.WriteString("Did you mean one of these: ")
-	
+
 	for i, suggestion := range suggestions {
 		if i > 0 {
 			sb.WriteString(", ")
@@ -245,7 +245,7 @@ func (sc *SpellChecker) GetCorrectionText(cmd string, suggestions []CommandSimil
 		sb.WriteString(fmt.Sprintf("':%s'", suggestion.Command))
 	}
 	sb.WriteString("?")
-	
+
 	return sb.String()
 }
 
@@ -254,7 +254,7 @@ func (sc *SpellChecker) ShouldAutoCorrect(suggestions []CommandSimilarity) bool 
 	if !sc.config.AutoCorrect || len(suggestions) == 0 {
 		return false
 	}
-	
+
 	// Only auto-correct if the top suggestion has a high enough confidence
 	return suggestions[0].Score >= sc.config.AutoCorrectThreshold
 }
@@ -262,49 +262,49 @@ func (sc *SpellChecker) ShouldAutoCorrect(suggestions []CommandSimilarity) bool 
 // findSimilarInternalCommands finds internal commands similar to the input
 func (sc *SpellChecker) findSimilarInternalCommands(input string) []CommandSimilarity {
 	var similarities []CommandSimilarity
-	
+
 	// Get lowercase version if case insensitive
 	searchInput := input
 	if !sc.config.CaseSensitive {
 		searchInput = strings.ToLower(input)
 	}
-	
+
 	// Compare with all known internal commands
 	for cmd := range sc.internalCommands {
 		cmdCompare := cmd
 		if !sc.config.CaseSensitive {
 			cmdCompare = strings.ToLower(cmd)
 		}
-		
+
 		// Skip exact matches (though this shouldn't happen)
 		if cmdCompare == searchInput {
 			continue
 		}
-		
+
 		// Calculate similarity score
 		score := calculateSimilarity(searchInput, cmdCompare)
-		
+
 		// Only keep suggestions above threshold
 		if score >= sc.config.SuggestionThreshold {
 			similarities = append(similarities, CommandSimilarity{
-				Command:   cmd,
-				Score:     score,
-				Full:      ":" + cmd,
+				Command:    cmd,
+				Score:      score,
+				Full:       ":" + cmd,
 				IsInternal: true,
 			})
 		}
 	}
-	
+
 	// Sort by score (highest first)
 	sort.Slice(similarities, func(i, j int) bool {
 		return similarities[i].Score > similarities[j].Score
 	})
-	
+
 	// Limit to max suggestions
 	if len(similarities) > sc.config.MaxSuggestions {
 		similarities = similarities[:sc.config.MaxSuggestions]
 	}
-	
+
 	return similarities
 }
 
@@ -316,7 +316,7 @@ func calculateSimilarity(s1, s2 string) float64 {
 		if s1 == s2 {
 			return 1.0
 		}
-		
+
 		// For very short strings, if they share the first letter, give them a boost
 		if len(s1) > 0 && len(s2) > 0 && s1[0] == s2[0] {
 			// Calculate normalized edit distance for the rest
@@ -328,14 +328,14 @@ func calculateSimilarity(s1, s2 string) float64 {
 			return 0.5 + (0.5 * (1.0 - float64(editDistance)/maxLen))
 		}
 	}
-	
+
 	// For longer strings, use Levenshtein distance
 	editDistance := levenshteinDistance(s1, s2)
 	maxLen := float64(max(len(s1), len(s2)))
 	if maxLen == 0 {
 		return 1.0 // Both strings are empty
 	}
-	
+
 	// Normalize and invert so higher is more similar
 	return 1.0 - float64(editDistance)/maxLen
 }
@@ -345,7 +345,7 @@ func levenshteinDistance(s1, s2 string) int {
 	// Convert to runes to handle UTF-8 correctly
 	r1 := []rune(s1)
 	r2 := []rune(s2)
-	
+
 	// Create a matrix of size (len(r1)+1) x (len(r2)+1)
 	rows, cols := len(r1)+1, len(r2)+1
 	matrix := make([][]int, rows)
@@ -353,12 +353,12 @@ func levenshteinDistance(s1, s2 string) int {
 		matrix[i] = make([]int, cols)
 		matrix[i][0] = i // Initialize first column
 	}
-	
+
 	// Initialize first row
 	for j := 1; j < cols; j++ {
 		matrix[0][j] = j
 	}
-	
+
 	// Fill the matrix
 	for i := 1; i < rows; i++ {
 		for j := 1; j < cols; j++ {
@@ -366,21 +366,21 @@ func levenshteinDistance(s1, s2 string) int {
 			if r1[i-1] == r2[j-1] {
 				cost = 0
 			}
-			
+
 			// The min of three operations: deletion, insertion, substitution
 			matrix[i][j] = min(
-				matrix[i-1][j]+1,           // Deletion
-				matrix[i][j-1]+1,           // Insertion
-				matrix[i-1][j-1]+cost,      // Substitution
+				matrix[i-1][j]+1,      // Deletion
+				matrix[i][j-1]+1,      // Insertion
+				matrix[i-1][j-1]+cost, // Substitution
 			)
-			
+
 			// Handle transposition (optional, for Damerau-Levenshtein distance)
 			if i > 1 && j > 1 && r1[i-1] == r2[j-2] && r1[i-2] == r2[j-1] {
 				matrix[i][j] = min(matrix[i][j], matrix[i-2][j-2]+cost)
 			}
 		}
 	}
-	
+
 	// The distance is the bottom-right cell
 	return matrix[rows-1][cols-1]
 }
@@ -408,15 +408,15 @@ func max(a, b int) int {
 func (sc *SpellChecker) TrackCommandUsage(cmd string) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
-	
+
 	// Strip colon prefix if present
 	if strings.HasPrefix(cmd, ":") {
 		cmd = strings.TrimPrefix(cmd, ":")
 	}
-	
+
 	// Extract the base command (without arguments)
 	baseCmd := strings.Fields(cmd)[0]
-	
+
 	// Increment usage count
 	sc.popularCommands[baseCmd]++
 }
@@ -438,7 +438,7 @@ func (sc *SpellChecker) IsEnabled() bool {
 func (sc *SpellChecker) EnableSpellChecker() {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
-	
+
 	sc.config.Enabled = true
 	sc.saveConfig()
 }
@@ -447,7 +447,7 @@ func (sc *SpellChecker) EnableSpellChecker() {
 func (sc *SpellChecker) DisableSpellChecker() {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
-	
+
 	sc.config.Enabled = false
 	sc.saveConfig()
 }
@@ -464,7 +464,7 @@ func GetSpellChecker() *SpellChecker {
 			fmt.Printf("Error initializing spell checker: %v\n", err)
 			return nil
 		}
-		
+
 		// Initialize the spell checker
 		globalSpellChecker.Initialize()
 	}

@@ -56,7 +56,7 @@ func handleART2Enable(art2Mgr *ART2Manager) bool {
 		fmt.Printf("Error saving ART-2 configuration: %v\n", err)
 		return true
 	}
-	
+
 	fmt.Println("ART-2 adaptive pattern recognition enabled")
 	return true
 }
@@ -69,7 +69,7 @@ func handleART2Disable(art2Mgr *ART2Manager) bool {
 		fmt.Printf("Error saving ART-2 configuration: %v\n", err)
 		return true
 	}
-	
+
 	fmt.Println("ART-2 adaptive pattern recognition disabled")
 	return true
 }
@@ -78,37 +78,37 @@ func handleART2Disable(art2Mgr *ART2Manager) bool {
 func handleART2Status(art2Mgr *ART2Manager) bool {
 	fmt.Println("ART-2 Adaptive Resonance Theory System Status:")
 	fmt.Println("==============================================")
-	
+
 	if art2Mgr.IsEnabled() {
 		fmt.Println("Status: ENABLED ✓")
 	} else {
 		fmt.Println("Status: DISABLED ✗")
 	}
-	
+
 	fmt.Printf("Initialized: %v\n", art2Mgr.isInitialized)
 	fmt.Printf("Categories learned: %d\n", len(art2Mgr.categories))
 	fmt.Printf("Maximum categories: %d\n", art2Mgr.config.MaxCategories)
 	fmt.Printf("Vector size: %d\n", art2Mgr.config.VectorSize)
-	
+
 	// Algorithm parameters
 	fmt.Println("\nAlgorithm Parameters:")
 	fmt.Printf("- Vigilance (ρ): %.3f\n", art2Mgr.config.Rho)
 	fmt.Printf("- Learning rate (β): %.3f\n", art2Mgr.config.Beta)
 	fmt.Printf("- Choice parameter (α): %.3f\n", art2Mgr.config.Alpha)
 	fmt.Printf("- Activity threshold (θ): %.3f\n", art2Mgr.config.Theta)
-	
+
 	// Memory efficiency
 	stats := art2Mgr.GetStats()
 	fmt.Printf("\nMemory efficiency: %.2f%%\n", stats.MemoryEfficiency*100)
 	fmt.Printf("Accuracy rate: %.2f%%\n", stats.AccuracyRate*100)
-	
+
 	return true
 }
 
 // handleART2Stats shows detailed statistics about the ART-2 system
 func handleART2Stats(art2Mgr *ART2Manager) bool {
 	stats := art2Mgr.GetStats()
-	
+
 	fmt.Println("ART-2 Learning Statistics:")
 	fmt.Println("==========================")
 	fmt.Printf("Total inputs processed: %d\n", stats.TotalInputs)
@@ -117,13 +117,13 @@ func handleART2Stats(art2Mgr *ART2Manager) bool {
 	fmt.Printf("Incorrect predictions: %d\n", stats.IncorrectPredictions)
 	fmt.Printf("Accuracy rate: %.2f%%\n", stats.AccuracyRate*100)
 	fmt.Printf("Memory efficiency: %.2f%%\n", stats.MemoryEfficiency*100)
-	
+
 	if !stats.LastTrainingTime.IsZero() {
 		fmt.Printf("Last training: %s\n", stats.LastTrainingTime.Format("2006-01-02 15:04:05"))
 	} else {
 		fmt.Println("Last training: Never")
 	}
-	
+
 	// Show preprocessor statistics
 	preprocessor := GetART2Preprocessor()
 	if preprocessor != nil {
@@ -132,48 +132,48 @@ func handleART2Stats(art2Mgr *ART2Manager) bool {
 		fmt.Printf("Vocabulary size: %d\n", vocabStats["vocabulary_size"].(int))
 		fmt.Printf("Feature count: %d\n", vocabStats["feature_count"].(int))
 		fmt.Printf("Vector size: %d\n", vocabStats["vector_size"].(int))
-		
+
 		if topTokens, ok := vocabStats["top_tokens"].([]string); ok && len(topTokens) > 0 {
 			fmt.Printf("Top tokens: %s\n", strings.Join(topTokens[:art2Min(5, len(topTokens))], ", "))
 		}
 	}
-	
+
 	return true
 }
 
 // handleART2Categories shows information about learned categories
 func handleART2Categories(art2Mgr *ART2Manager, args []string) bool {
 	categories := art2Mgr.GetCategories()
-	
+
 	if len(categories) == 0 {
 		fmt.Println("No categories learned yet")
 		return true
 	}
-	
+
 	// Show summary by default
 	if len(args) == 0 || args[0] == "list" {
 		fmt.Printf("ART-2 Learned Categories (%d total):\n", len(categories))
 		fmt.Println("=====================================")
-		
+
 		for i, category := range categories {
 			fmt.Printf("Category %d:\n", category.ID)
 			fmt.Printf("  Activations: %d\n", category.ActivationCount)
 			fmt.Printf("  Success rate: %.2f%%\n", category.SuccessRate*100)
 			fmt.Printf("  Created: %s\n", category.CreatedAt.Format("2006-01-02 15:04:05"))
 			fmt.Printf("  Last used: %s\n", category.LastActivation.Format("2006-01-02 15:04:05"))
-			
+
 			if len(category.CommandPatterns) > 0 {
-				fmt.Printf("  Command patterns: %s\n", 
+				fmt.Printf("  Command patterns: %s\n",
 					strings.Join(category.CommandPatterns[:art2Min(3, len(category.CommandPatterns))], ", "))
 			}
-			
+
 			if i < len(categories)-1 {
 				fmt.Println()
 			}
 		}
 		return true
 	}
-	
+
 	// Show detailed information for a specific category
 	if len(args) > 0 {
 		categoryID, err := strconv.Atoi(args[0])
@@ -181,7 +181,7 @@ func handleART2Categories(art2Mgr *ART2Manager, args []string) bool {
 			fmt.Printf("Invalid category ID: %s\n", args[0])
 			return true
 		}
-		
+
 		var targetCategory *ART2Category
 		for _, category := range categories {
 			if category.ID == categoryID {
@@ -189,32 +189,32 @@ func handleART2Categories(art2Mgr *ART2Manager, args []string) bool {
 				break
 			}
 		}
-		
+
 		if targetCategory == nil {
 			fmt.Printf("Category %d not found\n", categoryID)
 			return true
 		}
-		
+
 		fmt.Printf("Category %d Details:\n", targetCategory.ID)
 		fmt.Println("===================")
 		fmt.Printf("Activation count: %d\n", targetCategory.ActivationCount)
 		fmt.Printf("Success rate: %.2f%%\n", targetCategory.SuccessRate*100)
 		fmt.Printf("Created: %s\n", targetCategory.CreatedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("Last activation: %s\n", targetCategory.LastActivation.Format("2006-01-02 15:04:05"))
-		
+
 		fmt.Printf("Command patterns (%d):\n", len(targetCategory.CommandPatterns))
 		for i, pattern := range targetCategory.CommandPatterns {
 			fmt.Printf("  %d. %s\n", i+1, pattern)
 		}
-		
+
 		fmt.Printf("Context patterns (%d):\n", len(targetCategory.ContextPatterns))
 		for i, pattern := range targetCategory.ContextPatterns {
 			fmt.Printf("  %d. %s\n", i+1, pattern)
 		}
-		
+
 		fmt.Printf("Weight vector size: %d\n", len(targetCategory.Weights))
 	}
-	
+
 	return true
 }
 
@@ -224,44 +224,44 @@ func handleART2Predict(art2Mgr *ART2Manager, args []string) bool {
 		fmt.Println("Usage: :art2 predict <command>")
 		return true
 	}
-	
+
 	if !art2Mgr.IsEnabled() {
 		fmt.Println("ART-2 system is disabled. Enable with ':art2 enable'")
 		return true
 	}
-	
+
 	command := strings.Join(args, " ")
 	dir, _ := os.Getwd()
-	
+
 	// Preprocess the command
 	preprocessor := GetART2Preprocessor()
 	if preprocessor == nil {
 		fmt.Println("ART-2 preprocessor not available")
 		return true
 	}
-	
+
 	featureVector, err := preprocessor.PreprocessCommand(command, "", dir)
 	if err != nil {
 		fmt.Printf("Error preprocessing command: %v\n", err)
 		return true
 	}
-	
+
 	// Get prediction
 	prediction, confidence, err := art2Mgr.GetPrediction(featureVector.Values, command, dir)
 	if err != nil {
 		fmt.Printf("Error generating prediction: %v\n", err)
 		return true
 	}
-	
+
 	if prediction == "" {
 		fmt.Println("No prediction available for this command pattern")
 		return true
 	}
-	
+
 	fmt.Printf("Command: %s\n", command)
 	fmt.Printf("Prediction: %s\n", prediction)
 	fmt.Printf("Confidence: %.2f%%\n", confidence*100)
-	
+
 	return true
 }
 
@@ -275,31 +275,31 @@ func handleART2Feedback(art2Mgr *ART2Manager, args []string) bool {
 		fmt.Println("  :art2 feedback correction 'make' 'try make clean first'")
 		return true
 	}
-	
+
 	feedbackType := args[0]
 	command := args[1]
-	
+
 	if feedbackType != "helpful" && feedbackType != "unhelpful" && feedbackType != "correction" {
 		fmt.Println("Feedback type must be 'helpful', 'unhelpful', or 'correction'")
 		return true
 	}
-	
+
 	// Get current context
 	dir, _ := os.Getwd()
-	
+
 	// Process with ART-2 to get current prediction
 	preprocessor := GetART2Preprocessor()
 	if preprocessor == nil {
 		fmt.Println("ART-2 preprocessor not available")
 		return true
 	}
-	
+
 	featureVector, err := preprocessor.PreprocessCommand(command, "", dir)
 	if err != nil {
 		fmt.Printf("Error preprocessing command: %v\n", err)
 		return true
 	}
-	
+
 	// Create feedback input
 	userFeedback := 0
 	if feedbackType == "helpful" {
@@ -307,28 +307,28 @@ func handleART2Feedback(art2Mgr *ART2Manager, args []string) bool {
 	} else if feedbackType == "unhelpful" {
 		userFeedback = -1
 	}
-	
+
 	actualOutcome := ""
 	if len(args) > 2 {
 		actualOutcome = strings.Join(args[2:], " ")
 	}
-	
+
 	art2Input := ART2Input{
-		Vector:         featureVector.Values,
-		Command:        command,
-		Context:        dir,
-		Timestamp:      time.Now(),
-		UserFeedback:   userFeedback,
-		ActualOutcome:  actualOutcome,
+		Vector:        featureVector.Values,
+		Command:       command,
+		Context:       dir,
+		Timestamp:     time.Now(),
+		UserFeedback:  userFeedback,
+		ActualOutcome: actualOutcome,
 	}
-	
+
 	// Process the feedback
 	category, isNew, err := art2Mgr.ProcessInput(art2Input)
 	if err != nil {
 		fmt.Printf("Error processing feedback: %v\n", err)
 		return true
 	}
-	
+
 	if category != nil {
 		if isNew {
 			fmt.Printf("Created new category %d based on feedback\n", category.ID)
@@ -339,7 +339,7 @@ func handleART2Feedback(art2Mgr *ART2Manager, args []string) bool {
 	} else {
 		fmt.Println("Feedback processed (no category match)")
 	}
-	
+
 	return true
 }
 
@@ -361,16 +361,16 @@ func handleART2Config(art2Mgr *ART2Manager, args []string) bool {
 		fmt.Printf("Update interval: %d seconds\n", art2Mgr.config.UpdateInterval)
 		return true
 	}
-	
+
 	if len(args) < 2 {
 		fmt.Println("Usage: :art2 config <parameter> <value>")
 		fmt.Println("Parameters: rho, beta, alpha, theta, max_categories, decay_rate, min_activation")
 		return true
 	}
-	
+
 	parameter := args[0]
 	valueStr := args[1]
-	
+
 	switch parameter {
 	case "rho", "vigilance":
 		value, err := strconv.ParseFloat(valueStr, 64)
@@ -380,7 +380,7 @@ func handleART2Config(art2Mgr *ART2Manager, args []string) bool {
 		}
 		art2Mgr.config.Rho = value
 		fmt.Printf("Vigilance parameter set to %.3f\n", value)
-		
+
 	case "beta", "learning_rate":
 		value, err := strconv.ParseFloat(valueStr, 64)
 		if err != nil || value < 0 || value > 1 {
@@ -389,7 +389,7 @@ func handleART2Config(art2Mgr *ART2Manager, args []string) bool {
 		}
 		art2Mgr.config.Beta = value
 		fmt.Printf("Learning rate set to %.3f\n", value)
-		
+
 	case "alpha", "choice":
 		value, err := strconv.ParseFloat(valueStr, 64)
 		if err != nil || value < 0 {
@@ -398,7 +398,7 @@ func handleART2Config(art2Mgr *ART2Manager, args []string) bool {
 		}
 		art2Mgr.config.Alpha = value
 		fmt.Printf("Choice parameter set to %.3f\n", value)
-		
+
 	case "theta", "threshold":
 		value, err := strconv.ParseFloat(valueStr, 64)
 		if err != nil || value < 0 || value > 1 {
@@ -407,7 +407,7 @@ func handleART2Config(art2Mgr *ART2Manager, args []string) bool {
 		}
 		art2Mgr.config.Theta = value
 		fmt.Printf("Activity threshold set to %.3f\n", value)
-		
+
 	case "max_categories":
 		value, err := strconv.Atoi(valueStr)
 		if err != nil || value < 1 || value > 1000 {
@@ -416,7 +416,7 @@ func handleART2Config(art2Mgr *ART2Manager, args []string) bool {
 		}
 		art2Mgr.config.MaxCategories = value
 		fmt.Printf("Maximum categories set to %d\n", value)
-		
+
 	case "decay_rate":
 		value, err := strconv.ParseFloat(valueStr, 64)
 		if err != nil || value < 0 || value > 1 {
@@ -425,7 +425,7 @@ func handleART2Config(art2Mgr *ART2Manager, args []string) bool {
 		}
 		art2Mgr.config.DecayRate = value
 		fmt.Printf("Decay rate set to %.3f\n", value)
-		
+
 	case "min_activation":
 		value, err := strconv.ParseFloat(valueStr, 64)
 		if err != nil || value < 0 || value > 1 {
@@ -434,13 +434,13 @@ func handleART2Config(art2Mgr *ART2Manager, args []string) bool {
 		}
 		art2Mgr.config.MinActivation = value
 		fmt.Printf("Minimum activation set to %.3f\n", value)
-		
+
 	default:
 		fmt.Printf("Unknown parameter: %s\n", parameter)
 		fmt.Println("Available parameters: rho, beta, alpha, theta, max_categories, decay_rate, min_activation")
 		return true
 	}
-	
+
 	// Save the configuration
 	err := art2Mgr.saveConfig()
 	if err != nil {
@@ -448,7 +448,7 @@ func handleART2Config(art2Mgr *ART2Manager, args []string) bool {
 	} else {
 		fmt.Println("Configuration saved successfully")
 	}
-	
+
 	return true
 }
 

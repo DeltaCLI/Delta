@@ -23,11 +23,11 @@ type ErrorSolutionHistory struct {
 
 // ErrorEntryData represents data about an error pattern and its solutions
 type ErrorEntryData struct {
-	ErrorPattern string                 `json:"error_pattern"`
+	ErrorPattern string                  `json:"error_pattern"`
 	Solutions    []SolutionEffectiveness `json:"solutions"`
-	FirstSeen    string                 `json:"first_seen"`
-	LastSeen     string                 `json:"last_seen"`
-	Occurrences  int                    `json:"occurrences"`
+	FirstSeen    string                  `json:"first_seen"`
+	LastSeen     string                  `json:"last_seen"`
+	Occurrences  int                     `json:"occurrences"`
 }
 
 // SolutionEffectiveness tracks the effectiveness of a particular solution
@@ -44,7 +44,7 @@ type SolutionEffectiveness struct {
 
 // ErrorLearningManager manages the learning of error solutions
 type ErrorLearningManager struct {
-	history *ErrorSolutionHistory
+	history       *ErrorSolutionHistory
 	isInitialized bool
 }
 
@@ -84,7 +84,7 @@ func NewErrorLearningManager() (*ErrorLearningManager, error) {
 	}
 
 	return &ErrorLearningManager{
-		history: history,
+		history:       history,
 		isInitialized: true,
 	}, nil
 }
@@ -100,7 +100,7 @@ func (elm *ErrorLearningManager) AddErrorSolution(errorPattern, solution, descri
 
 	// Normalize error pattern (remove specific paths, timestamps, etc.)
 	normalizedPattern := elm.normalizeErrorPattern(errorPattern)
-	
+
 	// Check if this error pattern exists
 	entry, exists := elm.history.ErrorEntries[normalizedPattern]
 	if !exists {
@@ -176,7 +176,7 @@ func (elm *ErrorLearningManager) AddErrorSolution(errorPattern, solution, descri
 	sort.Slice(entry.Solutions, func(i, j int) bool {
 		iTotal := entry.Solutions[i].SuccessCount + entry.Solutions[i].FailureCount
 		jTotal := entry.Solutions[j].SuccessCount + entry.Solutions[j].FailureCount
-		
+
 		// Avoid division by zero
 		if iTotal == 0 {
 			return false
@@ -184,10 +184,10 @@ func (elm *ErrorLearningManager) AddErrorSolution(errorPattern, solution, descri
 		if jTotal == 0 {
 			return true
 		}
-		
+
 		iRate := float64(entry.Solutions[i].SuccessCount) / float64(iTotal)
 		jRate := float64(entry.Solutions[j].SuccessCount) / float64(jTotal)
-		
+
 		return iRate > jRate
 	})
 
@@ -203,10 +203,10 @@ func (elm *ErrorLearningManager) ListSolutions() []SolutionEffectiveness {
 	if !elm.isInitialized {
 		return nil
 	}
-	
+
 	elm.history.mutex.RLock()
 	defer elm.history.mutex.RUnlock()
-	
+
 	// Return all solutions
 	solutions := []SolutionEffectiveness{}
 	for _, entry := range elm.history.ErrorEntries {
@@ -227,33 +227,33 @@ func (elm *ErrorLearningManager) GetBestSolutions(errorPattern string, limit int
 
 	// Normalize error pattern
 	normalizedPattern := elm.normalizeErrorPattern(errorPattern)
-	
+
 	// Find similar patterns
 	var matchingSolutions []SolutionEffectiveness
-	
+
 	// First try exact match
 	if entry, exists := elm.history.ErrorEntries[normalizedPattern]; exists {
 		matchingSolutions = append(matchingSolutions, entry.Solutions...)
 	}
-	
+
 	// Then try pattern matching for similar errors
 	for pattern, entry := range elm.history.ErrorEntries {
 		// Skip if this is the exact pattern we already checked
 		if pattern == normalizedPattern {
 			continue
 		}
-		
+
 		// Check if patterns are similar
 		if elm.arePatternsSimilar(normalizedPattern, pattern) {
 			matchingSolutions = append(matchingSolutions, entry.Solutions...)
 		}
 	}
-	
+
 	// Sort solutions by success rate
 	sort.Slice(matchingSolutions, func(i, j int) bool {
 		iTotal := matchingSolutions[i].SuccessCount + matchingSolutions[i].FailureCount
 		jTotal := matchingSolutions[j].SuccessCount + matchingSolutions[j].FailureCount
-		
+
 		// Avoid division by zero
 		if iTotal == 0 {
 			return false
@@ -261,23 +261,23 @@ func (elm *ErrorLearningManager) GetBestSolutions(errorPattern string, limit int
 		if jTotal == 0 {
 			return true
 		}
-		
+
 		iRate := float64(matchingSolutions[i].SuccessCount) / float64(iTotal)
 		jRate := float64(matchingSolutions[j].SuccessCount) / float64(jTotal)
-		
+
 		// If success rates are equal, prefer solutions with more data
 		if iRate == jRate {
 			return iTotal > jTotal
 		}
-		
+
 		return iRate > jRate
 	})
-	
+
 	// Limit results
 	if limit > 0 && len(matchingSolutions) > limit {
 		matchingSolutions = matchingSolutions[:limit]
 	}
-	
+
 	return matchingSolutions
 }
 
@@ -332,14 +332,14 @@ func (elm *ErrorLearningManager) ExportToErrorPatterns() error {
 
 		// Get the best solution
 		bestSolution := entry.Solutions[0]
-		
+
 		// Calculate success rate
 		total := bestSolution.SuccessCount + bestSolution.FailureCount
 		if total < 3 {
 			// Not enough data
 			continue
 		}
-		
+
 		successRate := float64(bestSolution.SuccessCount) / float64(total)
 		if successRate < 0.8 {
 			// Not reliable enough
@@ -399,32 +399,32 @@ func (elm *ErrorLearningManager) saveHistory() {
 func (elm *ErrorLearningManager) normalizeErrorPattern(pattern string) string {
 	// Trim whitespace
 	normalized := strings.TrimSpace(pattern)
-	
+
 	// Remove absolute paths (replace with placeholder)
 	pathRegex := regexp.MustCompile(`/[^\s:]+/([^/\s:]+)`)
 	normalized = pathRegex.ReplaceAllString(normalized, "/${PATH}/$1")
-	
+
 	// Remove timestamps
 	timestampRegex := regexp.MustCompile(`\d{2}:\d{2}:\d{2}`)
 	normalized = timestampRegex.ReplaceAllString(normalized, "${TIME}")
-	
+
 	// Remove version numbers
 	versionRegex := regexp.MustCompile(`\d+\.\d+\.\d+`)
 	normalized = versionRegex.ReplaceAllString(normalized, "${VERSION}")
-	
+
 	// Remove line numbers
 	lineNumRegex := regexp.MustCompile(`line \d+`)
 	normalized = lineNumRegex.ReplaceAllString(normalized, "line ${LINE}")
-	
+
 	// Remove hexadecimal addresses
 	hexRegex := regexp.MustCompile(`0x[0-9a-fA-F]+`)
 	normalized = hexRegex.ReplaceAllString(normalized, "${HEX}")
-	
+
 	// Limit length
 	if len(normalized) > 200 {
 		normalized = normalized[:200]
 	}
-	
+
 	return normalized
 }
 
@@ -444,7 +444,7 @@ func (elm *ErrorLearningManager) GenerateErrorSolution(errorOutput string, conte
 
 	// Generate prompt
 	prompt := fmt.Sprintf("I encountered the following error:\n\n%s\n\nContext: %s\n\nProvide a solution for this error in the following format:\n\nSolution: [the solution to fix the error]\n\nExplanation: [why this solution works]", errorOutput, context)
-	
+
 	// Get AI response
 	response, err := aiManager.GetAIResponse(prompt)
 	if err != nil {
@@ -455,17 +455,17 @@ func (elm *ErrorLearningManager) GenerateErrorSolution(errorOutput string, conte
 	solutionMatch := regexp.MustCompile(`(?i)Solution:\s*(.+?)(?:\n\n|\n(?:Explanation|$))`).FindStringSubmatch(response)
 	if len(solutionMatch) > 1 {
 		solution := strings.TrimSpace(solutionMatch[1])
-		
+
 		// Extract explanation
 		explanationMatch := regexp.MustCompile(`(?i)Explanation:\s*(.+)$`).FindStringSubmatch(response)
 		var explanation string
 		if len(explanationMatch) > 1 {
 			explanation = strings.TrimSpace(explanationMatch[1])
 		}
-		
+
 		return solution, explanation, nil
 	}
-	
+
 	// If no explicit solution format, use the whole response
 	return strings.TrimSpace(response), "", nil
 }
@@ -475,20 +475,20 @@ func (elm *ErrorLearningManager) FixErrorAutomatically(errorOutput string, conte
 	if !elm.isInitialized {
 		return false, "", fmt.Errorf("error learning manager not initialized")
 	}
-	
+
 	// First try to find a solution in the history
 	solutions := elm.GetBestSolutions(errorOutput, 1)
 	if len(solutions) > 0 && solutions[0].SuccessCount > 0 {
 		// Found a solution with success history
 		return true, solutions[0].Solution, nil
 	}
-	
+
 	// If no solution found, try to generate one with AI
 	solution, _, err := elm.GenerateErrorSolution(errorOutput, context)
 	if err != nil {
 		return false, "", fmt.Errorf("failed to generate solution: %v", err)
 	}
-	
+
 	return false, solution, nil
 }
 

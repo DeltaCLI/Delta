@@ -15,18 +15,18 @@ import (
 
 // ART2Preprocessor handles input preprocessing for the ART-2 algorithm
 type ART2Preprocessor struct {
-	vocabulary      map[string]int    // Word to index mapping
+	vocabulary      map[string]int     // Word to index mapping
 	featureWeights  map[string]float64 // Feature importance weights
-	commandPatterns []string          // Learned command patterns
-	contextFeatures []string          // Context feature names
-	vectorSize      int               // Target vector size
-	vocabularyPath  string            // Path to vocabulary file
-	initialized     bool              // Whether preprocessor is initialized
+	commandPatterns []string           // Learned command patterns
+	contextFeatures []string           // Context feature names
+	vectorSize      int                // Target vector size
+	vocabularyPath  string             // Path to vocabulary file
+	initialized     bool               // Whether preprocessor is initialized
 }
 
 // FeatureVector represents a processed feature vector
 type FeatureVector struct {
-	Values   []float64         `json:"values"`
+	Values   []float64          `json:"values"`
 	Features map[string]float64 `json:"features"`
 	Metadata map[string]string  `json:"metadata"`
 }
@@ -62,7 +62,7 @@ func NewART2Preprocessor(vectorSize int) (*ART2Preprocessor, error) {
 
 	// Initialize with common command vocabulary
 	processor.initializeBasicVocabulary()
-	
+
 	// Load existing vocabulary if available
 	processor.loadVocabulary()
 
@@ -104,7 +104,7 @@ func (p *ART2Preprocessor) initializeBasicVocabulary() {
 
 	// Build vocabulary
 	index := 0
-	
+
 	// Add commands
 	for _, cmd := range commonCommands {
 		p.vocabulary[cmd] = index
@@ -255,7 +255,7 @@ func (p *ART2Preprocessor) extractFeatures(command, context, workingDir string, 
 	// Command-based features
 	features["command_length"] = float64(len(command)) / 100.0 // Normalize to 0-1 range
 	features["token_count"] = float64(len(tokens)) / 20.0      // Normalize assuming max 20 tokens
-	
+
 	// Check for flags
 	hasFlags := 0.0
 	for _, token := range tokens {
@@ -289,7 +289,7 @@ func (p *ART2Preprocessor) extractFeatures(command, context, workingDir string, 
 	// Directory-based features
 	if workingDir != "" {
 		features["directory_type"] = p.classifyDirectory(workingDir)
-		
+
 		// Check if it's a git repository
 		gitDir := filepath.Join(workingDir, ".git")
 		if _, err := os.Stat(gitDir); err == nil {
@@ -478,13 +478,13 @@ func (p *ART2Preprocessor) isNumber(s string) bool {
 }
 
 func (p *ART2Preprocessor) isPath(s string) bool {
-	return strings.Contains(s, "/") || strings.Contains(s, "\\") || 
-		   strings.HasPrefix(s, "~") || strings.HasPrefix(s, ".")
+	return strings.Contains(s, "/") || strings.Contains(s, "\\") ||
+		strings.HasPrefix(s, "~") || strings.HasPrefix(s, ".")
 }
 
 func (p *ART2Preprocessor) isURL(s string) bool {
 	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") ||
-		   strings.HasPrefix(s, "ftp://") || strings.HasPrefix(s, "ssh://")
+		strings.HasPrefix(s, "ftp://") || strings.HasPrefix(s, "ssh://")
 }
 
 func (p *ART2Preprocessor) isEmail(s string) bool {
@@ -568,7 +568,7 @@ func (p *ART2Preprocessor) UpdateVocabulary(tokens []string) {
 			}
 		}
 	}
-	
+
 	// Save updated vocabulary
 	p.saveVocabulary()
 }
@@ -598,12 +598,12 @@ func (p *ART2Preprocessor) GetVocabularyStats() map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"vocabulary_size":   len(p.vocabulary),
-		"feature_count":     len(p.contextFeatures),
-		"vector_size":       p.vectorSize,
-		"top_tokens":        topTokens,
-		"initialized":       p.initialized,
-		"vocabulary_path":   p.vocabularyPath,
+		"vocabulary_size": len(p.vocabulary),
+		"feature_count":   len(p.contextFeatures),
+		"vector_size":     p.vectorSize,
+		"top_tokens":      topTokens,
+		"initialized":     p.initialized,
+		"vocabulary_path": p.vocabularyPath,
 	}
 }
 

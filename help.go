@@ -5,7 +5,7 @@ import "fmt"
 // showEnhancedHelp displays an enhanced help message with all available Delta commands
 func showEnhancedHelp() {
 	fmt.Println("Delta (∆) CLI Internal Commands:")
-	
+
 	// AI Commands
 	fmt.Println("  AI Assistant:")
 	fmt.Println("  :ai [on|off]      - Enable or disable AI assistant")
@@ -13,7 +13,7 @@ func showEnhancedHelp() {
 	fmt.Println("  :ai model custom <path> - Use custom trained model")
 	fmt.Println("  :ai feedback <type> [correction] - Provide feedback on predictions (helpful|unhelpful|correction)")
 	fmt.Println("  :ai status        - Show AI assistant status")
-	
+
 	// Jump Commands
 	fmt.Println("")
 	fmt.Println("  Navigation:")
@@ -22,7 +22,7 @@ func showEnhancedHelp() {
 	fmt.Println("  :jump remove <n>     - Remove a jump location")
 	fmt.Println("  :jump import jumpsh  - Import locations from jump.sh")
 	fmt.Println("  :j <location>     - Shorthand for jump")
-	
+
 	// Memory Commands
 	fmt.Println("")
 	fmt.Println("  Memory System:")

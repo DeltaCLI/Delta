@@ -40,9 +40,9 @@ type TokenizerConfig struct {
 
 // Tokenizer handles tokenization of commands
 type Tokenizer struct {
-	Config      TokenizerConfig     `json:"config"`      // Tokenizer configuration
-	Vocabulary  map[string]int      `json:"vocabulary"`  // Maps tokens to IDs
-	InvVocab    map[int]string      `json:"inv_vocab"`   // Maps IDs to tokens
+	Config      TokenizerConfig     `json:"config"`       // Tokenizer configuration
+	Vocabulary  map[string]int      `json:"vocabulary"`   // Maps tokens to IDs
+	InvVocab    map[int]string      `json:"inv_vocab"`    // Maps IDs to tokens
 	CommandList map[string]struct{} `json:"command_list"` // List of known commands
 	Patterns    map[string]*regexp.Regexp
 	configPath  string
@@ -112,25 +112,25 @@ func NewTokenizer() (*Tokenizer, error) {
 func (t *Tokenizer) initPatterns() {
 	// Command pattern
 	t.Patterns["command"] = regexp.MustCompile(`^[a-zA-Z0-9_\-\.]+`)
-	
+
 	// Flag pattern (--flag, -f)
 	t.Patterns["flag"] = regexp.MustCompile(`^-{1,2}[a-zA-Z0-9_\-]+`)
-	
+
 	// Path pattern
 	t.Patterns["path"] = regexp.MustCompile(`^(?:[~/]|\.{1,2}/|[a-zA-Z0-9_\-\.]+/)[a-zA-Z0-9_\-\./]*`)
-	
+
 	// Environment variable
 	t.Patterns["env_var"] = regexp.MustCompile(`^\$(?:\{[a-zA-Z0-9_]+\}|[a-zA-Z0-9_]+)`)
-	
+
 	// Pipe and redirections
 	t.Patterns["pipe_redirect"] = regexp.MustCompile(`^[|><]{1,2}`)
-	
+
 	// Quote start
 	t.Patterns["quote"] = regexp.MustCompile(`^["'` + "`" + `]`)
-	
+
 	// Operators
 	t.Patterns["operator"] = regexp.MustCompile(`^(?:&&|\|\||;|\(|\)|\\|\$\(|\))`)
-	
+
 	// Glob patterns
 	t.Patterns["glob"] = regexp.MustCompile(`^[a-zA-Z0-9_\-\./*?[\]]+`)
 }
@@ -224,18 +224,18 @@ func (t *Tokenizer) TokenizeCommand(command string, directory string, exitCode i
 
 	// Initial normalization
 	normalizedCmd := t.normalizeCommand(command)
-	
+
 	// Scan through the command
 	remainingCmd := normalizedCmd
 	position := 0
-	
+
 	// Track quote state
 	inQuote := false
 	quoteChar := rune(0)
-	
+
 	// First token is assumed to be the command itself
 	isFirstToken := true
-	
+
 	for len(remainingCmd) > 0 {
 		// Skip whitespace
 		if strings.HasPrefix(remainingCmd, " ") || strings.HasPrefix(remainingCmd, "\t") {
@@ -243,7 +243,7 @@ func (t *Tokenizer) TokenizeCommand(command string, directory string, exitCode i
 			position += 1
 			continue
 		}
-		
+
 		// Handle quotes
 		if inQuote {
 			// Find the end of the quote
@@ -254,18 +254,18 @@ func (t *Tokenizer) TokenizeCommand(command string, directory string, exitCode i
 			} else {
 				endQuotePos += 1 // Adjust for the 1: offset in the IndexRune call
 			}
-			
+
 			// Extract the quoted content (including the quotes)
 			quotedContent := remainingCmd[:endQuotePos+1]
 			tokenType := "argument"
-			
+
 			// Add as a token
 			tokens.Tokens = append(tokens.Tokens, CommandToken{
 				Text:     quotedContent,
 				Type:     tokenType,
 				Position: position,
 			})
-			
+
 			// Move past the quoted content
 			remainingCmd = remainingCmd[endQuotePos+1:]
 			position += len(quotedContent)
@@ -273,20 +273,20 @@ func (t *Tokenizer) TokenizeCommand(command string, directory string, exitCode i
 			quoteChar = rune(0)
 			continue
 		}
-		
+
 		// Check for the start of a quote
 		if strings.HasPrefix(remainingCmd, "\"") || strings.HasPrefix(remainingCmd, "'") || strings.HasPrefix(remainingCmd, "`") {
 			inQuote = true
 			quoteChar = rune(remainingCmd[0])
 			continue
 		}
-		
+
 		// Try to match patterns
 		tokenFound := false
 		for patternName, pattern := range t.Patterns {
 			if matches := pattern.FindString(remainingCmd); matches != "" {
 				tokenType := patternName
-				
+
 				// Determine token type based on position and pattern
 				if isFirstToken && patternName == "command" {
 					tokenType = "command"
@@ -304,14 +304,14 @@ func (t *Tokenizer) TokenizeCommand(command string, directory string, exitCode i
 				} else {
 					tokenType = "argument"
 				}
-				
+
 				// Add token
 				tokens.Tokens = append(tokens.Tokens, CommandToken{
 					Text:     matches,
 					Type:     tokenType,
 					Position: position,
 				})
-				
+
 				// Move past the matched pattern
 				remainingCmd = remainingCmd[len(matches):]
 				position += len(matches)
@@ -319,7 +319,7 @@ func (t *Tokenizer) TokenizeCommand(command string, directory string, exitCode i
 				break
 			}
 		}
-		
+
 		// If no pattern matched, take the next character as an individual token
 		if !tokenFound {
 			tokens.Tokens = append(tokens.Tokens, CommandToken{
@@ -339,17 +339,17 @@ func (t *Tokenizer) TokenizeCommand(command string, directory string, exitCode i
 func (t *Tokenizer) normalizeCommand(command string) string {
 	// Replace tabs with spaces
 	command = strings.ReplaceAll(command, "\t", " ")
-	
+
 	// Normalize multiple spaces to a single space
 	re := regexp.MustCompile(`\s+`)
 	command = re.ReplaceAllString(command, " ")
-	
+
 	// Normalize home directory references
 	homeDir, err := os.UserHomeDir()
 	if err == nil {
 		command = strings.ReplaceAll(command, homeDir, "~")
 	}
-	
+
 	return strings.TrimSpace(command)
 }
 
@@ -359,10 +359,10 @@ func (t *Tokenizer) EncodeTokens(tokens *CommandTokens) ([]int, error) {
 	defer t.mutex.RUnlock()
 
 	var ids []int
-	
+
 	// Add beginning of sequence token
 	ids = append(ids, t.Vocabulary["[BOS]"])
-	
+
 	// Process each token
 	for _, token := range tokens.Tokens {
 		// Check if token is in vocabulary
@@ -385,7 +385,7 @@ func (t *Tokenizer) EncodeTokens(tokens *CommandTokens) ([]int, error) {
 			default:
 				ids = append(ids, t.Vocabulary["[UNK]"])
 			}
-			
+
 			// Try to add this token to vocabulary if it's not too large
 			if len(token.Text) <= t.Config.MaxTokenLength {
 				t.addToVocabulary(token.Text)
@@ -394,10 +394,10 @@ func (t *Tokenizer) EncodeTokens(tokens *CommandTokens) ([]int, error) {
 			ids = append(ids, id)
 		}
 	}
-	
+
 	// Add end of sequence token
 	ids = append(ids, t.Vocabulary["[EOS]"])
-	
+
 	return ids, nil
 }
 
@@ -448,20 +448,20 @@ func (t *Tokenizer) DecodeTokens(ids []int) (string, error) {
 	// Convert each token ID back to text
 	for i := startIdx; i < endIdx; i++ {
 		id := ids[i]
-		
+
 		// Get the token text
 		text, exists := t.InvVocab[id]
 		if !exists {
 			text = "[UNK]"
 		}
-		
+
 		// Skip special tokens in output
 		if strings.HasPrefix(text, "[") && strings.HasSuffix(text, "]") {
 			continue
 		}
-		
+
 		builder.WriteString(text)
-		
+
 		// Add space after tokens except in certain cases
 		if i < endIdx-1 && !strings.ContainsAny(text, " |<>&;") && !strings.HasSuffix(text, "/") {
 			builder.WriteString(" ")
@@ -474,7 +474,7 @@ func (t *Tokenizer) DecodeTokens(ids []int) (string, error) {
 // ProcessCommandBatch processes a batch of commands for training
 func (t *Tokenizer) ProcessCommandBatch(commands []CommandEntry) error {
 	var tokenizedCommands []CommandTokens
-	
+
 	// Tokenize each command
 	for _, cmd := range commands {
 		tokens, err := t.TokenizeCommand(cmd.Command, cmd.Directory, cmd.ExitCode)
@@ -482,15 +482,15 @@ func (t *Tokenizer) ProcessCommandBatch(commands []CommandEntry) error {
 			// Skip problematic commands but continue processing
 			continue
 		}
-		
+
 		tokenizedCommands = append(tokenizedCommands, *tokens)
 	}
-	
+
 	// Save the processed batch
 	if len(tokenizedCommands) > 0 {
 		return t.saveTokenizedBatch(tokenizedCommands)
 	}
-	
+
 	return nil
 }
 
@@ -499,21 +499,21 @@ func (t *Tokenizer) saveTokenizedBatch(tokens []CommandTokens) error {
 	// Create a filename based on current time
 	filename := fmt.Sprintf("tokenized_%d.bin", time.Now().Unix())
 	filePath := filepath.Join(t.dataPath, filename)
-	
+
 	// Open file for writing
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-	
+
 	writer := bufio.NewWriter(file)
-	
+
 	// Write number of entries
 	entryCountBytes := make([]byte, 4)
 	binary.LittleEndian.PutUint32(entryCountBytes, uint32(len(tokens)))
 	writer.Write(entryCountBytes)
-	
+
 	// Write each tokenized command
 	for _, tokenizedCmd := range tokens {
 		// Marshal to JSON
@@ -521,19 +521,19 @@ func (t *Tokenizer) saveTokenizedBatch(tokens []CommandTokens) error {
 		if err != nil {
 			return err
 		}
-		
+
 		// Write length of JSON data
 		lenBytes := make([]byte, 4)
 		binary.LittleEndian.PutUint32(lenBytes, uint32(len(data)))
 		writer.Write(lenBytes)
-		
+
 		// Write JSON data
 		writer.Write(data)
 	}
-	
+
 	// Save updated vocabulary
 	t.saveVocabulary()
-	
+
 	return writer.Flush()
 }
 
@@ -547,17 +547,17 @@ func (t *Tokenizer) GetVocabularySize() int {
 // ExtractCommandsFromShards processes command shards into training data
 func (t *Tokenizer) ExtractCommandsFromShards(shardPaths []string) (int, error) {
 	var processedCount int
-	
+
 	for _, shardPath := range shardPaths {
 		// Open the shard file
 		file, err := os.Open(shardPath)
 		if err != nil {
 			continue
 		}
-		
+
 		// Read command entries
 		var commands []CommandEntry
-		
+
 		// Process file in chunks
 		buffer := make([]byte, 4)
 		for {
@@ -566,25 +566,25 @@ func (t *Tokenizer) ExtractCommandsFromShards(shardPaths []string) (int, error) 
 			if err != nil {
 				break // End of file or error
 			}
-			
+
 			// Get the length of the JSON data
 			length := binary.LittleEndian.Uint32(buffer)
-			
+
 			// Read the JSON data
 			jsonData := make([]byte, length)
 			_, err = file.Read(jsonData)
 			if err != nil {
 				break
 			}
-			
+
 			// Parse the JSON data
 			var entry CommandEntry
 			if err := json.Unmarshal(jsonData, &entry); err != nil {
 				continue
 			}
-			
+
 			commands = append(commands, entry)
-			
+
 			// Process in batches of 100
 			if len(commands) >= 100 {
 				err = t.ProcessCommandBatch(commands)
@@ -594,7 +594,7 @@ func (t *Tokenizer) ExtractCommandsFromShards(shardPaths []string) (int, error) 
 				commands = commands[:0]
 			}
 		}
-		
+
 		// Process any remaining commands
 		if len(commands) > 0 {
 			err = t.ProcessCommandBatch(commands)
@@ -602,10 +602,10 @@ func (t *Tokenizer) ExtractCommandsFromShards(shardPaths []string) (int, error) 
 				processedCount += len(commands)
 			}
 		}
-		
+
 		file.Close()
 	}
-	
+
 	return processedCount, nil
 }
 
@@ -613,15 +613,15 @@ func (t *Tokenizer) ExtractCommandsFromShards(shardPaths []string) (int, error) 
 func (t *Tokenizer) GetTokenizerStats() map[string]interface{} {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	
+
 	stats := map[string]interface{}{
-		"vocabulary_size": len(t.Vocabulary),
-		"command_count":   len(t.CommandList),
-		"special_tokens":  len(t.Config.SpecialTokens),
+		"vocabulary_size":  len(t.Vocabulary),
+		"command_count":    len(t.CommandList),
+		"special_tokens":   len(t.Config.SpecialTokens),
 		"max_token_length": t.Config.MaxTokenLength,
-		"config_path":     t.configPath,
-		"data_path":       t.dataPath,
+		"config_path":      t.configPath,
+		"data_path":        t.dataPath,
 	}
-	
+
 	return stats
 }

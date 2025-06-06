@@ -258,20 +258,20 @@ func showKnowledgeStats(ke *KnowledgeExtractor) {
 	if enabled, ok := stats["vector_db_enabled"].(bool); ok {
 		vectorDBEnabled = enabled
 	}
-	
+
 	if vectorDBEnabled {
 		fmt.Println("Status: Enabled and connected")
-		
+
 		// Show vector count
 		if count, ok := stats["vector_db_count"].(int); ok {
 			fmt.Printf("Indexed Items: %d\n", count)
 		}
-		
+
 		// Show similarity metric
 		if metric, ok := stats["vector_db_metric"].(string); ok {
 			fmt.Printf("Similarity Metric: %s\n", metric)
 		}
-		
+
 		// Show vector extension status
 		if hasExt, ok := stats["vector_db_extension"].(bool); ok {
 			if hasExt {
@@ -280,21 +280,21 @@ func showKnowledgeStats(ke *KnowledgeExtractor) {
 				fmt.Println("SQLite Vector Extension: Not available (using in-memory fallback)")
 			}
 		}
-		
+
 		// Show embedding coverage
 		totalItems := stats["total_items"].(int)
 		itemsWithEmbeddings := stats["items_with_embeddings"].(int)
-		
+
 		if totalItems > 0 {
 			coverage := float64(itemsWithEmbeddings) / float64(totalItems) * 100
-			fmt.Printf("Embedding Coverage: %.1f%% (%d/%d items)\n", 
+			fmt.Printf("Embedding Coverage: %.1f%% (%d/%d items)\n",
 				coverage, itemsWithEmbeddings, totalItems)
 		}
 	} else {
 		fmt.Println("Status: Not connected")
 		fmt.Println("Run ':vector enable' to enable vector database")
 	}
-	
+
 	// Show configuration
 	fmt.Println("\nConfiguration:")
 	fmt.Printf("Environment Awareness: %t\n", stats["environment_awareness"])
@@ -341,14 +341,14 @@ func searchKnowledge(ke *KnowledgeExtractor, query string) {
 
 	// Search for knowledge
 	results, err := ke.SearchKnowledge(query, 10)
-	
+
 	// Calculate search duration
 	searchDuration := time.Since(startTime)
 
 	if err != nil {
 		fmt.Printf("Error searching knowledge: %v\n", err)
 		fmt.Println("Falling back to text-based search")
-		
+
 		// Try again with text-based search only
 		startTime = time.Now()
 		results = ke.searchKnowledgeWithText(query, 10)
@@ -379,7 +379,7 @@ func searchKnowledge(ke *KnowledgeExtractor, query string) {
 
 		// Show item type and pattern
 		fmt.Printf("%d. [%s] %s\n", i+1, item.Type, item.Pattern)
-		
+
 		// Show examples
 		if len(item.Examples) > 0 {
 			if len(item.Examples) == 1 {
@@ -388,35 +388,35 @@ func searchKnowledge(ke *KnowledgeExtractor, query string) {
 				fmt.Printf("   Examples: %d available\n", len(item.Examples))
 				// Show first example
 				fmt.Printf("     - %s\n", item.Examples[0])
-				
+
 				// Show second example if available
 				if len(item.Examples) > 1 {
 					fmt.Printf("     - %s\n", item.Examples[1])
 				}
 			}
 		}
-		
+
 		// Show metadata
 		fmt.Printf("   Confidence: %.2f, Usage: %d\n", item.Confidence, item.UsageCount)
-		
+
 		// Show last update time
 		if !item.LastUpdated.IsZero() {
 			fmt.Printf("   Last Updated: %s\n", formatTimeSince(time.Since(item.LastUpdated)))
 		}
-		
+
 		// Show directory if available
 		if dir, ok := item.Metadata["directory"]; ok && dir != "" {
 			fmt.Printf("   Context: %s\n", dir)
 		}
-		
+
 		// Show if item is synthetic
 		if isSynthetic {
 			fmt.Printf("   [From vector database]\n")
 		}
-		
+
 		fmt.Println()
 	}
-	
+
 	// Check vector database status
 	if vectorDB != nil && vectorDB.IsEnabled() {
 		stats := vectorDB.GetStats()
@@ -424,9 +424,9 @@ func searchKnowledge(ke *KnowledgeExtractor, query string) {
 		if count, ok := stats["vector_count"].(int); ok {
 			vectorCount = count
 		}
-		
+
 		fmt.Printf("Vector database status: %d entries indexed\n", vectorCount)
-		
+
 		// Show which similarity metric was used
 		if metric, ok := stats["metric"].(string); ok {
 			fmt.Printf("Similarity metric: %s\n", metric)
@@ -461,20 +461,20 @@ func showCurrentContext(ke *KnowledgeExtractor) {
 
 	fmt.Println("Current Environment Context")
 	fmt.Println("==========================")
-	
+
 	// System information
 	fmt.Println("System Information:")
 	fmt.Printf("  OS: %s\n", context.OS)
 	fmt.Printf("  Architecture: %s\n", context.Arch)
 	fmt.Printf("  Hostname: %s\n", context.Hostname)
 	fmt.Printf("  User: %s\n", context.User)
-	
+
 	// Shell information
 	fmt.Println("\nShell Environment:")
 	fmt.Printf("  Shell: %s\n", context.Shell)
 	fmt.Printf("  Current Directory: %s\n", context.CurrentDir)
 	fmt.Printf("  Home Directory: %s\n", context.HomeDir)
-	
+
 	// Git information
 	if context.GitBranch != "" || context.GitRepo != "" {
 		fmt.Println("\nGit Information:")
@@ -485,78 +485,78 @@ func showCurrentContext(ke *KnowledgeExtractor) {
 			fmt.Printf("  Repository: %s\n", context.GitRepo)
 		}
 	}
-	
+
 	// Project information
 	if context.ProjectType != "" {
 		fmt.Println("\nProject Information:")
 		fmt.Printf("  Type: %s\n", context.ProjectType)
-		
+
 		// Get detailed project info
 		projectInfo := ke.GetProjectInfo()
-		
+
 		if len(projectInfo.Languages) > 0 {
 			fmt.Printf("  Languages: %s\n", strings.Join(projectInfo.Languages, ", "))
 		}
-		
+
 		if projectInfo.BuildSystem != "" && projectInfo.BuildSystem != "unknown" {
 			fmt.Printf("  Build System: %s\n", projectInfo.BuildSystem)
 		}
-		
+
 		if projectInfo.TestFramework != "" && projectInfo.TestFramework != "unknown" {
 			fmt.Printf("  Test Framework: %s\n", projectInfo.TestFramework)
 		}
-		
+
 		if projectInfo.Version != "" {
 			fmt.Printf("  Version: %s\n", projectInfo.Version)
 		}
-		
+
 		if len(projectInfo.Dependencies) > 0 {
 			fmt.Printf("  Dependencies: %d detected\n", len(projectInfo.Dependencies))
-			
+
 			// Show top dependencies (limited to 5)
 			maxShow := 5
 			if len(projectInfo.Dependencies) < maxShow {
 				maxShow = len(projectInfo.Dependencies)
 			}
-			
+
 			fmt.Println("  Top Dependencies:")
 			for i := 0; i < maxShow; i++ {
 				fmt.Printf("    - %s\n", projectInfo.Dependencies[i])
 			}
 		}
-		
+
 		// Show file statistics
 		if len(context.FileExtensions) > 0 {
 			fmt.Println("\nFile Extensions:")
-			
+
 			// Get top extensions by count
 			type extCount struct {
 				ext   string
 				count int
 			}
-			
+
 			extensions := make([]extCount, 0, len(context.FileExtensions))
 			for ext, count := range context.FileExtensions {
 				extensions = append(extensions, extCount{ext, count})
 			}
-			
+
 			// Sort by count descending
 			sort.Slice(extensions, func(i, j int) bool {
 				return extensions[i].count > extensions[j].count
 			})
-			
+
 			// Show top extensions (limited to 8)
 			maxShow := 8
 			if len(extensions) < maxShow {
 				maxShow = len(extensions)
 			}
-			
+
 			for i := 0; i < maxShow; i++ {
 				fmt.Printf("  %s: %d files\n", extensions[i].ext, extensions[i].count)
 			}
 		}
 	}
-	
+
 	// Detected tools
 	if len(context.DetectedTools) > 0 {
 		fmt.Println("\nDetected Tools:")
@@ -570,7 +570,7 @@ func showCurrentContext(ke *KnowledgeExtractor) {
 			}
 		}
 	}
-	
+
 	// Package managers
 	packageManagerCount := 0
 	for _, installed := range context.PackageManagers {
@@ -578,7 +578,7 @@ func showCurrentContext(ke *KnowledgeExtractor) {
 			packageManagerCount++
 		}
 	}
-	
+
 	if packageManagerCount > 0 {
 		fmt.Println("\nPackage Managers:")
 		count := 0
@@ -592,19 +592,19 @@ func showCurrentContext(ke *KnowledgeExtractor) {
 			}
 		}
 	}
-	
+
 	// Docker information
 	if len(context.DockerInfo) > 0 && context.DockerInfo["installed"] == "true" {
 		fmt.Println("\nDocker Information:")
 		fmt.Printf("  Version: %s\n", context.DockerInfo["version"])
 	}
-	
+
 	// Kubernetes information
 	if len(context.KubernetesInfo) > 0 && context.KubernetesInfo["installed"] == "true" {
 		fmt.Println("\nKubernetes Information:")
 		fmt.Printf("  Version: %s\n", context.KubernetesInfo["version"])
 	}
-	
+
 	// Runtime versions
 	if len(context.RuntimeVersions) > 0 {
 		fmt.Println("\nRuntime Versions:")
@@ -612,7 +612,7 @@ func showCurrentContext(ke *KnowledgeExtractor) {
 			fmt.Printf("  %s: %s\n", runtime, version)
 		}
 	}
-	
+
 	// Last commands
 	if len(context.LastCommands) > 0 {
 		fmt.Println("\nRecent Commands:")
@@ -620,14 +620,14 @@ func showCurrentContext(ke *KnowledgeExtractor) {
 			fmt.Printf("  %d: %s\n", i+1, cmd)
 		}
 	}
-	
+
 	// Important environment variables (limited view)
 	if len(context.ShellEnvironment) > 0 {
 		fmt.Println("\nKey Environment Variables:")
-		
+
 		// Show only important variables
 		importantVars := []string{"GOPATH", "GOROOT", "JAVA_HOME", "PYTHONPATH", "NODE_PATH", "PATH"}
-		
+
 		for _, key := range importantVars {
 			if value, ok := context.ShellEnvironment[key]; ok {
 				if len(value) > 50 {
@@ -676,7 +676,7 @@ func scanCurrentDirectory(ke *KnowledgeExtractor) {
 
 	fmt.Println("Scan completed successfully!")
 	fmt.Printf("Found %d knowledge items:\n", len(items))
-	
+
 	for source, count := range sourceCounts {
 		fmt.Printf("  %s: %d items\n", source, count)
 	}
@@ -686,15 +686,15 @@ func scanCurrentDirectory(ke *KnowledgeExtractor) {
 	if projectInfo.Type != "" {
 		fmt.Printf("\nDetected Project: %s\n", projectInfo.Name)
 		fmt.Printf("Project Type: %s\n", projectInfo.Type)
-		
+
 		if projectInfo.Version != "" {
 			fmt.Printf("Version: %s\n", projectInfo.Version)
 		}
-		
+
 		if len(projectInfo.Languages) > 0 {
 			fmt.Printf("Languages: %s\n", strings.Join(projectInfo.Languages, ", "))
 		}
-		
+
 		if len(projectInfo.Dependencies) > 0 {
 			fmt.Printf("Dependencies: %d found\n", len(projectInfo.Dependencies))
 		}
@@ -729,21 +729,21 @@ func showProjectInfo(ke *KnowledgeExtractor) {
 
 	fmt.Println("Project Information")
 	fmt.Println("==================")
-	
+
 	if projectInfo.Type == "" {
 		fmt.Println("No project detected in current directory")
 		return
 	}
-	
+
 	// Basic project information
 	fmt.Printf("Name: %s\n", projectInfo.Name)
 	fmt.Printf("Path: %s\n", projectInfo.Path)
 	fmt.Printf("Type: %s\n", projectInfo.Type)
-	
+
 	if projectInfo.Version != "" {
 		fmt.Printf("Version: %s\n", projectInfo.Version)
 	}
-	
+
 	// Repository information
 	if projectInfo.RepoURL != "" || projectInfo.Branch != "" {
 		fmt.Println("\nRepository Information:")
@@ -761,7 +761,7 @@ func showProjectInfo(ke *KnowledgeExtractor) {
 		}
 		fmt.Printf("  Last Modified: %s\n", projectInfo.LastModified.Format(time.RFC1123))
 	}
-	
+
 	// Development information
 	fmt.Println("\nDevelopment Information:")
 	if projectInfo.BuildSystem != "" && projectInfo.BuildSystem != "unknown" {
@@ -770,60 +770,60 @@ func showProjectInfo(ke *KnowledgeExtractor) {
 	if projectInfo.TestFramework != "" && projectInfo.TestFramework != "unknown" {
 		fmt.Printf("  Test Framework: %s\n", projectInfo.TestFramework)
 	}
-	
+
 	// Languages
 	if len(projectInfo.Languages) > 0 {
 		fmt.Printf("  Languages: %s\n", strings.Join(projectInfo.Languages, ", "))
 	}
-	
+
 	// Code statistics
 	if len(projectInfo.CodeStats) > 0 {
 		fmt.Println("\nCode Statistics:")
-		
+
 		// Get total file count by extension
 		totalFiles := 0
 		for _, count := range projectInfo.CodeStats {
 			totalFiles += count
 		}
 		fmt.Printf("  Total Files: %d\n", totalFiles)
-		
+
 		// Display top extensions by count
 		type extCount struct {
 			ext   string
 			count int
 		}
-		
+
 		extensions := make([]extCount, 0, len(projectInfo.CodeStats))
 		for ext, count := range projectInfo.CodeStats {
 			extensions = append(extensions, extCount{ext, count})
 		}
-		
+
 		// Sort by count descending
 		sort.Slice(extensions, func(i, j int) bool {
 			return extensions[i].count > extensions[j].count
 		})
-		
+
 		// Show top extensions (limited to 8)
 		fmt.Println("  File Types:")
 		maxShow := 8
 		if len(extensions) < maxShow {
 			maxShow = len(extensions)
 		}
-		
+
 		for i := 0; i < maxShow; i++ {
 			percentage := float64(extensions[i].count) / float64(totalFiles) * 100
 			fmt.Printf("    %s: %d files (%.1f%%)\n", extensions[i].ext, extensions[i].count, percentage)
 		}
 	}
-	
+
 	// Dependencies
 	if len(projectInfo.Dependencies) > 0 {
 		fmt.Printf("\nDependencies (%d total):\n", len(projectInfo.Dependencies))
-		
+
 		// Group dependencies by type if possible
 		devDeps := []string{}
 		mainDeps := []string{}
-		
+
 		for _, dep := range projectInfo.Dependencies {
 			if strings.Contains(dep, "(dev)") {
 				devDeps = append(devDeps, dep)
@@ -831,7 +831,7 @@ func showProjectInfo(ke *KnowledgeExtractor) {
 				mainDeps = append(mainDeps, dep)
 			}
 		}
-		
+
 		// Show main dependencies
 		fmt.Println("  Main Dependencies:")
 		for i, dep := range mainDeps {
@@ -841,7 +841,7 @@ func showProjectInfo(ke *KnowledgeExtractor) {
 			}
 			fmt.Printf("    - %s\n", dep)
 		}
-		
+
 		// Show dev dependencies if any
 		if len(devDeps) > 0 {
 			fmt.Println("  Dev Dependencies:")
@@ -849,20 +849,20 @@ func showProjectInfo(ke *KnowledgeExtractor) {
 			if len(devDeps) < maxShow {
 				maxShow = len(devDeps)
 			}
-			
+
 			for i := 0; i < maxShow; i++ {
 				fmt.Printf("    - %s\n", devDeps[i])
 			}
-			
+
 			if len(devDeps) > maxShow {
 				fmt.Printf("    ... and %d more\n", len(devDeps)-maxShow)
 			}
 		}
 	}
-	
+
 	// Environment tools
 	relevantTools := map[string]bool{}
-	
+
 	// Add relevant tools based on project type
 	switch projectInfo.Type {
 	case "go":
@@ -891,7 +891,7 @@ func showProjectInfo(ke *KnowledgeExtractor) {
 		relevantTools["cargo"] = true
 		relevantTools["git"] = true
 	}
-	
+
 	// Display detected relevant tools
 	detectedRelevantTools := []string{}
 	for tool := range context.DetectedTools {
@@ -899,25 +899,25 @@ func showProjectInfo(ke *KnowledgeExtractor) {
 			detectedRelevantTools = append(detectedRelevantTools, tool)
 		}
 	}
-	
+
 	if len(detectedRelevantTools) > 0 {
 		fmt.Println("\nDetected Development Tools:")
 		for _, tool := range detectedRelevantTools {
 			fmt.Printf("  - %s: %s\n", tool, context.DetectedTools[tool])
 		}
 	}
-	
+
 	// Show README preview if available
 	if projectInfo.Readme != "" {
 		fmt.Println("\nREADME Preview:")
-		
+
 		// Split into lines and show first few
 		lines := strings.Split(projectInfo.Readme, "\n")
 		maxLines := 8
 		if len(lines) < maxLines {
 			maxLines = len(lines)
 		}
-		
+
 		for i := 0; i < maxLines; i++ {
 			// Truncate long lines
 			line := lines[i]
@@ -926,12 +926,12 @@ func showProjectInfo(ke *KnowledgeExtractor) {
 			}
 			fmt.Printf("  %s\n", line)
 		}
-		
+
 		if len(lines) > maxLines {
 			fmt.Println("  (README preview truncated)")
 		}
 	}
-	
+
 	// Project-specific information based on type
 	switch projectInfo.Type {
 	case "go":

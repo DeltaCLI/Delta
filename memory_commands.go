@@ -103,12 +103,12 @@ func HandleMemoryCommand(args []string) bool {
 				showExportHelp()
 				return true
 			}
-			
+
 			// Parse export options
 			exportOptions := parseExportOptions(args[1:])
 			exportMemoryData(mm, exportOptions)
 			return true
-			
+
 		case "import":
 			// Import memory data
 			if len(args) >= 2 {
@@ -186,13 +186,13 @@ func showMemoryStatus(mm *MemoryManager) {
 	fmt.Println("===================")
 	fmt.Printf("Enabled: %v\n", mm.IsEnabled())
 	fmt.Printf("Command Collection: %v\n", mm.config.CollectCommands)
-	
+
 	stats, err := mm.GetStats()
 	if err != nil {
 		fmt.Printf("Error getting stats: %v\n", err)
 		return
 	}
-	
+
 	fmt.Printf("Total Commands: %d\n", stats.TotalEntries)
 	if !stats.FirstEntry.IsZero() {
 		fmt.Printf("First Command: %s\n", stats.FirstEntry.Format(time.RFC1123))
@@ -200,7 +200,7 @@ func showMemoryStatus(mm *MemoryManager) {
 	} else {
 		fmt.Println("No commands collected yet")
 	}
-	
+
 	fmt.Printf("Storage Used: %.2f MB\n", float64(stats.DiskUsage)/(1024*1024))
 }
 
@@ -211,36 +211,36 @@ func showMemoryStats(mm *MemoryManager) {
 		fmt.Printf("Error getting stats: %v\n", err)
 		return
 	}
-	
+
 	fmt.Println("Memory System Statistics")
 	fmt.Println("=======================")
 	fmt.Printf("Total Commands: %d\n", stats.TotalEntries)
-	
+
 	if !stats.FirstEntry.IsZero() {
-		fmt.Printf("Data Span: %s to %s\n", 
+		fmt.Printf("Data Span: %s to %s\n",
 			stats.FirstEntry.Format("2006-01-02"),
 			stats.LastEntry.Format("2006-01-02"))
-		
-		days := int(stats.LastEntry.Sub(stats.FirstEntry).Hours() / 24) + 1
+
+		days := int(stats.LastEntry.Sub(stats.FirstEntry).Hours()/24) + 1
 		fmt.Printf("Days Covered: %d\n", days)
 		fmt.Printf("Average Commands/Day: %.1f\n", float64(stats.TotalEntries)/float64(days))
 	} else {
 		fmt.Println("No commands collected yet")
 	}
-	
+
 	fmt.Printf("Storage Used: %.2f MB\n", float64(stats.DiskUsage)/(1024*1024))
-	
+
 	// Model information
 	fmt.Println("\nModel Information")
 	fmt.Println("-----------------")
 	if !stats.LastTraining.IsZero() {
 		fmt.Printf("Last Training: %s\n", stats.LastTraining.Format(time.RFC1123))
-		fmt.Printf("Days Since Training: %d\n", 
+		fmt.Printf("Days Since Training: %d\n",
 			int(time.Since(stats.LastTraining).Hours()/24))
 	} else {
 		fmt.Println("No training has been performed yet")
 	}
-	
+
 	if len(stats.ModelVersions) > 0 {
 		fmt.Println("Available Models:")
 		for _, model := range stats.ModelVersions {
@@ -259,7 +259,7 @@ func showMemoryConfig(mm *MemoryManager) {
 	fmt.Printf("Collect Commands: %v\n", mm.config.CollectCommands)
 	fmt.Printf("Max Entries: %d\n", mm.config.MaxEntries)
 	fmt.Printf("Storage Path: %s\n", mm.config.StoragePath)
-	
+
 	fmt.Println("\nPrivacy Settings")
 	fmt.Println("----------------")
 	fmt.Printf("Privacy Filters: %s\n", strings.Join(mm.config.PrivacyFilter, ", "))
@@ -267,7 +267,7 @@ func showMemoryConfig(mm *MemoryManager) {
 	if mm.config.CollectEnvironment {
 		fmt.Printf("Environment Whitelist: %s\n", strings.Join(mm.config.EnvWhitelist, ", "))
 	}
-	
+
 	fmt.Println("\nTraining Settings")
 	fmt.Println("----------------")
 	fmt.Printf("Training Enabled: %v\n", mm.config.TrainingEnabled)
@@ -280,22 +280,22 @@ func updateMemoryConfig(mm *MemoryManager, args []string) {
 		fmt.Println("Usage: :memory config set <setting> <value>")
 		return
 	}
-	
+
 	setting := args[0]
 	value := args[1]
-	
+
 	config := mm.config
-	
+
 	switch setting {
 	case "collect_commands":
 		config.CollectCommands = (value == "true" || value == "1" || value == "yes")
-		
+
 	case "collect_environment":
 		config.CollectEnvironment = (value == "true" || value == "1" || value == "yes")
-		
+
 	case "training_enabled":
 		config.TrainingEnabled = (value == "true" || value == "1" || value == "yes")
-		
+
 	case "max_entries":
 		var maxEntries int
 		fmt.Sscanf(value, "%d", &maxEntries)
@@ -305,28 +305,28 @@ func updateMemoryConfig(mm *MemoryManager, args []string) {
 			fmt.Println("Error: max_entries must be a positive number")
 			return
 		}
-		
+
 	case "add_privacy_filter":
 		if !contains(config.PrivacyFilter, value) {
 			config.PrivacyFilter = append(config.PrivacyFilter, value)
 		}
-		
+
 	case "remove_privacy_filter":
 		config.PrivacyFilter = removeString(config.PrivacyFilter, value)
-		
+
 	case "add_env_whitelist":
 		if !contains(config.EnvWhitelist, value) {
 			config.EnvWhitelist = append(config.EnvWhitelist, value)
 		}
-		
+
 	case "remove_env_whitelist":
 		config.EnvWhitelist = removeString(config.EnvWhitelist, value)
-		
+
 	default:
 		fmt.Printf("Unknown setting: %s\n", setting)
 		return
 	}
-	
+
 	err := mm.UpdateConfig(config)
 	if err != nil {
 		fmt.Printf("Error updating configuration: %v\n", err)
@@ -343,35 +343,35 @@ func listMemoryShards(mm *MemoryManager) {
 		fmt.Printf("Error reading storage directory: %v\n", err)
 		return
 	}
-	
+
 	fmt.Println("Available Data Shards")
 	fmt.Println("====================")
-	
+
 	count := 0
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "commands_") {
 			continue
 		}
-		
+
 		// Extract date from filename
 		date := strings.TrimPrefix(entry.Name(), "commands_")
 		date = strings.TrimSuffix(date, ".bin")
-		
+
 		// Get file size
 		info, err := entry.Info()
 		if err != nil {
 			continue
 		}
-		
+
 		// Get entry count
 		shardPath := filepath.Join(mm.config.StoragePath, entry.Name())
 		entriesCount, _, _, err := mm.getShardStats(shardPath)
-		
-		fmt.Printf("%s: %d commands (%.2f MB)\n", 
+
+		fmt.Printf("%s: %d commands (%.2f MB)\n",
 			date, entriesCount, float64(info.Size())/(1024*1024))
 		count++
 	}
-	
+
 	if count == 0 {
 		fmt.Println("No data shards available")
 	}
@@ -390,7 +390,7 @@ func parseExportOptions(args []string) ExportOptions {
 		case "--json":
 			options.Format = "json"
 		case "--binary":
-			options.Format = "binary" 
+			options.Format = "binary"
 		case "--all":
 			options.IncludeAll = true
 		case "--output":
@@ -487,7 +487,7 @@ func exportMemoryData(mm *MemoryManager, options ExportOptions) {
 	if !options.StartDate.IsZero() && options.EndDate.IsZero() {
 		// If only start date is set, export a single day
 		date := options.StartDate.Format("2006-01-02")
-		
+
 		// Check if we should use the legacy export
 		if options.Format == "txt" && options.Destination == "" && !options.IncludeAll {
 			entries, err := mm.ReadCommands(date)
@@ -495,12 +495,12 @@ func exportMemoryData(mm *MemoryManager, options ExportOptions) {
 				fmt.Printf("Error reading commands: %v\n", err)
 				return
 			}
-			
+
 			if len(entries) == 0 {
 				fmt.Printf("No commands found for date: %s\n", date)
 				return
 			}
-			
+
 			// Create export directory if it doesn't exist
 			exportDir := filepath.Join(mm.config.StoragePath, "exports")
 			err = os.MkdirAll(exportDir, 0755)
@@ -508,7 +508,7 @@ func exportMemoryData(mm *MemoryManager, options ExportOptions) {
 				fmt.Printf("Error creating export directory: %v\n", err)
 				return
 			}
-			
+
 			// Create export file
 			exportPath := filepath.Join(exportDir, "export_"+date+".txt")
 			file, err := os.Create(exportPath)
@@ -517,11 +517,11 @@ func exportMemoryData(mm *MemoryManager, options ExportOptions) {
 				return
 			}
 			defer file.Close()
-			
+
 			// Write header
 			file.WriteString(fmt.Sprintf("# Command Export for %s\n", date))
 			file.WriteString(fmt.Sprintf("# Total Commands: %d\n\n", len(entries)))
-			
+
 			// Write each command
 			for i, entry := range entries {
 				file.WriteString(fmt.Sprintf("## Command %d\n", i+1))
@@ -530,21 +530,21 @@ func exportMemoryData(mm *MemoryManager, options ExportOptions) {
 				file.WriteString(fmt.Sprintf("Command: %s\n", entry.Command))
 				file.WriteString(fmt.Sprintf("Exit Code: %d\n", entry.ExitCode))
 				file.WriteString(fmt.Sprintf("Duration: %d ms\n", entry.Duration))
-				
+
 				if entry.PrevCommand != "" {
 					file.WriteString(fmt.Sprintf("Previous Command: %s\n", entry.PrevCommand))
 				}
-				
+
 				if len(entry.Environment) > 0 {
 					file.WriteString("Environment:\n")
 					for k, v := range entry.Environment {
 						file.WriteString(fmt.Sprintf("  %s: %s\n", k, v))
 					}
 				}
-				
+
 				file.WriteString("\n")
 			}
-			
+
 			fmt.Printf("Exported %d commands to %s\n", len(entries), exportPath)
 			return
 		}
@@ -611,25 +611,25 @@ func showTrainingStatus(mm *MemoryManager) {
 		fmt.Printf("Error getting memory stats: %v\n", err)
 		return
 	}
-	
+
 	// Get inference manager to get training status
 	im := GetInferenceManager()
 	if im == nil {
 		fmt.Println("Inference manager not available")
 		return
 	}
-	
+
 	// Get inference stats
 	infStats := im.GetInferenceStats()
-	
+
 	fmt.Println("Training Status")
 	fmt.Println("==============")
 	fmt.Printf("Training Enabled: %v\n", mm.config.TrainingEnabled)
-	
+
 	// Show learning system status
 	fmt.Printf("Learning System: %s\n", getBoolStatus(infStats["learning_enabled"].(bool)))
 	fmt.Printf("Feedback Collection: %s\n", getBoolStatus(infStats["feedback_collection"].(bool)))
-	
+
 	// Show last training info
 	if !memStats.LastTraining.IsZero() {
 		fmt.Printf("Last Training: %s\n", memStats.LastTraining.Format(time.RFC1123))
@@ -637,20 +637,20 @@ func showTrainingStatus(mm *MemoryManager) {
 	} else {
 		fmt.Println("No training has been performed yet")
 	}
-	
+
 	// Show model information
 	fmt.Println("\nModel Information:")
 	fmt.Printf("  Custom Model: %s\n", getBoolStatus(infStats["custom_model_enabled"].(bool)))
 	if infStats["custom_model_enabled"].(bool) {
 		fmt.Printf("  Model Path: %s\n", infStats["model_path"])
-		
+
 		if infStats["custom_model_available"].(bool) {
 			fmt.Println("  Model Status: Available")
 		} else {
 			fmt.Println("  Model Status: Not found")
 		}
 	}
-	
+
 	// Show available models
 	if len(memStats.ModelVersions) > 0 {
 		fmt.Println("\nAvailable Models:")
@@ -660,14 +660,14 @@ func showTrainingStatus(mm *MemoryManager) {
 	} else {
 		fmt.Println("\nNo models available")
 	}
-	
+
 	// Show training data
 	fmt.Println("\nTraining Data:")
 	fmt.Printf("  Commands Available: %d\n", memStats.TotalEntries)
 	fmt.Printf("  Training Examples: %d\n", infStats["training_examples"].(int))
 	fmt.Printf("  Feedback Entries: %d\n", infStats["feedback_count"].(int))
 	fmt.Printf("  Accumulated Examples: %d\n", infStats["accumulated_examples"].(int))
-	
+
 	// Show next steps based on training status
 	fmt.Println("\nNext Steps:")
 	if im.ShouldTrain() {
@@ -723,12 +723,12 @@ func addTrainingExample(mm *MemoryManager, pattern, explanation string) {
 	fmt.Println("✅ Training example added successfully")
 	fmt.Printf("Command Pattern: %s\n", pattern)
 	fmt.Printf("Explanation: %s\n", explanation)
-	
+
 	// Show training data stats
 	stats := im.GetInferenceStats()
 	fmt.Printf("\nTotal training examples: %d\n", stats["training_examples"].(int))
 	fmt.Printf("Accumulated examples: %d\n", stats["accumulated_examples"].(int))
-	
+
 	// Suggest training if enough examples accumulated
 	if im.ShouldTrain() {
 		fmt.Println("\n💡 Training is due. Run ':memory train start' to improve AI predictions.")
@@ -836,14 +836,14 @@ func runTrainingContainer(mm *MemoryManager, args []string) {
 		fmt.Println("Docker not found. Please install Docker to use the training environment.")
 		return
 	}
-	
+
 	// Get inference manager to track training progress
 	im := GetInferenceManager()
 	if im == nil {
 		fmt.Println("Inference manager not available")
 		return
 	}
-	
+
 	// Parse options from args
 	forceTraining := false
 	for _, arg := range args {
@@ -851,7 +851,7 @@ func runTrainingContainer(mm *MemoryManager, args []string) {
 			forceTraining = true
 		}
 	}
-	
+
 	// Check if training is due, unless forcing
 	if !forceTraining && !im.ShouldTrain() && im.learningConfig.AccumulatedTrainingExamples < 100 {
 		fmt.Println("⚠️ Training is not yet due. Not enough training examples collected.")
@@ -870,7 +870,7 @@ func runTrainingContainer(mm *MemoryManager, args []string) {
 		fmt.Printf("Error creating training directory: %v\n", err)
 		return
 	}
-	
+
 	// Create training data directory if it doesn't exist
 	trainingDataDir := filepath.Join(trainingDir, "data")
 	err = os.MkdirAll(trainingDataDir, 0755)
@@ -878,24 +878,24 @@ func runTrainingContainer(mm *MemoryManager, args []string) {
 		fmt.Printf("Error creating training data directory: %v\n", err)
 		return
 	}
-	
+
 	// Prepare training data
 	fmt.Println("Preparing training data...")
-	
+
 	// Export training examples from inference manager
 	examples, err := im.GetTrainingExamples(0) // Get all examples
 	if err != nil {
 		fmt.Printf("Error getting training examples: %v\n", err)
 		return
 	}
-	
+
 	if len(examples) == 0 {
 		fmt.Println("No training examples found. Add examples using:")
 		fmt.Println("  :memory train add <pattern> <explanation>")
 		fmt.Println("  :inference feedback <helpful|unhelpful|correction>")
 		return
 	}
-	
+
 	// Write training examples to files
 	trainingDataPath := filepath.Join(trainingDataDir, "training_examples.json")
 	examplesJSON, err := json.MarshalIndent(examples, "", "  ")
@@ -903,28 +903,28 @@ func runTrainingContainer(mm *MemoryManager, args []string) {
 		fmt.Printf("Error encoding training examples: %v\n", err)
 		return
 	}
-	
+
 	err = os.WriteFile(trainingDataPath, examplesJSON, 0644)
 	if err != nil {
 		fmt.Printf("Error writing training examples: %v\n", err)
 		return
 	}
-	
+
 	// Export command history data for context
 	fmt.Println("Exporting command history data...")
 	// Get last 30 days of commands
 	startDate := time.Now().AddDate(0, 0, -30)
 	endDate := time.Now()
-	
+
 	// Create command entries file to export the data
 	exportOptions := ExportOptions{
-		Format:     "json",
-		StartDate:  startDate,
-		EndDate:    endDate,
-		IncludeAll: false,
+		Format:      "json",
+		StartDate:   startDate,
+		EndDate:     endDate,
+		IncludeAll:  false,
 		Destination: trainingDataDir,
 	}
-	
+
 	// Export memory data to the training data directory
 	_, err = mm.ExportMemory(exportOptions)
 	if err != nil {
@@ -1003,19 +1003,19 @@ func runTrainingContainer(mm *MemoryManager, args []string) {
 			return
 		}
 	}
-	
+
 	// Create configuration for the training run
 	trainingConfig := map[string]interface{}{
-		"model_type": "onnx",
-		"training_epochs": 10,
-		"batch_size": 32,
-		"learning_rate": 5e-5,
-		"input_data_path": "/data",
-		"examples_file": "training_examples.json",
+		"model_type":        "onnx",
+		"training_epochs":   10,
+		"batch_size":        32,
+		"learning_rate":     5e-5,
+		"input_data_path":   "/data",
+		"examples_file":     "training_examples.json",
 		"output_model_name": fmt.Sprintf("delta_model_%s", time.Now().Format("20060102")),
-		"use_gpu": true,
+		"use_gpu":           true,
 	}
-	
+
 	// Write configuration to file
 	configPath := filepath.Join(trainingDataDir, "config.json")
 	configJSON, err := json.MarshalIndent(trainingConfig, "", "  ")
@@ -1023,7 +1023,7 @@ func runTrainingContainer(mm *MemoryManager, args []string) {
 		fmt.Printf("Error encoding training configuration: %v\n", err)
 		return
 	}
-	
+
 	err = os.WriteFile(configPath, configJSON, 0644)
 	if err != nil {
 		fmt.Printf("Error writing training configuration: %v\n", err)
@@ -1064,42 +1064,42 @@ func runTrainingContainer(mm *MemoryManager, args []string) {
 	// Check if training produced a model file
 	modelsDir := filepath.Join(trainingDir, "models")
 	modelsFound := false
-	
+
 	if files, err := os.ReadDir(modelsDir); err == nil {
 		for _, file := range files {
 			if !file.IsDir() && (strings.HasSuffix(file.Name(), ".onnx") || strings.HasSuffix(file.Name(), ".bin")) {
 				modelsFound = true
-				
+
 				// Copy the model to the memory models directory
 				srcPath := filepath.Join(modelsDir, file.Name())
 				dstPath := filepath.Join(mm.config.ModelPath, file.Name())
-				
+
 				data, err := os.ReadFile(srcPath)
 				if err != nil {
 					fmt.Printf("Error reading model file: %v\n", err)
 					continue
 				}
-				
+
 				err = os.WriteFile(dstPath, data, 0644)
 				if err != nil {
 					fmt.Printf("Error copying model file: %v\n", err)
 					continue
 				}
-				
+
 				fmt.Printf("Model saved to: %s\n", dstPath)
 			}
 		}
 	}
-	
+
 	if modelsFound {
 		// Update last training timestamp in memory stats
 		lastTrainingFile := filepath.Join(mm.config.ModelPath, "last_training.txt")
 		nowTime := time.Now().Format(time.RFC3339)
 		os.WriteFile(lastTrainingFile, []byte(nowTime), 0644)
-		
+
 		// Update inference manager
 		im.RecordTrainingCompletion()
-		
+
 		fmt.Println("✅ Training completed successfully!")
 		fmt.Println("Use ':inference model use <model_name>' to use the new model")
 	} else {
@@ -1115,7 +1115,7 @@ func formatDuration(d time.Duration) string {
 	days := int(d.Hours() / 24)
 	hours := int(d.Hours()) % 24
 	minutes := int(d.Minutes()) % 60
-	
+
 	if days > 0 {
 		return fmt.Sprintf("%d days, %d hours, %d minutes", days, hours, minutes)
 	} else if hours > 0 {

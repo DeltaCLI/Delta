@@ -51,15 +51,15 @@ type AgentYAMLConfig struct {
 		Website     string `yaml:"website,omitempty"`
 		Docs        string `yaml:"docs,omitempty"`
 	} `yaml:"project"`
-	
+
 	Settings struct {
 		Docker struct {
-			Enabled   bool              `yaml:"enabled"`
-			CacheDir  string            `yaml:"cache_dir,omitempty"`
-			Volumes   []string          `yaml:"volumes,omitempty"`
+			Enabled     bool              `yaml:"enabled"`
+			CacheDir    string            `yaml:"cache_dir,omitempty"`
+			Volumes     []string          `yaml:"volumes,omitempty"`
 			Environment map[string]string `yaml:"environment,omitempty"`
 		} `yaml:"docker,omitempty"`
-		
+
 		ErrorHandling struct {
 			Patterns []struct {
 				Pattern     string `yaml:"pattern"`
@@ -69,7 +69,7 @@ type AgentYAMLConfig struct {
 			} `yaml:"patterns,omitempty"`
 		} `yaml:"error_handling,omitempty"`
 	} `yaml:"settings,omitempty"`
-	
+
 	Agents []struct {
 		ID          string   `yaml:"id"`
 		Name        string   `yaml:"name"`
@@ -77,7 +77,7 @@ type AgentYAMLConfig struct {
 		Enabled     bool     `yaml:"enabled"`
 		TaskTypes   []string `yaml:"task_types"`
 		Import      string   `yaml:"import,omitempty"`
-		
+
 		Commands []struct {
 			ID              string            `yaml:"id"`
 			Command         string            `yaml:"command"`
@@ -89,25 +89,25 @@ type AgentYAMLConfig struct {
 			IsInteractive   bool              `yaml:"is_interactive,omitempty"`
 			Environment     map[string]string `yaml:"environment,omitempty"`
 		} `yaml:"commands,omitempty"`
-		
+
 		Docker struct {
-			Enabled       bool              `yaml:"enabled"`
-			Image         string            `yaml:"image,omitempty"`
-			Tag           string            `yaml:"tag,omitempty"`
-			Dockerfile    string            `yaml:"dockerfile,omitempty"`
-			ComposeFile   string            `yaml:"compose_file,omitempty"`
-			Volumes       []string          `yaml:"volumes,omitempty"`
-			Networks      []string          `yaml:"networks,omitempty"`
-			Environment   map[string]string `yaml:"environment,omitempty"`
-			BuildArgs     map[string]string `yaml:"build_args,omitempty"`
-			UseCache      bool              `yaml:"use_cache"`
-			
+			Enabled     bool              `yaml:"enabled"`
+			Image       string            `yaml:"image,omitempty"`
+			Tag         string            `yaml:"tag,omitempty"`
+			Dockerfile  string            `yaml:"dockerfile,omitempty"`
+			ComposeFile string            `yaml:"compose_file,omitempty"`
+			Volumes     []string          `yaml:"volumes,omitempty"`
+			Networks    []string          `yaml:"networks,omitempty"`
+			Environment map[string]string `yaml:"environment,omitempty"`
+			BuildArgs   map[string]string `yaml:"build_args,omitempty"`
+			UseCache    bool              `yaml:"use_cache"`
+
 			Waterfall struct {
-				Stages       []string              `yaml:"stages"`
-				Dependencies map[string][]string   `yaml:"dependencies"`
+				Stages       []string            `yaml:"stages"`
+				Dependencies map[string][]string `yaml:"dependencies"`
 			} `yaml:"waterfall,omitempty"`
 		} `yaml:"docker,omitempty"`
-		
+
 		ErrorHandling struct {
 			AutoFix  bool `yaml:"auto_fix"`
 			Patterns []struct {
@@ -117,9 +117,9 @@ type AgentYAMLConfig struct {
 				FilePattern string `yaml:"file_pattern,omitempty"`
 			} `yaml:"patterns,omitempty"`
 		} `yaml:"error_handling,omitempty"`
-		
+
 		Metadata map[string]string `yaml:"metadata,omitempty"`
-		
+
 		Triggers struct {
 			Patterns  []string `yaml:"patterns,omitempty"`
 			Paths     []string `yaml:"paths,omitempty"`
@@ -157,18 +157,18 @@ func NewAgentManager() (*AgentManager, error) {
 			MaxCacheSize:      10 * 1024 * 1024 * 1024, // 10GB
 			CacheRetention:    30,                      // 30 days
 			MaxAgentRuns:      100,
-			DefaultTimeout:    3600,                    // 1 hour
+			DefaultTimeout:    3600, // 1 hour
 			DefaultRetryCount: 3,
-			DefaultRetryDelay: 10,                      // 10 seconds
+			DefaultRetryDelay: 10, // 10 seconds
 			UseDockerBuilds:   true,
 			UseAIAssistance:   true,
 			AIPromptTemplate:  "You are a build assistant for the %s agent. Your task is to %s.",
 		},
-		configPath:       configPath,
-		agents:           make(map[string]*Agent),
-		runHistory:       []AgentRunResult{},
-		mutex:            sync.RWMutex{},
-		isInitialized:    false,
+		configPath:    configPath,
+		agents:        make(map[string]*Agent),
+		runHistory:    []AgentRunResult{},
+		mutex:         sync.RWMutex{},
+		isInitialized: false,
 	}
 
 	// Initialize the Docker build cache
@@ -238,7 +238,7 @@ func (am *AgentManager) Initialize() error {
 	if am.aiManager == nil {
 		fmt.Printf("Warning: Failed to initialize AI manager\n")
 	}
-	
+
 	// Initialize error learning manager
 	errorLearningMgr := GetErrorLearningManager()
 	if errorLearningMgr == nil {
@@ -576,13 +576,13 @@ func (am *AgentManager) RunAgent(agentID string, options map[string]string) (*Ag
 
 	// Create run result
 	result := &AgentRunResult{
-		AgentID:        agentID,
-		StartTime:      time.Now(),
-		Output:         "",
-		Errors:         []string{},
-		CommandsRun:    0,
-		Success:        false,
-		ExitCode:       0,
+		AgentID:         agentID,
+		StartTime:       time.Now(),
+		Output:          "",
+		Errors:          []string{},
+		CommandsRun:     0,
+		Success:         false,
+		ExitCode:        0,
 		PerformanceData: make(map[string]float64),
 		ArtifactsPaths:  []string{},
 	}
@@ -622,11 +622,11 @@ func (am *AgentManager) RunAgent(agentID string, options map[string]string) (*Ag
 		// Execute command
 		commandOutput.WriteString(fmt.Sprintf("Command %d: %s\n", i+1, cmd.Command))
 		commandOutput.WriteString(fmt.Sprintf("Working directory: %s\n", cmd.WorkingDir))
-		
+
 		var cmdErr error
 		var cmdOutput string
 		var exitCode int
-		
+
 		// Execute command either directly or in Docker
 		if useDocker {
 			// Execute in Docker
@@ -635,20 +635,20 @@ func (am *AgentManager) RunAgent(agentID string, options map[string]string) (*Ag
 			// Execute command directly
 			cmdOutput, exitCode, cmdErr = am.executeCommand(cmd, options)
 		}
-		
+
 		result.CommandsRun++
-		
+
 		// Check for command error
 		if cmdErr != nil {
 			errorMsg := fmt.Sprintf("Command %d failed with exit code %d: %v", i+1, exitCode, cmdErr)
 			result.Errors = append(result.Errors, errorMsg)
 			commandOutput.WriteString(fmt.Sprintf("\nError: %v (exit code: %d)\n", cmdErr, exitCode))
-			
+
 			// Add command output
 			commandOutput.WriteString("\nCommand output:\n")
 			commandOutput.WriteString(cmdOutput)
 			commandOutput.WriteString("\n")
-			
+
 			// Handle error patterns
 			errorFixed := false
 			if cmd.ErrorPatterns != nil && len(cmd.ErrorPatterns) > 0 {
@@ -656,18 +656,18 @@ func (am *AgentManager) RunAgent(agentID string, options map[string]string) (*Ag
 				for _, pattern := range cmd.ErrorPatterns {
 					if strings.Contains(cmdOutput, pattern) {
 						commandOutput.WriteString(fmt.Sprintf("\nDetected error pattern: %s\n", pattern))
-						
+
 						// Try to fix the error
 						fixed, fixOutput, err := am.tryFixError(agent, cmd, pattern, cmdOutput, options)
 						if err != nil {
 							commandOutput.WriteString(fmt.Sprintf("Error attempting to fix: %v\n", err))
 						} else {
 							commandOutput.WriteString(fixOutput)
-							
+
 							if fixed {
 								errorFixed = true
 								commandOutput.WriteString("\nError has been fixed. Retrying command...\n")
-								
+
 								// Retry the command
 								var retryCmdErr error
 								if useDocker {
@@ -675,17 +675,17 @@ func (am *AgentManager) RunAgent(agentID string, options map[string]string) (*Ag
 								} else {
 									cmdOutput, exitCode, retryCmdErr = am.executeCommand(cmd, options)
 								}
-								
+
 								// Check if retry succeeded
 								if retryCmdErr == nil {
 									commandOutput.WriteString("\nCommand completed successfully after fixing error\n")
 									commandOutput.WriteString("Exit code: 0\n")
-									
+
 									// Add command output
 									commandOutput.WriteString("\nCommand output:\n")
 									commandOutput.WriteString(cmdOutput)
 									commandOutput.WriteString("\n")
-									
+
 									// Update error status
 									cmdErr = nil
 									break
@@ -700,7 +700,7 @@ func (am *AgentManager) RunAgent(agentID string, options map[string]string) (*Ag
 					}
 				}
 			}
-			
+
 			// If error wasn't fixed, set success to false and break
 			if !errorFixed {
 				allSuccess = false
@@ -710,20 +710,20 @@ func (am *AgentManager) RunAgent(agentID string, options map[string]string) (*Ag
 			// Command succeeded
 			commandOutput.WriteString("\nCommand completed successfully\n")
 			commandOutput.WriteString("Exit code: 0\n")
-			
+
 			// Add command output
 			commandOutput.WriteString("\nCommand output:\n")
 			commandOutput.WriteString(cmdOutput)
 			commandOutput.WriteString("\n")
 		}
-		
+
 		// Look for success patterns
 		for _, pattern := range cmd.SuccessPatterns {
 			if strings.Contains(cmdOutput, pattern) {
 				commandOutput.WriteString(fmt.Sprintf("\nSuccess pattern detected: %s\n", pattern))
 			}
 		}
-		
+
 		commandOutput.WriteString("\n---\n\n")
 	}
 
@@ -762,12 +762,12 @@ func (am *AgentManager) RunAgent(agentID string, options map[string]string) (*Ag
 func (am *AgentManager) executeCommand(cmd AgentCommand, options map[string]string) (string, int, error) {
 	// Create command
 	execCmd := exec.Command("bash", "-c", cmd.Command)
-	
+
 	// Set working directory
 	if cmd.WorkingDir != "" {
 		execCmd.Dir = cmd.WorkingDir
 	}
-	
+
 	// Set environment
 	if len(cmd.Environment) > 0 {
 		execCmd.Env = os.Environ()
@@ -775,22 +775,22 @@ func (am *AgentManager) executeCommand(cmd AgentCommand, options map[string]stri
 			execCmd.Env = append(execCmd.Env, fmt.Sprintf("%s=%s", k, v))
 		}
 	}
-	
+
 	// Capture output
 	var stdout, stderr bytes.Buffer
 	execCmd.Stdout = &stdout
 	execCmd.Stderr = &stderr
-	
+
 	// Set up interactive mode if required
 	if cmd.IsInteractive {
 		execCmd.Stdin = os.Stdin
 		execCmd.Stdout = os.Stdout
 		execCmd.Stderr = os.Stderr
 	}
-	
+
 	// Execute command
 	err := execCmd.Run()
-	
+
 	// Get exit code
 	exitCode := 0
 	if err != nil {
@@ -800,7 +800,7 @@ func (am *AgentManager) executeCommand(cmd AgentCommand, options map[string]stri
 			exitCode = 1
 		}
 	}
-	
+
 	// Combine stdout and stderr
 	output := stdout.String()
 	if stderr.Len() > 0 {
@@ -809,19 +809,19 @@ func (am *AgentManager) executeCommand(cmd AgentCommand, options map[string]stri
 		}
 		output += stderr.String()
 	}
-	
+
 	// Check if command failed and should be retried
 	if exitCode != 0 && cmd.RetryCount > 0 {
 		// Retry logic would go here
 		// For now, we'll just log that we would retry
 		fmt.Printf("Command failed with exit code %d. Would retry %d times.\n", exitCode, cmd.RetryCount)
 	}
-	
+
 	// If command succeeded, return output
 	if exitCode == 0 {
 		return output, exitCode, nil
 	}
-	
+
 	// Return error
 	return output, exitCode, fmt.Errorf("command failed with exit code %d", exitCode)
 }
@@ -832,49 +832,49 @@ func (am *AgentManager) executeDockerCommand(agent *Agent, cmd AgentCommand, opt
 	if agent.DockerConfig == nil {
 		return "", 1, fmt.Errorf("agent does not have Docker configuration")
 	}
-	
+
 	// Create Docker command
 	dockerCmd := fmt.Sprintf("docker run --rm")
-	
+
 	// Add volumes
 	for _, volume := range agent.DockerConfig.Volumes {
 		dockerCmd += fmt.Sprintf(" -v %s", volume)
 	}
-	
+
 	// Add networks
 	for _, network := range agent.DockerConfig.Networks {
 		dockerCmd += fmt.Sprintf(" --network %s", network)
 	}
-	
+
 	// Add environment variables
 	for k, v := range agent.DockerConfig.Environment {
 		dockerCmd += fmt.Sprintf(" -e %s=%s", k, v)
 	}
-	
+
 	// Add command environment variables
 	for k, v := range cmd.Environment {
 		dockerCmd += fmt.Sprintf(" -e %s=%s", k, v)
 	}
-	
+
 	// Add working directory
 	if cmd.WorkingDir != "" {
 		dockerCmd += fmt.Sprintf(" -w %s", cmd.WorkingDir)
 	}
-	
+
 	// Add image and command
 	dockerCmd += fmt.Sprintf(" %s:%s /bin/bash -c \"%s\"", agent.DockerConfig.Image, agent.DockerConfig.Tag, cmd.Command)
-	
+
 	// Create command
 	execCmd := exec.Command("bash", "-c", dockerCmd)
-	
+
 	// Capture output
 	var stdout, stderr bytes.Buffer
 	execCmd.Stdout = &stdout
 	execCmd.Stderr = &stderr
-	
+
 	// Execute command
 	err := execCmd.Run()
-	
+
 	// Get exit code
 	exitCode := 0
 	if err != nil {
@@ -884,7 +884,7 @@ func (am *AgentManager) executeDockerCommand(agent *Agent, cmd AgentCommand, opt
 			exitCode = 1
 		}
 	}
-	
+
 	// Combine stdout and stderr
 	output := stdout.String()
 	if stderr.Len() > 0 {
@@ -893,19 +893,19 @@ func (am *AgentManager) executeDockerCommand(agent *Agent, cmd AgentCommand, opt
 		}
 		output += stderr.String()
 	}
-	
+
 	// Check if command failed and should be retried
 	if exitCode != 0 && cmd.RetryCount > 0 {
 		// Retry logic would go here
 		// For now, we'll just log that we would retry
 		fmt.Printf("Docker command failed with exit code %d. Would retry %d times.\n", exitCode, cmd.RetryCount)
 	}
-	
+
 	// If command succeeded, return output
 	if exitCode == 0 {
 		return output, exitCode, nil
 	}
-	
+
 	// Return error
 	return output, exitCode, &DockerError{
 		Command:  dockerCmd,
@@ -920,27 +920,27 @@ func (am *AgentManager) prepareDockerImage(agent *Agent, result *AgentRunResult,
 	if agent.DockerConfig == nil {
 		return fmt.Errorf("agent does not have Docker configuration")
 	}
-	
+
 	// Check if image exists
 	imageExists, err := am.checkDockerImageExists(agent.DockerConfig.Image, agent.DockerConfig.Tag)
 	if err != nil {
 		return err
 	}
-	
+
 	// Build image if it doesn't exist or if force build is specified
 	forceBuild := false
 	if val, ok := options["force_build"]; ok && (val == "true" || val == "1") {
 		forceBuild = true
 	}
-	
+
 	if !imageExists || forceBuild {
 		// Check if agent has a build configuration
 		if agent.DockerConfig.Dockerfile == "" && agent.DockerConfig.BuildContext == "" {
 			// No build configuration, but required image doesn't exist
-			return fmt.Errorf("Docker image %s:%s does not exist and no build configuration is provided", 
+			return fmt.Errorf("Docker image %s:%s does not exist and no build configuration is provided",
 				agent.DockerConfig.Image, agent.DockerConfig.Tag)
 		}
-		
+
 		// Build Docker image
 		buildOutput, err := am.buildDockerImage(agent, result, options)
 		if err != nil {
@@ -948,11 +948,11 @@ func (am *AgentManager) prepareDockerImage(agent *Agent, result *AgentRunResult,
 			result.Output += buildOutput
 			return err
 		}
-		
-		result.Output += fmt.Sprintf("\nDocker image %s:%s built successfully\n", 
+
+		result.Output += fmt.Sprintf("\nDocker image %s:%s built successfully\n",
 			agent.DockerConfig.Image, agent.DockerConfig.Tag)
 	}
-	
+
 	return nil
 }
 
@@ -960,17 +960,17 @@ func (am *AgentManager) prepareDockerImage(agent *Agent, result *AgentRunResult,
 func (am *AgentManager) checkDockerImageExists(image, tag string) (bool, error) {
 	// Create command to list images
 	cmd := exec.Command("docker", "images", "--format", "{{.Repository}}:{{.Tag}}")
-	
+
 	// Capture output
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
-	
+
 	// Execute command
 	err := cmd.Run()
 	if err != nil {
 		return false, fmt.Errorf("failed to list Docker images: %v", err)
 	}
-	
+
 	// Check if image exists
 	return strings.Contains(stdout.String(), fmt.Sprintf("%s:%s", image, tag)), nil
 }
@@ -989,86 +989,86 @@ type WaterfallBuildStatus struct {
 // buildDockerImage builds a Docker image for an agent
 func (am *AgentManager) buildDockerImage(agent *Agent, result *AgentRunResult, options map[string]string) (string, error) {
 	var buildOutput strings.Builder
-	
+
 	// Check if agent has waterfall build configuration
 	if agent.DockerConfig.Waterfall.Stages != nil && len(agent.DockerConfig.Waterfall.Stages) > 0 {
 		// Waterfall build
 		buildOutput.WriteString("Using waterfall build system\n")
-		
+
 		// Execute waterfall build
 		waterfallOutput, err := am.executeWaterfallBuild(agent, result, options)
 		buildOutput.WriteString(waterfallOutput)
-		
+
 		if err != nil {
 			return buildOutput.String(), err
 		}
-		
+
 		return buildOutput.String(), nil
 	}
-	
+
 	// Regular build
 	// Check if we have a Dockerfile
 	if agent.DockerConfig.Dockerfile == "" {
 		return buildOutput.String(), fmt.Errorf("no Dockerfile specified for agent")
 	}
-	
+
 	// Set build context
 	buildContext := agent.DockerConfig.BuildContext
 	if buildContext == "" {
 		// Use directory containing Dockerfile as build context
 		buildContext = filepath.Dir(agent.DockerConfig.Dockerfile)
 	}
-	
+
 	// Build Docker image
-	buildCmd := fmt.Sprintf("docker build -t %s:%s -f %s %s", 
+	buildCmd := fmt.Sprintf("docker build -t %s:%s -f %s %s",
 		agent.DockerConfig.Image, agent.DockerConfig.Tag, agent.DockerConfig.Dockerfile, buildContext)
-	
+
 	// Add build args
 	for k, v := range agent.DockerConfig.BuildArgs {
 		buildCmd += fmt.Sprintf(" --build-arg %s=%s", k, v)
 	}
-	
+
 	// Add cache-from if specified
 	if agent.DockerConfig.CacheFrom != nil && len(agent.DockerConfig.CacheFrom) > 0 {
 		for _, cacheFrom := range agent.DockerConfig.CacheFrom {
 			buildCmd += fmt.Sprintf(" --cache-from %s", cacheFrom)
 		}
 	}
-	
+
 	// Disable cache if specified
 	if !agent.DockerConfig.UseCache {
 		buildCmd += " --no-cache"
 	}
-	
+
 	// Execute build command
 	cmd := exec.Command("bash", "-c", buildCmd)
-	
+
 	// Capture output
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	
+
 	// Execute command
 	err := cmd.Run()
-	
+
 	// Add output to result
 	buildOutput.WriteString(stdout.String())
 	if stderr.Len() > 0 {
 		buildOutput.WriteString(stderr.String())
 	}
-	
+
 	// Check if build failed
 	if err != nil {
 		return buildOutput.String(), fmt.Errorf("failed to build Docker image: %v", err)
 	}
-	
+
 	return buildOutput.String(), nil
 }
 
 // executeWaterfallBuild executes a multi-stage Docker build using the waterfall pattern
 func (am *AgentManager) executeWaterfallBuild(agent *Agent, result *AgentRunResult, options map[string]string) (string, error) {
 	var buildOutput strings.Builder
-	
+
 	// Initialize build status
 	status := &WaterfallBuildStatus{
 		CompletedStages: make(map[string]bool),
@@ -1077,24 +1077,24 @@ func (am *AgentManager) executeWaterfallBuild(agent *Agent, result *AgentRunResu
 		StartTime:       time.Now(),
 		Success:         false,
 	}
-	
+
 	// Create a temporary directory for the build
 	tempDir, err := os.MkdirTemp("", "delta-waterfall-build-")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary directory: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
-	
+
 	// Generate a unique build ID based on time
 	buildID := fmt.Sprintf("build-%d", time.Now().Unix())
-	
+
 	// Get the stages and dependencies
 	stages := agent.DockerConfig.Waterfall.Stages
 	dependencies := agent.DockerConfig.Waterfall.Dependencies
-	
+
 	// Check if a docker-compose file was specified
 	composeFileSpecified := agent.DockerConfig.ComposeFile != ""
-	
+
 	// If no compose file was specified, generate one
 	composeFilePath := agent.DockerConfig.ComposeFile
 	if !composeFileSpecified {
@@ -1105,30 +1105,30 @@ func (am *AgentManager) executeWaterfallBuild(agent *Agent, result *AgentRunResu
 			return "", fmt.Errorf("failed to generate docker-compose file: %v", err)
 		}
 	}
-	
+
 	// Log the docker-compose file path
 	buildOutput.WriteString(fmt.Sprintf("Using docker-compose file: %s\n", composeFilePath))
-	
+
 	// Build order will be determined by dependencies
 	buildOrder, err := am.determineBuildOrder(stages, dependencies)
 	if err != nil {
 		return "", fmt.Errorf("failed to determine build order: %v", err)
 	}
-	
+
 	// Log the build order
 	buildOutput.WriteString("Build order:\n")
 	for i, stage := range buildOrder {
 		buildOutput.WriteString(fmt.Sprintf("  %d. %s\n", i+1, stage))
 	}
 	buildOutput.WriteString("\n")
-	
+
 	// Execute each stage in order
 	for _, stage := range buildOrder {
 		status.CurrentStage = stage
 		stageStartTime := time.Now()
-		
+
 		buildOutput.WriteString(fmt.Sprintf("Building stage: %s\n", stage))
-		
+
 		// Check if all dependencies have been built
 		allDepsBuilt := true
 		if deps, ok := dependencies[stage]; ok {
@@ -1139,25 +1139,25 @@ func (am *AgentManager) executeWaterfallBuild(agent *Agent, result *AgentRunResu
 				}
 			}
 		}
-		
+
 		if !allDepsBuilt {
 			return buildOutput.String(), fmt.Errorf("cannot build stage %s, dependencies not met", stage)
 		}
-		
+
 		// Build the stage
 		cmdOutput, err := am.buildDockerComposeStage(composeFilePath, stage, agent, options)
-		
+
 		// Record stage output
 		status.StageOutput[stage] = cmdOutput
 		buildOutput.WriteString(fmt.Sprintf("--- Stage %s output ---\n", stage))
 		buildOutput.WriteString(cmdOutput)
 		buildOutput.WriteString(fmt.Sprintf("--- End of stage %s output ---\n\n", stage))
-		
+
 		// Record stage duration
 		stageDuration := time.Since(stageStartTime)
 		status.StageDuration[stage] = stageDuration
 		buildOutput.WriteString(fmt.Sprintf("Stage %s completed in %s\n", stage, formatAgentDuration(stageDuration)))
-		
+
 		// Check if build failed
 		if err != nil {
 			buildOutput.WriteString(fmt.Sprintf("Error building stage %s: %v\n", stage, err))
@@ -1165,31 +1165,31 @@ func (am *AgentManager) executeWaterfallBuild(agent *Agent, result *AgentRunResu
 			result.Errors = append(result.Errors, fmt.Sprintf("Error building stage %s: %v", stage, err))
 			return buildOutput.String(), err
 		}
-		
+
 		// Mark stage as completed
 		status.CompletedStages[stage] = true
 		buildOutput.WriteString(fmt.Sprintf("Stage %s completed successfully\n\n", stage))
-		
+
 		// Update cache statistics
 		am.updateCacheStats(stage, cmdOutput)
 	}
-	
+
 	// Build completed successfully
 	status.EndTime = time.Now()
 	status.Success = true
-	
+
 	totalDuration := status.EndTime.Sub(status.StartTime)
 	buildOutput.WriteString(fmt.Sprintf("Waterfall build completed in %s\n", formatAgentDuration(totalDuration)))
-	
+
 	// Tag the final image if required
 	if agent.DockerConfig.Image != "" && agent.DockerConfig.Tag != "" {
 		finalStage := stages[len(stages)-1]
 		finalImageName := fmt.Sprintf("%s_%s", buildID, finalStage)
-		
+
 		// Tag the final image
 		tagCmd := fmt.Sprintf("docker tag %s %s:%s", finalImageName, agent.DockerConfig.Image, agent.DockerConfig.Tag)
 		cmd := exec.Command("bash", "-c", tagCmd)
-		
+
 		// Execute command
 		err = cmd.Run()
 		if err != nil {
@@ -1199,14 +1199,14 @@ func (am *AgentManager) executeWaterfallBuild(agent *Agent, result *AgentRunResu
 			buildOutput.WriteString(fmt.Sprintf("Tagged final image as %s:%s\n", agent.DockerConfig.Image, agent.DockerConfig.Tag))
 		}
 	}
-	
+
 	// Add performance data to result
 	result.PerformanceData["build_duration"] = totalDuration.Seconds()
-	
+
 	for stage, duration := range status.StageDuration {
 		result.PerformanceData[fmt.Sprintf("stage_%s_duration", stage)] = duration.Seconds()
 	}
-	
+
 	return buildOutput.String(), nil
 }
 
@@ -1214,39 +1214,39 @@ func (am *AgentManager) executeWaterfallBuild(agent *Agent, result *AgentRunResu
 func (am *AgentManager) generateDockerComposeFile(agent *Agent, outputPath string, buildID string) error {
 	// Create docker-compose file structure
 	composeData := map[string]interface{}{
-		"version": "3",
+		"version":  "3",
 		"services": map[string]interface{}{},
 	}
-	
+
 	// Add services for each stage
 	services := composeData["services"].(map[string]interface{})
-	
+
 	for _, stage := range agent.DockerConfig.Waterfall.Stages {
 		// Create service for this stage
 		serviceName := stage
-		
+
 		// Create Dockerfile for this stage (reference the main Dockerfile with target)
 		dockerfile := agent.DockerConfig.Dockerfile
 		if dockerfile == "" {
 			return fmt.Errorf("no Dockerfile specified for agent")
 		}
-		
+
 		// Determine build context
 		buildContext := agent.DockerConfig.BuildContext
 		if buildContext == "" {
 			buildContext = filepath.Dir(dockerfile)
 		}
-		
+
 		// Service configuration
 		service := map[string]interface{}{
 			"image": fmt.Sprintf("%s_%s", buildID, stage),
 			"build": map[string]interface{}{
-				"context": buildContext,
+				"context":    buildContext,
 				"dockerfile": dockerfile,
-				"target": stage,
+				"target":     stage,
 			},
 		}
-		
+
 		// Add build args if specified
 		if len(agent.DockerConfig.BuildArgs) > 0 {
 			buildArgs := make(map[string]string)
@@ -1255,38 +1255,38 @@ func (am *AgentManager) generateDockerComposeFile(agent *Agent, outputPath strin
 			}
 			service["build"].(map[string]interface{})["args"] = buildArgs
 		}
-		
+
 		// Add volumes if specified
 		if len(agent.DockerConfig.Volumes) > 0 {
 			service["volumes"] = agent.DockerConfig.Volumes
 		}
-		
+
 		// Add networks if specified
 		if len(agent.DockerConfig.Networks) > 0 {
 			service["networks"] = agent.DockerConfig.Networks
 		}
-		
+
 		// Add dependencies
 		if deps, ok := agent.DockerConfig.Waterfall.Dependencies[stage]; ok && len(deps) > 0 {
 			service["depends_on"] = deps
 		}
-		
+
 		// Add service to services map
 		services[serviceName] = service
 	}
-	
+
 	// Marshal to YAML
 	yamlData, err := yaml.Marshal(composeData)
 	if err != nil {
 		return fmt.Errorf("failed to marshal docker-compose data: %v", err)
 	}
-	
+
 	// Write to file
 	err = os.WriteFile(outputPath, yamlData, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write docker-compose file: %v", err)
 	}
-	
+
 	return nil
 }
 
@@ -1295,13 +1295,13 @@ func (am *AgentManager) determineBuildOrder(stages []string, dependencies map[st
 	// Build a directed graph of dependencies
 	graph := make(map[string][]string)
 	inDegree := make(map[string]int)
-	
+
 	// Initialize graph
 	for _, stage := range stages {
 		graph[stage] = []string{}
 		inDegree[stage] = 0
 	}
-	
+
 	// Add dependencies
 	for stage, deps := range dependencies {
 		for _, dep := range deps {
@@ -1310,7 +1310,7 @@ func (am *AgentManager) determineBuildOrder(stages []string, dependencies map[st
 			inDegree[stage]++
 		}
 	}
-	
+
 	// Find stages with no dependencies
 	var queue []string
 	for stage, degree := range inDegree {
@@ -1318,18 +1318,18 @@ func (am *AgentManager) determineBuildOrder(stages []string, dependencies map[st
 			queue = append(queue, stage)
 		}
 	}
-	
+
 	// Perform topological sort
 	var buildOrder []string
-	
+
 	for len(queue) > 0 {
 		// Get next stage with no dependencies
 		stage := queue[0]
 		queue = queue[1:]
-		
+
 		// Add to build order
 		buildOrder = append(buildOrder, stage)
-		
+
 		// Process stages that depend on this stage
 		for _, dependent := range graph[stage] {
 			inDegree[dependent]--
@@ -1338,12 +1338,12 @@ func (am *AgentManager) determineBuildOrder(stages []string, dependencies map[st
 			}
 		}
 	}
-	
+
 	// Check if we have a cycle in the dependency graph
 	if len(buildOrder) != len(stages) {
 		return nil, fmt.Errorf("cycle detected in dependency graph, cannot determine build order")
 	}
-	
+
 	return buildOrder, nil
 }
 
@@ -1351,37 +1351,37 @@ func (am *AgentManager) determineBuildOrder(stages []string, dependencies map[st
 func (am *AgentManager) buildDockerComposeStage(composeFilePath, stage string, agent *Agent, options map[string]string) (string, error) {
 	// Build the stage
 	buildCmd := fmt.Sprintf("docker-compose -f %s build", composeFilePath)
-	
+
 	// Add cache options
 	if !agent.DockerConfig.UseCache {
 		buildCmd += " --no-cache"
 	}
-	
+
 	// Add stage
 	buildCmd += fmt.Sprintf(" %s", stage)
-	
+
 	// Execute command
 	cmd := exec.Command("bash", "-c", buildCmd)
-	
+
 	// Capture output
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	
+
 	// Execute command
 	err := cmd.Run()
-	
+
 	// Combine output
 	output := stdout.String()
 	if stderr.Len() > 0 {
 		output += "\n" + stderr.String()
 	}
-	
+
 	// Check if build failed
 	if err != nil {
 		return output, fmt.Errorf("failed to build stage %s: %v", stage, err)
 	}
-	
+
 	return output, nil
 }
 
@@ -1390,15 +1390,15 @@ func (am *AgentManager) updateCacheStats(stage string, buildOutput string) {
 	// Parse build output to extract cache information
 	cacheHits := countPattern(buildOutput, "Using cache")
 	cacheMisses := countPattern(buildOutput, "Running in") - 1 // Subtract 1 for the initial "Running in" message
-	
+
 	if cacheMisses < 0 {
 		cacheMisses = 0
 	}
-	
+
 	// Get the build config for this stage
 	am.mutex.Lock()
 	defer am.mutex.Unlock()
-	
+
 	// Create or update build cache config
 	buildConfig, ok := am.dockerCache.BuildConfigs[stage]
 	if !ok {
@@ -1411,12 +1411,12 @@ func (am *AgentManager) updateCacheStats(stage string, buildOutput string) {
 		}
 		am.dockerCache.BuildConfigs[stage] = buildConfig
 	}
-	
+
 	// Update cache statistics
 	buildConfig.CacheHits += cacheHits
 	buildConfig.CacheMisses += cacheMisses
 	buildConfig.LastBuiltAt = time.Now()
-	
+
 	// Save cache configuration
 	am.saveBuildCache()
 }
@@ -1425,17 +1425,17 @@ func (am *AgentManager) updateCacheStats(stage string, buildOutput string) {
 func countPattern(text, pattern string) int {
 	count := 0
 	pos := 0
-	
+
 	for {
 		pos = strings.Index(text[pos:], pattern)
 		if pos == -1 {
 			break
 		}
-		
+
 		count++
 		pos++
 	}
-	
+
 	return count
 }
 
@@ -1444,10 +1444,10 @@ func formatAgentDuration(d time.Duration) string {
 	seconds := int(d.Seconds())
 	minutes := seconds / 60
 	hours := minutes / 60
-	
+
 	seconds %= 60
 	minutes %= 60
-	
+
 	if hours > 0 {
 		return fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
 	} else if minutes > 0 {
@@ -1464,14 +1464,14 @@ func (am *AgentManager) checkDockerAvailability() error {
 	if err != nil {
 		return fmt.Errorf("Docker not found: %v", err)
 	}
-	
+
 	// Check if Docker daemon is running
 	cmd := exec.Command("docker", "info")
 	err = cmd.Run()
 	if err != nil {
 		return fmt.Errorf("Docker daemon not running: %v", err)
 	}
-	
+
 	return nil
 }
 
@@ -1636,7 +1636,6 @@ func countEnabledAgents(agents map[string]*Agent) int {
 	return count
 }
 
-
 // ImportAgentFromYAML imports agents from a YAML file
 func (am *AgentManager) ImportAgentFromYAML(yamlPath string) ([]string, error) {
 	// Ensure agent manager is initialized
@@ -1702,17 +1701,17 @@ func (am *AgentManager) importAgentYAML(yamlData []byte, basePath string) ([]str
 					Environment     map[string]string `yaml:"environment,omitempty"`
 				} `yaml:"commands,omitempty"`
 				Docker struct {
-					Enabled       bool              `yaml:"enabled"`
-					Image         string            `yaml:"image,omitempty"`
-					Tag           string            `yaml:"tag,omitempty"`
-					Dockerfile    string            `yaml:"dockerfile,omitempty"`
-					ComposeFile   string            `yaml:"compose_file,omitempty"`
-					Volumes       []string          `yaml:"volumes,omitempty"`
-					Networks      []string          `yaml:"networks,omitempty"`
-					Environment   map[string]string `yaml:"environment,omitempty"`
-					BuildArgs     map[string]string `yaml:"build_args,omitempty"`
-					UseCache      bool              `yaml:"use_cache"`
-					Waterfall     struct {
+					Enabled     bool              `yaml:"enabled"`
+					Image       string            `yaml:"image,omitempty"`
+					Tag         string            `yaml:"tag,omitempty"`
+					Dockerfile  string            `yaml:"dockerfile,omitempty"`
+					ComposeFile string            `yaml:"compose_file,omitempty"`
+					Volumes     []string          `yaml:"volumes,omitempty"`
+					Networks    []string          `yaml:"networks,omitempty"`
+					Environment map[string]string `yaml:"environment,omitempty"`
+					BuildArgs   map[string]string `yaml:"build_args,omitempty"`
+					UseCache    bool              `yaml:"use_cache"`
+					Waterfall   struct {
 						Stages       []string            `yaml:"stages"`
 						Dependencies map[string][]string `yaml:"dependencies"`
 					} `yaml:"waterfall,omitempty"`
@@ -1782,54 +1781,54 @@ func (am *AgentManager) importAgentYAML(yamlData []byte, basePath string) ([]str
 
 // createAgentFromYAML creates an Agent from YAML configuration
 func (am *AgentManager) createAgentFromYAML(yamlAgent struct {
-	ID string `yaml:"id"`
-	Name string `yaml:"name"`
-	Description string `yaml:"description"`
-	Enabled bool `yaml:"enabled"`
-	TaskTypes []string `yaml:"task_types"`
-	Import string `yaml:"import,omitempty"`
-	Commands []struct {
-		ID string `yaml:"id"`
-		Command string `yaml:"command"`
-		WorkingDir string `yaml:"working_dir"`
-		Timeout int `yaml:"timeout,omitempty"`
-		RetryCount int `yaml:"retry_count,omitempty"`
-		ErrorPatterns []string `yaml:"error_patterns,omitempty"`
-		SuccessPatterns []string `yaml:"success_patterns,omitempty"`
-		IsInteractive bool `yaml:"is_interactive,omitempty"`
-		Environment map[string]string `yaml:"environment,omitempty"`
+	ID          string   `yaml:"id"`
+	Name        string   `yaml:"name"`
+	Description string   `yaml:"description"`
+	Enabled     bool     `yaml:"enabled"`
+	TaskTypes   []string `yaml:"task_types"`
+	Import      string   `yaml:"import,omitempty"`
+	Commands    []struct {
+		ID              string            `yaml:"id"`
+		Command         string            `yaml:"command"`
+		WorkingDir      string            `yaml:"working_dir"`
+		Timeout         int               `yaml:"timeout,omitempty"`
+		RetryCount      int               `yaml:"retry_count,omitempty"`
+		ErrorPatterns   []string          `yaml:"error_patterns,omitempty"`
+		SuccessPatterns []string          `yaml:"success_patterns,omitempty"`
+		IsInteractive   bool              `yaml:"is_interactive,omitempty"`
+		Environment     map[string]string `yaml:"environment,omitempty"`
 	} `yaml:"commands,omitempty"`
 	Docker struct {
-		Enabled bool `yaml:"enabled"`
-		Image string `yaml:"image,omitempty"`
-		Tag string `yaml:"tag,omitempty"`
-		Dockerfile string `yaml:"dockerfile,omitempty"`
-		ComposeFile string `yaml:"compose_file,omitempty"`
-		Volumes []string `yaml:"volumes,omitempty"`
-		Networks []string `yaml:"networks,omitempty"`
+		Enabled     bool              `yaml:"enabled"`
+		Image       string            `yaml:"image,omitempty"`
+		Tag         string            `yaml:"tag,omitempty"`
+		Dockerfile  string            `yaml:"dockerfile,omitempty"`
+		ComposeFile string            `yaml:"compose_file,omitempty"`
+		Volumes     []string          `yaml:"volumes,omitempty"`
+		Networks    []string          `yaml:"networks,omitempty"`
 		Environment map[string]string `yaml:"environment,omitempty"`
-		BuildArgs map[string]string `yaml:"build_args,omitempty"`
-		UseCache bool `yaml:"use_cache"`
-		Waterfall struct {
-			Stages []string `yaml:"stages"`
+		BuildArgs   map[string]string `yaml:"build_args,omitempty"`
+		UseCache    bool              `yaml:"use_cache"`
+		Waterfall   struct {
+			Stages       []string            `yaml:"stages"`
 			Dependencies map[string][]string `yaml:"dependencies"`
 		} `yaml:"waterfall,omitempty"`
 	} `yaml:"docker,omitempty"`
 	ErrorHandling struct {
-		AutoFix bool `yaml:"auto_fix"`
+		AutoFix  bool `yaml:"auto_fix"`
 		Patterns []struct {
-			Pattern string `yaml:"pattern"`
-			Solution string `yaml:"solution"`
+			Pattern     string `yaml:"pattern"`
+			Solution    string `yaml:"solution"`
 			Description string `yaml:"description,omitempty"`
 			FilePattern string `yaml:"file_pattern,omitempty"`
 		} `yaml:"patterns,omitempty"`
 	} `yaml:"error_handling,omitempty"`
 	Metadata map[string]string `yaml:"metadata,omitempty"`
 	Triggers struct {
-		Patterns []string `yaml:"patterns,omitempty"`
-		Paths []string `yaml:"paths,omitempty"`
+		Patterns  []string `yaml:"patterns,omitempty"`
+		Paths     []string `yaml:"paths,omitempty"`
 		Schedules []string `yaml:"schedules,omitempty"`
-		Events []string `yaml:"events,omitempty"`
+		Events    []string `yaml:"events,omitempty"`
 	} `yaml:"triggers,omitempty"`
 }, config AgentYAMLConfig) *Agent {
 	// Validate required fields
@@ -2018,13 +2017,13 @@ func (am *AgentManager) tryFixError(agent *Agent, cmd AgentCommand, pattern, out
 	var fixOutput strings.Builder
 	var solutions []ErrorSolution
 	var learnedSolutions []SolutionEffectiveness
-	
+
 	// Get working directory for context
 	workDir := cmd.WorkingDir
 	if workDir == "" {
 		workDir = "."
 	}
-	
+
 	// First check agent's error handling patterns
 	if agent.DockerConfig != nil && agent.DockerConfig.Waterfall.Stages != nil {
 		// Add waterfall-specific error handling
@@ -2042,7 +2041,7 @@ func (am *AgentManager) tryFixError(agent *Agent, cmd AgentCommand, pattern, out
 		}
 		solutions = append(solutions, waterfallErrors...)
 	}
-	
+
 	// Check for agent-specific error handling
 	if agent.ErrorHandling != nil && agent.ErrorHandling.Patterns != nil && len(agent.ErrorHandling.Patterns) > 0 {
 		for _, errPattern := range agent.ErrorHandling.Patterns {
@@ -2056,115 +2055,115 @@ func (am *AgentManager) tryFixError(agent *Agent, cmd AgentCommand, pattern, out
 			}
 		}
 	}
-	
+
 	// Check for global error patterns
 	for _, errPattern := range am.getGlobalErrorPatterns() {
 		if strings.Contains(pattern, errPattern.Pattern) || strings.Contains(output, errPattern.Pattern) {
 			solutions = append(solutions, errPattern)
 		}
 	}
-	
+
 	// Check for learned solutions from the error learning manager
 	errorLearningMgr := GetErrorLearningManager()
 	if errorLearningMgr != nil {
 		learnedSolutions = errorLearningMgr.GetBestSolutions(pattern, 3)
 		fixOutput.WriteString(fmt.Sprintf("Found %d learned solutions from previous errors\n", len(learnedSolutions)))
 	}
-	
+
 	// If we have learned solutions, try them first
 	if len(learnedSolutions) > 0 {
 		for i, solution := range learnedSolutions {
 			fixOutput.WriteString(fmt.Sprintf("\nTrying learned solution %d: %s\n", i+1, solution.Description))
-			fixOutput.WriteString(fmt.Sprintf("Command: %s (Success rate: %d/%d)\n", 
-				solution.Solution, 
-				solution.SuccessCount, 
+			fixOutput.WriteString(fmt.Sprintf("Command: %s (Success rate: %d/%d)\n",
+				solution.Solution,
+				solution.SuccessCount,
 				solution.SuccessCount+solution.FailureCount))
-			
+
 			// Execute the solution
 			solutionCmd := solution.Solution
-			
+
 			// Execute the solution command
 			var execCmd *exec.Cmd
 			if agent.DockerConfig != nil && options["use_docker"] != "false" {
 				// Execute in Docker
 				dockerCmd := fmt.Sprintf("docker run --rm")
-				
+
 				// Add volumes
 				for _, volume := range agent.DockerConfig.Volumes {
 					dockerCmd += fmt.Sprintf(" -v %s", volume)
 				}
-				
+
 				// Add working directory
 				if cmd.WorkingDir != "" {
 					dockerCmd += fmt.Sprintf(" -w %s", cmd.WorkingDir)
 				}
-				
+
 				// Add image and command
-				dockerCmd += fmt.Sprintf(" %s:%s /bin/bash -c \"%s\"", 
+				dockerCmd += fmt.Sprintf(" %s:%s /bin/bash -c \"%s\"",
 					agent.DockerConfig.Image, agent.DockerConfig.Tag, solutionCmd)
-				
+
 				execCmd = exec.Command("bash", "-c", dockerCmd)
 			} else {
 				// Execute directly
 				execCmd = exec.Command("bash", "-c", solutionCmd)
-				
+
 				// Set working directory
 				if cmd.WorkingDir != "" {
 					execCmd.Dir = cmd.WorkingDir
 				}
 			}
-			
+
 			// Capture output
 			var stdout, stderr bytes.Buffer
 			execCmd.Stdout = &stdout
 			execCmd.Stderr = &stderr
-			
+
 			// Execute command
 			err := execCmd.Run()
-			
+
 			// Get output
 			cmdOutput := stdout.String()
 			if stderr.Len() > 0 {
 				cmdOutput += "\n" + stderr.String()
 			}
-			
+
 			// Log output
 			fixOutput.WriteString("Solution output:\n")
 			fixOutput.WriteString(cmdOutput)
-			
+
 			// Check if solution succeeded
 			if err != nil {
 				fixOutput.WriteString(fmt.Sprintf("\nSolution failed: %v\n", err))
-				
+
 				// Record the failure in the learning system
 				if errorLearningMgr != nil {
 					errorLearningMgr.AddErrorSolution(pattern, solution.Solution, solution.Description, workDir, false, solution.Source)
 				}
-				
+
 				continue
 			}
-			
+
 			// Solution succeeded
 			fixOutput.WriteString("\nSolution succeeded\n")
-			
+
 			// Record the success in the learning system
 			if errorLearningMgr != nil {
 				errorLearningMgr.AddErrorSolution(pattern, solution.Solution, solution.Description, workDir, true, solution.Source)
 			}
-			
+
 			return true, fixOutput.String(), nil
 		}
 	}
-	
+
 	// Try each predefined solution in order
 	for i, solution := range solutions {
 		fixOutput.WriteString(fmt.Sprintf("\nTrying solution %d: %s\n", i+1, solution.Description))
 		fixOutput.WriteString(fmt.Sprintf("Command: %s\n", solution.Solution))
-		
+
 		// Process the solution
 		// Replace variables in the solution
 		solutionCmd := solution.Solution
-		
+
 		// Replace ${FILE} with the file that matches FilePattern if specified
 		if solution.FilePattern != "" {
 			files, err := am.findFilesMatchingPattern(cmd.WorkingDir, solution.FilePattern)
@@ -2172,105 +2171,105 @@ func (am *AgentManager) tryFixError(agent *Agent, cmd AgentCommand, pattern, out
 				fixOutput.WriteString(fmt.Sprintf("Error finding files matching pattern: %v\n", err))
 				continue
 			}
-			
+
 			if len(files) == 0 {
 				fixOutput.WriteString(fmt.Sprintf("No files found matching pattern: %s\n", solution.FilePattern))
 				continue
 			}
-			
+
 			// Use the first matching file
 			file := files[0]
 			solutionCmd = strings.ReplaceAll(solutionCmd, "${FILE}", file)
 			fixOutput.WriteString(fmt.Sprintf("Found file matching pattern: %s\n", file))
 		}
-		
+
 		// Execute the solution command
 		var execCmd *exec.Cmd
 		if agent.DockerConfig != nil && options["use_docker"] != "false" {
 			// Execute in Docker
 			dockerCmd := fmt.Sprintf("docker run --rm")
-			
+
 			// Add volumes
 			for _, volume := range agent.DockerConfig.Volumes {
 				dockerCmd += fmt.Sprintf(" -v %s", volume)
 			}
-			
+
 			// Add working directory
 			if cmd.WorkingDir != "" {
 				dockerCmd += fmt.Sprintf(" -w %s", cmd.WorkingDir)
 			}
-			
+
 			// Add image and command
-			dockerCmd += fmt.Sprintf(" %s:%s /bin/bash -c \"%s\"", 
+			dockerCmd += fmt.Sprintf(" %s:%s /bin/bash -c \"%s\"",
 				agent.DockerConfig.Image, agent.DockerConfig.Tag, solutionCmd)
-			
+
 			execCmd = exec.Command("bash", "-c", dockerCmd)
 		} else {
 			// Execute directly
 			execCmd = exec.Command("bash", "-c", solutionCmd)
-			
+
 			// Set working directory
 			if cmd.WorkingDir != "" {
 				execCmd.Dir = cmd.WorkingDir
 			}
 		}
-		
+
 		// Capture output
 		var stdout, stderr bytes.Buffer
 		execCmd.Stdout = &stdout
 		execCmd.Stderr = &stderr
-		
+
 		// Execute command
 		err := execCmd.Run()
-		
+
 		// Get output
 		cmdOutput := stdout.String()
 		if stderr.Len() > 0 {
 			cmdOutput += "\n" + stderr.String()
 		}
-		
+
 		// Log output
 		fixOutput.WriteString("Solution output:\n")
 		fixOutput.WriteString(cmdOutput)
-		
+
 		// Check if solution succeeded
 		if err != nil {
 			fixOutput.WriteString(fmt.Sprintf("\nSolution failed: %v\n", err))
-			
+
 			// Record the failure in the learning system
 			if errorLearningMgr != nil {
 				errorLearningMgr.AddErrorSolution(pattern, solutionCmd, solution.Description, workDir, false, "system")
 			}
-			
+
 			continue
 		}
-		
+
 		// Solution succeeded
 		fixOutput.WriteString("\nSolution succeeded\n")
-		
+
 		// Record the success in the learning system
 		if errorLearningMgr != nil {
 			errorLearningMgr.AddErrorSolution(pattern, solutionCmd, solution.Description, workDir, true, "system")
 		}
-		
+
 		return true, fixOutput.String(), nil
 	}
-	
+
 	// If we didn't find any solutions or they all failed, try AI-assisted error solving
 	if (len(solutions) == 0 || solutions == nil) && am.config.UseAIAssistance && am.aiManager != nil {
 		fixOutput.WriteString("No pre-defined solutions found or all failed. Looking for AI-assisted solution...\n")
-		
+
 		// Use AI to analyze the error and suggest solutions
 		fixed, aiSolution, err := am.analyzeErrorWithAI(agent, cmd, pattern, output, options)
 		if err != nil {
 			fixOutput.WriteString(fmt.Sprintf("AI-assisted error analysis failed: %v\n", err))
 			return false, fixOutput.String(), nil
 		}
-		
+
 		fixOutput.WriteString(aiSolution)
 		return fixed, fixOutput.String(), nil
 	}
-	
+
 	// If we reach here, none of the solutions worked
 	fixOutput.WriteString("\nAll solutions failed\n")
 	return false, fixOutput.String(), nil
@@ -2282,31 +2281,31 @@ func (am *AgentManager) findFilesMatchingPattern(dir, pattern string) ([]string,
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		return nil, fmt.Errorf("directory not found: %s", dir)
 	}
-	
+
 	// Find files matching pattern
 	matches, err := filepath.Glob(filepath.Join(dir, pattern))
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return matches, nil
 }
 
 // analyzeErrorWithAI uses AI to analyze and fix build errors
 func (am *AgentManager) analyzeErrorWithAI(agent *Agent, cmd AgentCommand, pattern, output string, options map[string]string) (bool, string, error) {
 	var analysisOutput strings.Builder
-	
+
 	// Check if AI manager is initialized
 	if am.aiManager == nil || !am.aiManager.IsEnabled() {
 		return false, "AI manager not available or not enabled", fmt.Errorf("AI manager not available")
 	}
-	
+
 	// Create context for AI analysis
 	workDir := cmd.WorkingDir
 	if workDir == "" {
 		workDir = "."
 	}
-	
+
 	// Extract relevant parts of the error message (last 20 lines if it's very long)
 	errorContext := output
 	outputLines := strings.Split(output, "\n")
@@ -2314,7 +2313,7 @@ func (am *AgentManager) analyzeErrorWithAI(agent *Agent, cmd AgentCommand, patte
 		// Take the last 20 lines for context
 		errorContext = strings.Join(outputLines[len(outputLines)-20:], "\n")
 	}
-	
+
 	// Create a prompt for the AI to analyze the error
 	prompt := fmt.Sprintf(
 		`I'm encountering an error while building or running a command in a Docker container or development environment.
@@ -2333,108 +2332,108 @@ Please analyze this error and suggest 1-3 specific solutions. For each solution:
 Focus on practical solutions that can be executed via shell commands.`,
 		cmd.Command, workDir, pattern, errorContext,
 	)
-	
+
 	// Set up a specialized system prompt for build error analysis
 	systemPrompt := `You are an expert build engineer and DevOps specialist. Your task is to diagnose build errors and suggest specific, practical solutions.
 Focus on actionable solutions that can be executed via shell commands. Do not suggest general troubleshooting steps.
 Format your response with a brief analysis followed by specific commands that can be executed to fix the problem.
 Common fix categories include missing dependencies, configuration issues, permission problems, and code errors.`
-	
+
 	// Generate analysis using the AI
 	analysis, err := am.aiManager.ollamaClient.Generate(prompt, systemPrompt)
 	if err != nil {
 		return false, "", fmt.Errorf("failed to generate AI analysis: %v", err)
 	}
-	
+
 	// Parse the analysis to extract commands
 	commands := extractCommandsFromAnalysis(analysis)
-	
+
 	// Log the analysis
 	analysisOutput.WriteString("AI Error Analysis:\n")
 	analysisOutput.WriteString("==================\n")
 	analysisOutput.WriteString(analysis)
 	analysisOutput.WriteString("\n\n")
-	
+
 	// If no commands were found, return the analysis but indicate no fix
 	if len(commands) == 0 {
 		analysisOutput.WriteString("No executable commands found in the AI analysis.\n")
 		return false, analysisOutput.String(), nil
 	}
-	
+
 	// Log the commands found
 	analysisOutput.WriteString(fmt.Sprintf("Found %d potential fix commands:\n", len(commands)))
 	for i, cmd := range commands {
 		analysisOutput.WriteString(fmt.Sprintf("%d. %s\n", i+1, cmd))
 	}
-	
+
 	// Try each command
 	for i, fixCmd := range commands {
 		analysisOutput.WriteString(fmt.Sprintf("\nAttempting fix %d: %s\n", i+1, fixCmd))
-		
+
 		// Execute the fix command
 		var execCmd *exec.Cmd
 		if agent.DockerConfig != nil && options["use_docker"] != "false" {
 			// Execute in Docker
 			dockerCmd := fmt.Sprintf("docker run --rm")
-			
+
 			// Add volumes
 			for _, volume := range agent.DockerConfig.Volumes {
 				dockerCmd += fmt.Sprintf(" -v %s", volume)
 			}
-			
+
 			// Add working directory
 			if cmd.WorkingDir != "" {
 				dockerCmd += fmt.Sprintf(" -w %s", cmd.WorkingDir)
 			}
-			
+
 			// Add image and command
-			dockerCmd += fmt.Sprintf(" %s:%s /bin/bash -c \"%s\"", 
+			dockerCmd += fmt.Sprintf(" %s:%s /bin/bash -c \"%s\"",
 				agent.DockerConfig.Image, agent.DockerConfig.Tag, fixCmd)
-			
+
 			execCmd = exec.Command("bash", "-c", dockerCmd)
 		} else {
 			// Execute directly
 			execCmd = exec.Command("bash", "-c", fixCmd)
-			
+
 			// Set working directory
 			if cmd.WorkingDir != "" {
 				execCmd.Dir = cmd.WorkingDir
 			}
 		}
-		
+
 		// Capture output
 		var stdout, stderr bytes.Buffer
 		execCmd.Stdout = &stdout
 		execCmd.Stderr = &stderr
-		
+
 		// Execute command
 		err := execCmd.Run()
-		
+
 		// Get output
 		cmdOutput := stdout.String()
 		if stderr.Len() > 0 {
 			cmdOutput += "\n" + stderr.String()
 		}
-		
+
 		// Log output
 		analysisOutput.WriteString("Command output:\n")
 		analysisOutput.WriteString(cmdOutput)
-		
+
 		// Check if command succeeded
 		if err != nil {
 			analysisOutput.WriteString(fmt.Sprintf("\nFix attempt failed: %v\n", err))
 			continue
 		}
-		
+
 		// Fix command succeeded, now retry the original command
 		analysisOutput.WriteString("\nFix command succeeded. Retrying original command...\n")
-		
+
 		// Record this as a successful AI-assisted fix if possible
 		// Also add to the inference system for learning
 		if am.knowledgeExtractor != nil {
-			am.knowledgeExtractor.AddCommand("ai_fix " + fixCmd, workDir, 0)
+			am.knowledgeExtractor.AddCommand("ai_fix "+fixCmd, workDir, 0)
 		}
-		
+
 		// Record the success in the error learning system
 		errorLearningMgr := GetErrorLearningManager()
 		if errorLearningMgr != nil {
@@ -2444,10 +2443,10 @@ Common fix categories include missing dependencies, configuration issues, permis
 			}
 			errorLearningMgr.AddErrorSolution(pattern, fixCmd, description, workDir, true, "ai")
 		}
-		
+
 		return true, analysisOutput.String(), nil
 	}
-	
+
 	// If we get here, none of the fixes worked
 	analysisOutput.WriteString("\nAll AI-suggested fixes failed.\n")
 	return false, analysisOutput.String(), nil
@@ -2456,7 +2455,7 @@ Common fix categories include missing dependencies, configuration issues, permis
 // extractCommandsFromAnalysis extracts shell commands from AI analysis text
 func extractCommandsFromAnalysis(analysis string) []string {
 	var commands []string
-	
+
 	// Look for commands in backticks, a common formatting for code in AI responses
 	backtickPattern := "`([^`]+)`"
 	backtickMatches := regexp.MustCompile(backtickPattern).FindAllStringSubmatch(analysis, -1)
@@ -2465,7 +2464,7 @@ func extractCommandsFromAnalysis(analysis string) []string {
 			commands = append(commands, match[1])
 		}
 	}
-	
+
 	// Look for commands after "run:" or "command:" prefixes
 	linePatterns := []string{
 		"run:\\s*(.+)",
@@ -2473,7 +2472,7 @@ func extractCommandsFromAnalysis(analysis string) []string {
 		"execute:\\s*(.+)",
 		"try:\\s*(.+)",
 	}
-	
+
 	for _, pattern := range linePatterns {
 		re := regexp.MustCompile("(?i)" + pattern)
 		matches := re.FindAllStringSubmatch(analysis, -1)
@@ -2483,7 +2482,7 @@ func extractCommandsFromAnalysis(analysis string) []string {
 			}
 		}
 	}
-	
+
 	// If we still don't have commands, try to extract code blocks
 	if len(commands) == 0 {
 		lines := strings.Split(analysis, "\n")
@@ -2494,7 +2493,7 @@ func extractCommandsFromAnalysis(analysis string) []string {
 			}
 		}
 	}
-	
+
 	// Deduplicate commands
 	commandSet := make(map[string]bool)
 	var uniqueCommands []string
@@ -2504,7 +2503,7 @@ func extractCommandsFromAnalysis(analysis string) []string {
 			uniqueCommands = append(uniqueCommands, cmd)
 		}
 	}
-	
+
 	return uniqueCommands
 }
 
@@ -2512,84 +2511,84 @@ func extractCommandsFromAnalysis(analysis string) []string {
 func isLikelyShellCommand(cmd string) bool {
 	// Clean up the command string
 	cmd = strings.TrimSpace(cmd)
-	
+
 	// Ignore empty strings and very short strings
 	if len(cmd) < 3 {
 		return false
 	}
-	
+
 	// Ignore markdown formatting and other non-command text
 	if strings.HasPrefix(cmd, "#") || strings.HasPrefix(cmd, ">") {
 		return false
 	}
-	
+
 	// Common command prefixes
 	commandPrefixes := []string{
-		"apt", "apt-get", "yum", "dnf", "brew",   // Package managers
-		"npm", "yarn", "pip", "gem", "cargo",     // Language package managers
-		"docker", "kubectl", "helm",               // Container tools
-		"git", "svn", "hg",                       // Version control
-		"gcc", "g++", "clang", "make", "cmake",   // Build tools
+		"apt", "apt-get", "yum", "dnf", "brew", // Package managers
+		"npm", "yarn", "pip", "gem", "cargo", // Language package managers
+		"docker", "kubectl", "helm", // Container tools
+		"git", "svn", "hg", // Version control
+		"gcc", "g++", "clang", "make", "cmake", // Build tools
 		"cd", "mkdir", "rm", "cp", "mv", "touch", // File operations
-		"chmod", "chown", "chgrp",                // Permissions
-		"echo", "cat", "grep", "sed", "awk",      // Text processing
-		"find", "ls", "du", "df",                 // File system
-		"curl", "wget", "ssh", "scp",             // Network
-		"systemctl", "service",                   // System services
-		"./", "sh", "bash", "zsh",                // Scripts and shells
-		"export", "unset",                        // Environment variables
+		"chmod", "chown", "chgrp", // Permissions
+		"echo", "cat", "grep", "sed", "awk", // Text processing
+		"find", "ls", "du", "df", // File system
+		"curl", "wget", "ssh", "scp", // Network
+		"systemctl", "service", // System services
+		"./", "sh", "bash", "zsh", // Scripts and shells
+		"export", "unset", // Environment variables
 	}
-	
+
 	// Check if the command starts with any of the common prefixes
 	for _, prefix := range commandPrefixes {
 		if strings.HasPrefix(cmd, prefix+" ") || cmd == prefix {
 			return true
 		}
 	}
-	
+
 	// Check for other common command patterns
 	patterns := []string{
-		"\\w+\\s+-\\w+",           // Command with options (e.g., ls -la)
-		"\\w+\\.\\w+\\s+",         // Script execution (e.g., script.sh)
-		"\\$\\(.+\\)",             // Command substitution
-		"\\w+=.+",                 // Assignment (e.g., VAR=value)
-		"sudo\\s+\\w+",            // Sudo commands
-		"\\|\\s*\\w+",             // Pipes
-		"&&\\s*\\w+",              // Command chains
-		";\\s*\\w+",               // Command sequences
-		"^\\./\\w+",               // Executable in current directory
+		"\\w+\\s+-\\w+",   // Command with options (e.g., ls -la)
+		"\\w+\\.\\w+\\s+", // Script execution (e.g., script.sh)
+		"\\$\\(.+\\)",     // Command substitution
+		"\\w+=.+",         // Assignment (e.g., VAR=value)
+		"sudo\\s+\\w+",    // Sudo commands
+		"\\|\\s*\\w+",     // Pipes
+		"&&\\s*\\w+",      // Command chains
+		";\\s*\\w+",       // Command sequences
+		"^\\./\\w+",       // Executable in current directory
 	}
-	
+
 	for _, pattern := range patterns {
 		if regexp.MustCompile(pattern).MatchString(cmd) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 // PatternLibrary represents the error pattern library structure
 type PatternLibrary struct {
-	Version   string          `json:"version"`
-	UpdatedAt string          `json:"updated_at"`
-	Patterns  []PatternEntry  `json:"patterns"`
+	Version   string         `json:"version"`
+	UpdatedAt string         `json:"updated_at"`
+	Patterns  []PatternEntry `json:"patterns"`
 }
 
 // PatternEntry represents an entry in the pattern library
 type PatternEntry struct {
-	Pattern      string `json:"pattern"`
-	Solution     string `json:"solution"`
-	Description  string `json:"description"`
-	FilePattern  string `json:"file_pattern,omitempty"`
-	Category     string `json:"category"`
+	Pattern     string `json:"pattern"`
+	Solution    string `json:"solution"`
+	Description string `json:"description"`
+	FilePattern string `json:"file_pattern,omitempty"`
+	Category    string `json:"category"`
 }
 
 // CommandLibrary represents the common commands library structure
 type CommandLibrary struct {
-	Version   string          `json:"version"`
-	UpdatedAt string          `json:"updated_at"`
-	Commands  []AgentCommandEntry  `json:"commands"`
+	Version   string              `json:"version"`
+	UpdatedAt string              `json:"updated_at"`
+	Commands  []AgentCommandEntry `json:"commands"`
 }
 
 // AgentCommandEntry represents an entry in the command library
@@ -2606,13 +2605,13 @@ func (am *AgentManager) getGlobalErrorPatterns() []ErrorSolution {
 	if err == nil && len(patterns) > 0 {
 		return patterns
 	}
-	
+
 	// Fall back to embedded patterns if external file loading fails
 	embeddedPatterns, err := am.loadEmbeddedPatterns()
 	if err == nil && len(embeddedPatterns) > 0 {
 		return embeddedPatterns
 	}
-	
+
 	// Fall back to hardcoded patterns if both external and embedded patterns fail
 	return []ErrorSolution{
 		{
@@ -2652,27 +2651,27 @@ func (am *AgentManager) loadPatternsFromFile() ([]ErrorSolution, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get home directory: %v", err)
 	}
-	
+
 	// Pattern file path
 	patternFilePath := filepath.Join(homeDir, ".delta", "patterns", "error_patterns.json")
-	
+
 	// Check if the file exists
 	if _, err := os.Stat(patternFilePath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("pattern file does not exist: %s", patternFilePath)
 	}
-	
+
 	// Read the pattern file
 	data, err := os.ReadFile(patternFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read pattern file: %v", err)
 	}
-	
+
 	// Parse the JSON data
 	var library PatternLibrary
 	if err := json.Unmarshal(data, &library); err != nil {
 		return nil, fmt.Errorf("failed to parse pattern library: %v", err)
 	}
-	
+
 	// Convert to ErrorSolution format
 	var patterns []ErrorSolution
 	for _, entry := range library.Patterns {
@@ -2683,7 +2682,7 @@ func (am *AgentManager) loadPatternsFromFile() ([]ErrorSolution, error) {
 			FilePattern: entry.FilePattern,
 		})
 	}
-	
+
 	return patterns, nil
 }
 
@@ -2694,13 +2693,13 @@ func (am *AgentManager) loadEmbeddedPatterns() ([]ErrorSolution, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read embedded pattern file: %v", err)
 	}
-	
+
 	// Parse the JSON data
 	var library PatternLibrary
 	if err := json.Unmarshal(data, &library); err != nil {
 		return nil, fmt.Errorf("failed to parse embedded pattern library: %v", err)
 	}
-	
+
 	// Convert to ErrorSolution format
 	var patterns []ErrorSolution
 	for _, entry := range library.Patterns {
@@ -2711,7 +2710,7 @@ func (am *AgentManager) loadEmbeddedPatterns() ([]ErrorSolution, error) {
 			FilePattern: entry.FilePattern,
 		})
 	}
-	
+
 	return patterns, nil
 }
 
@@ -2722,13 +2721,13 @@ func (am *AgentManager) installDefaultPatterns() error {
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %v", err)
 	}
-	
+
 	// Create patterns directory if it doesn't exist
 	patternDir := filepath.Join(homeDir, ".delta", "patterns")
 	if err := os.MkdirAll(patternDir, 0755); err != nil {
 		return fmt.Errorf("failed to create pattern directory: %v", err)
 	}
-	
+
 	// Check if error_patterns.json exists
 	errorPatternsPath := filepath.Join(patternDir, "error_patterns.json")
 	if _, err := os.Stat(errorPatternsPath); os.IsNotExist(err) {
@@ -2737,14 +2736,14 @@ func (am *AgentManager) installDefaultPatterns() error {
 		if err != nil {
 			return fmt.Errorf("failed to read embedded pattern file: %v", err)
 		}
-		
+
 		if err := os.WriteFile(errorPatternsPath, data, 0644); err != nil {
 			return fmt.Errorf("failed to write pattern file: %v", err)
 		}
-		
+
 		fmt.Println("Installed default error patterns to", errorPatternsPath)
 	}
-	
+
 	// Check if common_commands.json exists
 	commandsPath := filepath.Join(patternDir, "common_commands.json")
 	if _, err := os.Stat(commandsPath); os.IsNotExist(err) {
@@ -2753,14 +2752,14 @@ func (am *AgentManager) installDefaultPatterns() error {
 		if err != nil {
 			return fmt.Errorf("failed to read embedded commands file: %v", err)
 		}
-		
+
 		if err := os.WriteFile(commandsPath, data, 0644); err != nil {
 			return fmt.Errorf("failed to write commands file: %v", err)
 		}
-		
+
 		fmt.Println("Installed default common commands to", commandsPath)
 	}
-	
+
 	return nil
 }
 

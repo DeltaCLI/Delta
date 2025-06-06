@@ -240,7 +240,7 @@ func (mm *MemoryManager) writeCommandToShard(entry CommandEntry) error {
 	// Update shard if day has changed
 	today := time.Now().Format("2006-01-02")
 	expectedShard := filepath.Join(mm.config.StoragePath, "commands_"+today+".bin")
-	
+
 	mm.shardWriteLock.Lock()
 	defer mm.shardWriteLock.Unlock()
 

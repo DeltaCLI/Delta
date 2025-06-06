@@ -12,12 +12,12 @@ import (
 
 // ImportRecord tracks when and what was imported from shell history files
 type ImportRecord struct {
-	FilePath         string    `json:"file_path"`
-	LastImported     time.Time `json:"last_imported"`
-	FileSize         int64     `json:"file_size"`
-	FileModTime      time.Time `json:"file_mod_time"`
-	FileChecksum     string    `json:"file_checksum"`
-	CommandsImported int       `json:"commands_imported"`
+	FilePath         string        `json:"file_path"`
+	LastImported     time.Time     `json:"last_imported"`
+	FileSize         int64         `json:"file_size"`
+	FileModTime      time.Time     `json:"file_mod_time"`
+	FileChecksum     string        `json:"file_checksum"`
+	CommandsImported int           `json:"commands_imported"`
 	ImportedRanges   []ImportRange `json:"imported_ranges"`
 }
 
@@ -177,7 +177,7 @@ func (t *ShellHistoryTracker) GetNewCommandsOnly(filePath string, entries []Hist
 		// Return commands that would be beyond the previously imported range
 		if len(record.ImportedRanges) > 0 {
 			lastRange := record.ImportedRanges[len(record.ImportedRanges)-1]
-			
+
 			// Simple approach: if we have more entries than were previously imported,
 			// return the excess entries
 			if len(entries) > lastRange.Count {
@@ -262,14 +262,14 @@ func (t *ShellHistoryTracker) RecordImport(filePath string, entries []HistoryEnt
 func (t *ShellHistoryTracker) GetImportSummary() map[string]interface{} {
 	totalFiles := len(t.records)
 	totalCommands := 0
-	
+
 	recentImports := make([]ImportRecord, 0)
 	oldestImport := time.Now()
 	newestImport := time.Time{}
 
 	for _, record := range t.records {
 		totalCommands += record.CommandsImported
-		
+
 		if record.LastImported.Before(oldestImport) {
 			oldestImport = record.LastImported
 		}
@@ -285,9 +285,9 @@ func (t *ShellHistoryTracker) GetImportSummary() map[string]interface{} {
 	}
 
 	summary := map[string]interface{}{
-		"total_files_imported":     totalFiles,
-		"total_commands_imported":  totalCommands,
-		"recent_imports_count":     len(recentImports),
+		"total_files_imported":    totalFiles,
+		"total_commands_imported": totalCommands,
+		"recent_imports_count":    len(recentImports),
 	}
 
 	if totalFiles > 0 {

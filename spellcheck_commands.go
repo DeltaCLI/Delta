@@ -125,7 +125,7 @@ func showSpellCheckConfig(sc *SpellChecker) {
 	fmt.Printf("Auto-correct: %v\n", sc.config.AutoCorrect)
 	fmt.Printf("Auto-correct threshold: %.2f\n", sc.config.AutoCorrectThreshold)
 	fmt.Printf("Case sensitive: %v\n", sc.config.CaseSensitive)
-	
+
 	// Show custom dictionary
 	if len(sc.config.CustomDictionary) > 0 {
 		fmt.Println("\nCustom Dictionary:")

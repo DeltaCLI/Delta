@@ -14,21 +14,21 @@ import (
 
 // DockerAgent implements the AgentInterface for Docker-based agents
 type DockerAgent struct {
-	config          *Agent
-	manager         *AgentManager
-	isRunning       bool
-	startTime       time.Time
-	endTime         time.Time
-	currentCommand  string
-	lastError       error
-	progress        float64
-	successCount    int
-	errorCount      int
-	lastOutput      string
-	cancelFunc      context.CancelFunc
-	mutex           sync.RWMutex
-	tempDirs        []string
-	containerId     string
+	config         *Agent
+	manager        *AgentManager
+	isRunning      bool
+	startTime      time.Time
+	endTime        time.Time
+	currentCommand string
+	lastError      error
+	progress       float64
+	successCount   int
+	errorCount     int
+	lastOutput     string
+	cancelFunc     context.CancelFunc
+	mutex          sync.RWMutex
+	tempDirs       []string
+	containerId    string
 }
 
 // Initialize initializes the Docker agent
@@ -71,19 +71,19 @@ func (a *DockerAgent) Run(ctx context.Context) error {
 		if a.cancelFunc != nil {
 			a.cancelFunc = nil
 		}
-		
+
 		// Cleanup temporary directories
 		for _, dir := range a.tempDirs {
 			os.RemoveAll(dir)
 		}
 		a.tempDirs = nil
-		
+
 		// Remove container if it exists
 		if a.containerId != "" {
 			exec.Command("docker", "rm", "-f", a.containerId).Run()
 			a.containerId = ""
 		}
-		
+
 		a.mutex.Unlock()
 	}()
 
@@ -126,14 +126,14 @@ func (a *DockerAgent) Run(ctx context.Context) error {
 	if a.config.DockerConfig.BuildContext != "" {
 		// Build the image
 		buildArgs := []string{"build"}
-		
+
 		// Add build args
 		if a.config.DockerConfig.BuildArgs != nil {
 			for k, v := range a.config.DockerConfig.BuildArgs {
 				buildArgs = append(buildArgs, "--build-arg", fmt.Sprintf("%s=%s", k, v))
 			}
 		}
-		
+
 		// Add cache options
 		if a.config.DockerConfig.UseCache {
 			// Use cache
@@ -146,19 +146,19 @@ func (a *DockerAgent) Run(ctx context.Context) error {
 			// No cache
 			buildArgs = append(buildArgs, "--no-cache")
 		}
-		
+
 		// Add tag
 		dockerImage = fmt.Sprintf("%s:%s", a.config.DockerConfig.Image, a.config.DockerConfig.Tag)
 		buildArgs = append(buildArgs, "-t", dockerImage)
-		
+
 		// Add Dockerfile if specified
 		if a.config.DockerConfig.Dockerfile != "" {
 			buildArgs = append(buildArgs, "-f", a.config.DockerConfig.Dockerfile)
 		}
-		
+
 		// Add build context
 		buildArgs = append(buildArgs, a.config.DockerConfig.BuildContext)
-		
+
 		// Run build command
 		cmd := exec.CommandContext(runCtx, "docker", buildArgs...)
 		output, err := cmd.CombinedOutput()
@@ -170,7 +170,7 @@ func (a *DockerAgent) Run(ctx context.Context) error {
 			a.mutex.Unlock()
 			return a.lastError
 		}
-		
+
 		a.mutex.Lock()
 		a.lastOutput = string(output)
 		a.progress = 0.3
@@ -189,7 +189,7 @@ func (a *DockerAgent) Run(ctx context.Context) error {
 			a.mutex.Unlock()
 			return a.lastError
 		}
-		
+
 		a.mutex.Lock()
 		a.lastOutput = string(output)
 		a.progress = 0.3
@@ -212,53 +212,53 @@ func (a *DockerAgent) Run(ctx context.Context) error {
 
 		// Create docker run command
 		runArgs := []string{"run", "--rm"}
-		
+
 		// Add environment variables
 		if cmd.Environment != nil {
 			for k, v := range cmd.Environment {
 				runArgs = append(runArgs, "-e", fmt.Sprintf("%s=%s", k, v))
 			}
 		}
-		
+
 		// Add volumes
 		if a.config.DockerConfig.Volumes != nil {
 			for _, volume := range a.config.DockerConfig.Volumes {
 				runArgs = append(runArgs, "-v", volume)
 			}
 		}
-		
+
 		// Add interactive flag if needed
 		if cmd.IsInteractive {
 			runArgs = append(runArgs, "-i", "-t")
 		}
-		
+
 		// Add working directory
 		if cmd.WorkingDir != "" {
 			runArgs = append(runArgs, "-w", cmd.WorkingDir)
 		}
-		
+
 		// Add image
 		runArgs = append(runArgs, dockerImage)
-		
+
 		// Add command
 		runArgs = append(runArgs, "/bin/sh", "-c", cmd.Command)
-		
+
 		// Create command with timeout
 		var cmdCtx context.Context
 		var cmdCancel context.CancelFunc
-		
+
 		if cmd.Timeout > 0 {
 			cmdCtx, cmdCancel = context.WithTimeout(runCtx, time.Duration(cmd.Timeout)*time.Second)
 		} else {
 			cmdCtx, cmdCancel = context.WithCancel(runCtx)
 		}
-		
+
 		execCmd := exec.CommandContext(cmdCtx, "docker", runArgs...)
 		output, err := execCmd.CombinedOutput()
 
 		// Cleanup
 		cmdCancel()
-		
+
 		// Check for timeout
 		if cmdCtx.Err() == context.DeadlineExceeded {
 			a.mutex.Lock()
@@ -268,7 +268,7 @@ func (a *DockerAgent) Run(ctx context.Context) error {
 			a.mutex.Unlock()
 			return a.lastError
 		}
-		
+
 		// Check for command error
 		if err != nil {
 			// Check retry count
@@ -284,24 +284,24 @@ func (a *DockerAgent) Run(ctx context.Context) error {
 							return runCtx.Err()
 						}
 					}
-					
+
 					// Create new context for retry
 					var retryCtx context.Context
 					var retryCancel context.CancelFunc
-					
+
 					if cmd.Timeout > 0 {
 						retryCtx, retryCancel = context.WithTimeout(runCtx, time.Duration(cmd.Timeout)*time.Second)
 					} else {
 						retryCtx, retryCancel = context.WithCancel(runCtx)
 					}
-					
+
 					// Execute retry
 					retryCmd := exec.CommandContext(retryCtx, "docker", runArgs...)
 					retryOutput, retryErr := retryCmd.CombinedOutput()
-					
+
 					// Cleanup
 					retryCancel()
-					
+
 					// Check result
 					if retryErr == nil {
 						// Retry succeeded
@@ -310,11 +310,11 @@ func (a *DockerAgent) Run(ctx context.Context) error {
 						retrySuccess = true
 						break
 					}
-					
+
 					// Update output for next retry
 					output = retryOutput
 				}
-				
+
 				// Check if retry succeeded
 				if !retrySuccess {
 					a.mutex.Lock()
@@ -334,7 +334,7 @@ func (a *DockerAgent) Run(ctx context.Context) error {
 				return a.lastError
 			}
 		}
-		
+
 		// Update last output
 		a.mutex.Lock()
 		a.lastOutput = string(output)
@@ -463,12 +463,12 @@ type WaterfallDockerAgent struct {
 
 // waterfallStageStatus tracks the status of a waterfall stage
 type waterfallStageStatus struct {
-	name       string
-	status     string // "pending", "running", "completed", "failed"
-	startTime  time.Time
-	endTime    time.Time
+	name         string
+	status       string // "pending", "running", "completed", "failed"
+	startTime    time.Time
+	endTime      time.Time
 	dependencies []string
-	dependents []string
+	dependents   []string
 }
 
 // Initialize initializes the waterfall Docker agent
@@ -483,8 +483,8 @@ func (a *WaterfallDockerAgent) Initialize() error {
 	if a.config.DockerConfig != nil && a.config.DockerConfig.Waterfall != nil {
 		for _, stage := range a.config.DockerConfig.Waterfall.Stages {
 			a.waterfallStages[stage] = &waterfallStageStatus{
-				name:       stage,
-				status:     "pending",
+				name:         stage,
+				status:       "pending",
 				dependencies: a.config.DockerConfig.Waterfall.Dependencies[stage],
 			}
 		}
@@ -531,13 +531,13 @@ func (a *WaterfallDockerAgent) Run(ctx context.Context) error {
 		if a.cancelFunc != nil {
 			a.cancelFunc = nil
 		}
-		
+
 		// Cleanup temporary directories
 		for _, dir := range a.tempDirs {
 			os.RemoveAll(dir)
 		}
 		a.tempDirs = nil
-		
+
 		a.mutex.Unlock()
 	}()
 
@@ -594,18 +594,18 @@ func (a *WaterfallDockerAgent) Run(ctx context.Context) error {
 			wg.Add(1)
 			go func(stageName string) {
 				defer wg.Done()
-				
+
 				// Update stage status
 				a.waterfallStages[stageName].status = "running"
 				a.waterfallStages[stageName].startTime = time.Now()
-				
+
 				a.mutex.Lock()
 				a.currentCommand = fmt.Sprintf("Building stage: %s", stageName)
 				a.mutex.Unlock()
-				
+
 				// Build Docker image for this stage
 				output, err := a.buildStage(runCtx, stageName)
-				
+
 				a.mutex.Lock()
 				stageOutputs[stageName] = output
 				if err != nil {
@@ -657,17 +657,17 @@ func (a *WaterfallDockerAgent) Run(ctx context.Context) error {
 func (a *WaterfallDockerAgent) buildStage(ctx context.Context, stageName string) (string, error) {
 	// Build Docker image for this stage
 	buildArgs := []string{"build"}
-	
+
 	// Add build args
 	if a.config.DockerConfig.BuildArgs != nil {
 		for k, v := range a.config.DockerConfig.BuildArgs {
 			buildArgs = append(buildArgs, "--build-arg", fmt.Sprintf("%s=%s", k, v))
 		}
 	}
-	
+
 	// Add stage-specific args
 	buildArgs = append(buildArgs, "--target", stageName)
-	
+
 	// Add cache options
 	if a.config.DockerConfig.UseCache {
 		// Use cache
@@ -680,26 +680,26 @@ func (a *WaterfallDockerAgent) buildStage(ctx context.Context, stageName string)
 		// No cache
 		buildArgs = append(buildArgs, "--no-cache")
 	}
-	
+
 	// Add tag
 	stageTag := fmt.Sprintf("%s:%s-%s", a.config.DockerConfig.Image, a.config.DockerConfig.Tag, stageName)
 	buildArgs = append(buildArgs, "-t", stageTag)
-	
+
 	// Add Dockerfile if specified
 	if a.config.DockerConfig.Dockerfile != "" {
 		buildArgs = append(buildArgs, "-f", a.config.DockerConfig.Dockerfile)
 	}
-	
+
 	// Add build context
 	buildArgs = append(buildArgs, a.config.DockerConfig.BuildContext)
-	
+
 	// Run build command
 	cmd := exec.CommandContext(ctx, "docker", buildArgs...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(output), fmt.Errorf("failed to build stage %s: %v", stageName, err)
 	}
-	
+
 	return string(output), nil
 }
 
@@ -714,9 +714,9 @@ func createDockerAgentImplementation(agent *Agent) (AgentInterface, error) {
 	if agent.DockerConfig.Waterfall != nil && len(agent.DockerConfig.Waterfall.Stages) > 0 {
 		waterfall := &WaterfallDockerAgent{
 			DockerAgent: DockerAgent{
-				config:     agent,
-				isRunning:  false,
-				mutex:      sync.RWMutex{},
+				config:    agent,
+				isRunning: false,
+				mutex:     sync.RWMutex{},
 			},
 		}
 		return waterfall, nil
@@ -724,9 +724,9 @@ func createDockerAgentImplementation(agent *Agent) (AgentInterface, error) {
 
 	// Regular Docker agent
 	dockerAgent := &DockerAgent{
-		config:     agent,
-		isRunning:  false,
-		mutex:      sync.RWMutex{},
+		config:    agent,
+		isRunning: false,
+		mutex:     sync.RWMutex{},
 	}
 	return dockerAgent, nil
 }

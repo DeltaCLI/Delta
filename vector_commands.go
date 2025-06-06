@@ -112,16 +112,16 @@ func HandleVectorCommand(args []string) bool {
 			fmt.Println("Available merge strategies: replace, merge, keep_newer")
 			return true
 		}
-		
+
 		// Default merge strategy is "merge"
 		mergeStrategy := "merge"
 		if len(args) >= 3 {
 			mergeStrategy = args[2]
 		}
-		
+
 		importVectorDatabase(vm, args[1], mergeStrategy)
 		return true
-		
+
 	case "help":
 		// Show help
 		showVectorHelp()
@@ -207,11 +207,11 @@ func showVectorStats(vm *VectorDBManager) {
 	if hasExt, ok := stats["has_vector_extension"].(bool); ok {
 		if hasExt {
 			fmt.Println("Vector Extension: Available (using SQLite with vector search)")
-			
+
 			// Show available vector functions
 			if functions, ok := stats["vectorx_functions"].(map[string]interface{}); ok {
 				availableMetrics := []string{}
-				
+
 				// Check which metrics are available
 				if fn, ok := functions["vectorx_cosine_similarity"].(bool); ok && fn {
 					availableMetrics = append(availableMetrics, "cosine")
@@ -228,7 +228,7 @@ func showVectorStats(vm *VectorDBManager) {
 				if fn, ok := functions["vectorx_jaccard_similarity"].(bool); ok && fn {
 					availableMetrics = append(availableMetrics, "jaccard")
 				}
-				
+
 				if len(availableMetrics) > 0 {
 					fmt.Printf("Available Metrics: %s\n", strings.Join(availableMetrics, ", "))
 				}
@@ -262,13 +262,13 @@ func searchSimilarCommands(vm *VectorDBManager, query string) {
 	// Format: "metric:xxx query" e.g. "metric:manhattan git commit"
 	metric := vm.config.DistanceMetric
 	searchQuery := query
-	
+
 	if strings.HasPrefix(query, "metric:") {
 		parts := strings.SplitN(query, " ", 2)
 		if len(parts) == 2 {
 			metricSpec := strings.TrimPrefix(parts[0], "metric:")
 			searchQuery = parts[1]
-			
+
 			// Validate metric
 			validMetrics := map[string]bool{
 				"cosine":    true,
@@ -277,7 +277,7 @@ func searchSimilarCommands(vm *VectorDBManager, query string) {
 				"manhattan": true,
 				"jaccard":   true,
 			}
-			
+
 			if validMetrics[metricSpec] {
 				metric = metricSpec
 				fmt.Printf("Using %s distance metric for this search\n", metric)
@@ -297,7 +297,7 @@ func searchSimilarCommands(vm *VectorDBManager, query string) {
 		keywordSearch(vm, searchQuery)
 		return
 	}
-	
+
 	// Generate embedding for the query
 	embedding, err := ai.GenerateEmbedding(searchQuery)
 	if err != nil {
@@ -306,10 +306,10 @@ func searchSimilarCommands(vm *VectorDBManager, query string) {
 		keywordSearch(vm, searchQuery)
 		return
 	}
-	
+
 	// Store original metric
 	originalMetric := vm.config.DistanceMetric
-	
+
 	// Temporarily set the metric for this search if different
 	if metric != originalMetric {
 		config := vm.config
@@ -322,7 +322,7 @@ func searchSimilarCommands(vm *VectorDBManager, query string) {
 			vm.UpdateConfig(config)
 		}()
 	}
-	
+
 	// Search for similar commands
 	results, err := vm.SearchSimilarCommands(embedding, "", 10) // Empty context to search all
 	if err != nil {
@@ -331,15 +331,15 @@ func searchSimilarCommands(vm *VectorDBManager, query string) {
 		keywordSearch(vm, searchQuery)
 		return
 	}
-	
+
 	// Display results
 	if len(results) == 0 {
 		fmt.Println("No similar commands found")
 		return
 	}
-	
+
 	fmt.Printf("Found %d similar commands (metric: %s):\n\n", len(results), metric)
-	
+
 	for i, result := range results {
 		// Parse metadata to get similarity score if available
 		similarityStr := ""
@@ -351,10 +351,10 @@ func searchSimilarCommands(vm *VectorDBManager, query string) {
 				}
 			}
 		}
-		
+
 		// Calculate time since last used
 		timeSince := formatTimeSince(time.Since(result.LastUsed))
-		
+
 		fmt.Printf("%d. Command: %s%s\n", i+1, result.Command, similarityStr)
 		fmt.Printf("   Directory: %s\n", result.Directory)
 		fmt.Printf("   Used: %d times, last used %s ago\n", result.Frequency, timeSince)
@@ -433,7 +433,7 @@ func generateEmbedding(vm *VectorDBManager, command string) {
 	// In a real implementation, we would:
 	// 1. Generate an embedding for the command using the model
 	// 2. Return information about the embedding
-	
+
 	// For demonstration, just show the planned embedding
 	fmt.Printf("Command: %s\n", command)
 	fmt.Printf("Embedding Dimension: %d\n", vm.config.EmbeddingDimension)
@@ -452,12 +452,12 @@ func showVectorConfig(vm *VectorDBManager) {
 	fmt.Printf("Distance Metric: %s\n", vm.config.DistanceMetric)
 	fmt.Printf("Max Entries: %d\n", vm.config.MaxEntries)
 	fmt.Printf("Index Rebuild Interval: %d minutes\n", vm.config.IndexBuildInterval)
-	
+
 	// Show Jaccard threshold if using Jaccard similarity
 	if vm.config.DistanceMetric == "jaccard" {
 		fmt.Printf("Jaccard Similarity Threshold: %.2f\n", vm.config.JaccardThreshold)
 	}
-	
+
 	fmt.Println("\nCommand Types:")
 	for _, cmdType := range vm.config.CommandTypes {
 		fmt.Printf("  - %s\n", cmdType)
@@ -494,7 +494,7 @@ func updateVectorConfig(vm *VectorDBManager, setting, value string) {
 			"manhattan": true,
 			"jaccard":   true,
 		}
-		
+
 		if !validMetrics[value] {
 			fmt.Println("Metric must be one of: cosine, dot, euclidean, manhattan, jaccard")
 			return
@@ -516,7 +516,7 @@ func updateVectorConfig(vm *VectorDBManager, setting, value string) {
 			return
 		}
 		config.IndexBuildInterval = interval
-		
+
 	case "jaccard_threshold":
 		threshold, err := strconv.ParseFloat(value, 32)
 		if err != nil || threshold < 0 || threshold > 1 {
@@ -576,7 +576,7 @@ func exportVectorDatabase(vm *VectorDBManager, filePath string) {
 	}
 
 	fmt.Printf("Exporting vector database to: %s\n", filePath)
-	
+
 	// Expand ~ in file path if present
 	if strings.HasPrefix(filePath, "~") {
 		homeDir, err := os.UserHomeDir()
@@ -584,7 +584,7 @@ func exportVectorDatabase(vm *VectorDBManager, filePath string) {
 			filePath = filepath.Join(homeDir, filePath[1:])
 		}
 	}
-	
+
 	// Ensure the directory exists
 	dir := filepath.Dir(filePath)
 	err := os.MkdirAll(dir, 0755)
@@ -610,11 +610,11 @@ func exportVectorDatabase(vm *VectorDBManager, filePath string) {
 
 	fileSizeMB := float64(fileInfo.Size()) / 1024 / 1024
 	duration := time.Since(startTime)
-	
+
 	fmt.Printf("Export completed successfully to %s\n", filePath)
 	fmt.Printf("  Size: %.2f MB\n", fileSizeMB)
 	fmt.Printf("  Duration: %s\n", formatVectorDuration(duration))
-	
+
 	// Get the number of embeddings
 	stats := vm.GetStats()
 	if vectorCount, ok := stats["vector_count"].(int); ok {
@@ -636,7 +636,7 @@ func importVectorDatabase(vm *VectorDBManager, filePath string, mergeStrategy st
 		"merge":      true,
 		"keep_newer": true,
 	}
-	
+
 	if !validStrategies[mergeStrategy] {
 		fmt.Printf("Invalid merge strategy: %s\n", mergeStrategy)
 		fmt.Println("Available strategies: replace, merge, keep_newer")
@@ -645,7 +645,7 @@ func importVectorDatabase(vm *VectorDBManager, filePath string, mergeStrategy st
 
 	fmt.Printf("Importing vector database from: %s\n", filePath)
 	fmt.Printf("Using merge strategy: %s\n", mergeStrategy)
-	
+
 	// Expand ~ in file path if present
 	if strings.HasPrefix(filePath, "~") {
 		homeDir, err := os.UserHomeDir()
@@ -653,7 +653,7 @@ func importVectorDatabase(vm *VectorDBManager, filePath string, mergeStrategy st
 			filePath = filepath.Join(homeDir, filePath[1:])
 		}
 	}
-	
+
 	// Check if the file exists
 	_, err := os.Stat(filePath)
 	if err != nil {
@@ -684,12 +684,12 @@ func importVectorDatabase(vm *VectorDBManager, filePath string, mergeStrategy st
 	}
 
 	duration := time.Since(startTime)
-	
+
 	fmt.Printf("Import completed successfully\n")
 	fmt.Printf("  Duration: %s\n", formatVectorDuration(duration))
 	fmt.Printf("  Embeddings before: %d\n", countBefore)
 	fmt.Printf("  Embeddings after: %d\n", countAfter)
-	fmt.Printf("  Net change: %+d\n", countAfter - countBefore)
+	fmt.Printf("  Net change: %+d\n", countAfter-countBefore)
 }
 
 // formatTimeSince formats a duration in a user-friendly way

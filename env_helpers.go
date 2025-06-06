@@ -61,13 +61,13 @@ func getEnvString(name string, defaultValue string) string {
 // listDeltaEnvVars returns a map of all Delta CLI environment variables
 func listDeltaEnvVars() map[string]string {
 	result := make(map[string]string)
-	
+
 	for _, env := range os.Environ() {
 		parts := strings.SplitN(env, "=", 2)
 		if len(parts) == 2 && strings.HasPrefix(parts[0], envVarPrefix) {
 			result[parts[0]] = parts[1]
 		}
 	}
-	
+
 	return result
 }

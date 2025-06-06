@@ -203,7 +203,7 @@ func showPatternStats(pm *PatternUpdateManager) {
 			fmt.Println("  Next scheduled check: Due now")
 		} else {
 			timeUntil := time.Until(nextCheck)
-			fmt.Printf("  Next scheduled check: %s (in %s)\n", 
+			fmt.Printf("  Next scheduled check: %s (in %s)\n",
 				nextCheck.Format("2006-01-02 15:04:05"),
 				formatDuration(timeUntil))
 		}
@@ -298,10 +298,10 @@ func showPatternVersions(pm *PatternUpdateManager) {
 		}
 
 		fmt.Println("\nLatest Available Versions:")
-		fmt.Printf("  Error Patterns: %s (updated on %s)\n", 
+		fmt.Printf("  Error Patterns: %s (updated on %s)\n",
 			latestVersions.Patterns.ErrorPatterns.Version,
 			latestVersions.Patterns.ErrorPatterns.UpdatedAt)
-		fmt.Printf("  Common Commands: %s (updated on %s)\n", 
+		fmt.Printf("  Common Commands: %s (updated on %s)\n",
 			latestVersions.Patterns.CommonCommands.Version,
 			latestVersions.Patterns.CommonCommands.UpdatedAt)
 

@@ -12,25 +12,34 @@ import (
 
 // ConfigManager provides centralized configuration management for all Delta CLI components
 type ConfigManager struct {
-	configDir      string
-	configPath     string
-	mutex          sync.RWMutex
-	isInitialized  bool
-	lastSaved      time.Time
-	memoryConfig   *MemoryConfig
-	aiConfig       *AIPredictionConfig
-	vectorConfig   *VectorDBConfig
+	configDir       string
+	configPath      string
+	mutex           sync.RWMutex
+	isInitialized   bool
+	lastSaved       time.Time
+	i18nConfig      *I18nConfig
+	memoryConfig    *MemoryConfig
+	aiConfig        *AIPredictionConfig
+	vectorConfig    *VectorDBConfig
 	embeddingConfig *EmbeddingConfig
 	inferenceConfig *InferenceConfig
-	learningConfig *LearningConfig
-	tokenConfig    *TokenizerConfig
-	agentConfig    *AgentManagerConfig
+	learningConfig  *LearningConfig
+	tokenConfig     *TokenizerConfig
+	agentConfig     *AgentManagerConfig
+}
+
+// I18nConfig contains internationalization settings
+type I18nConfig struct {
+	Locale             string `json:"locale"`
+	FallbackLocale     string `json:"fallback_locale"`
+	AutoDetectLanguage bool   `json:"auto_detect_language"`
 }
 
 // SystemConfig contains all component configurations
 type SystemConfig struct {
 	ConfigVersion   string              `json:"config_version"`
 	LastUpdated     time.Time           `json:"last_updated"`
+	I18nConfig      *I18nConfig         `json:"i18n_config,omitempty"`
 	MemoryConfig    *MemoryConfig       `json:"memory_config,omitempty"`
 	AIConfig        *AIPredictionConfig `json:"ai_config,omitempty"`
 	VectorConfig    *VectorDBConfig     `json:"vector_config,omitempty"`
@@ -81,7 +90,7 @@ func (cm *ConfigManager) InitializeBase() error {
 	if err := cm.loadConfig(); err != nil {
 		// If loading fails, create minimal config without collecting from components
 		// to avoid circular dependencies
-		
+
 		// Save an empty configuration
 		if err := cm.saveConfig(); err != nil {
 			return fmt.Errorf("failed to save initial configuration: %v", err)
@@ -98,7 +107,14 @@ func (cm *ConfigManager) InitializeBase() error {
 // applyEnvironmentVariables applies settings from environment variables without updating components
 func (cm *ConfigManager) applyEnvironmentVariables() {
 	// Only apply environment variables if the component configs exist
-	
+
+	// I18n config overrides
+	if cm.i18nConfig != nil {
+		cm.i18nConfig.Locale = getEnvString("DELTA_LOCALE", cm.i18nConfig.Locale)
+		cm.i18nConfig.FallbackLocale = getEnvString("DELTA_FALLBACK_LOCALE", cm.i18nConfig.FallbackLocale)
+		cm.i18nConfig.AutoDetectLanguage = getEnvBool("DELTA_AUTO_DETECT_LANGUAGE", cm.i18nConfig.AutoDetectLanguage)
+	}
+
 	// Memory config overrides
 	if cm.memoryConfig != nil {
 		cm.memoryConfig.Enabled = getEnvBool("DELTA_MEMORY_ENABLED", cm.memoryConfig.Enabled)
@@ -106,28 +122,28 @@ func (cm *ConfigManager) applyEnvironmentVariables() {
 		cm.memoryConfig.MaxEntries = getEnvInt("DELTA_MEMORY_MAX_ENTRIES", cm.memoryConfig.MaxEntries)
 		cm.memoryConfig.StoragePath = getEnvString("DELTA_MEMORY_STORAGE_PATH", cm.memoryConfig.StoragePath)
 	}
-	
+
 	// AI config overrides
 	if cm.aiConfig != nil {
 		cm.aiConfig.Enabled = getEnvBool("DELTA_AI_ENABLED", cm.aiConfig.Enabled)
 		cm.aiConfig.ModelName = getEnvString("DELTA_AI_MODEL", cm.aiConfig.ModelName)
 		cm.aiConfig.ServerURL = getEnvString("DELTA_AI_SERVER_URL", cm.aiConfig.ServerURL)
 	}
-	
+
 	// Vector DB config overrides
 	if cm.vectorConfig != nil {
 		cm.vectorConfig.Enabled = getEnvBool("DELTA_VECTOR_ENABLED", cm.vectorConfig.Enabled)
 		cm.vectorConfig.DistanceMetric = getEnvString("DELTA_VECTOR_DISTANCE_METRIC", cm.vectorConfig.DistanceMetric)
 		cm.vectorConfig.DBPath = getEnvString("DELTA_VECTOR_DB_PATH", cm.vectorConfig.DBPath)
 	}
-	
+
 	// Embedding config overrides
 	if cm.embeddingConfig != nil {
 		cm.embeddingConfig.Enabled = getEnvBool("DELTA_EMBEDDING_ENABLED", cm.embeddingConfig.Enabled)
 		cm.embeddingConfig.ModelPath = getEnvString("DELTA_EMBEDDING_MODEL_PATH", cm.embeddingConfig.ModelPath)
 		cm.embeddingConfig.ModelURL = getEnvString("DELTA_EMBEDDING_MODEL_URL", cm.embeddingConfig.ModelURL)
 	}
-	
+
 	// Inference config overrides
 	if cm.inferenceConfig != nil {
 		cm.inferenceConfig.Enabled = getEnvBool("DELTA_INFERENCE_ENABLED", cm.inferenceConfig.Enabled)
@@ -164,7 +180,7 @@ func (cm *ConfigManager) Initialize() error {
 		// Already initialized, just update components
 		cm.updateComponentConfigs()
 	}
-	
+
 	return nil
 }
 
@@ -189,6 +205,7 @@ func (cm *ConfigManager) loadConfig() error {
 	}
 
 	// Set component configurations
+	cm.i18nConfig = config.I18nConfig
 	cm.memoryConfig = config.MemoryConfig
 	cm.aiConfig = config.AIConfig
 	cm.vectorConfig = config.VectorConfig
@@ -204,6 +221,23 @@ func (cm *ConfigManager) loadConfig() error {
 
 // collectConfigs gathers configurations from individual components
 func (cm *ConfigManager) collectConfigs() error {
+	// I18n Manager
+	i18n := GetI18nManager()
+	if i18n != nil {
+		cm.i18nConfig = &I18nConfig{
+			Locale:             i18n.GetCurrentLocale(),
+			FallbackLocale:     i18n.fallbackLocale,
+			AutoDetectLanguage: true,
+		}
+	} else {
+		// Default i18n config
+		cm.i18nConfig = &I18nConfig{
+			Locale:             "en",
+			FallbackLocale:     "en",
+			AutoDetectLanguage: true,
+		}
+	}
+
 	// Memory Manager
 	mm := GetMemoryManager()
 	if mm != nil {
@@ -256,6 +290,7 @@ func (cm *ConfigManager) saveConfig() error {
 	config := SystemConfig{
 		ConfigVersion:   "1.0",
 		LastUpdated:     time.Now(),
+		I18nConfig:      cm.i18nConfig,
 		MemoryConfig:    cm.memoryConfig,
 		AIConfig:        cm.aiConfig,
 		VectorConfig:    cm.vectorConfig,
@@ -285,6 +320,13 @@ func (cm *ConfigManager) saveConfig() error {
 
 	cm.lastSaved = config.LastUpdated
 	return nil
+}
+
+// GetI18nConfig returns the i18n configuration
+func (cm *ConfigManager) GetI18nConfig() *I18nConfig {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+	return cm.i18nConfig
 }
 
 // GetMemoryConfig returns the memory configuration
@@ -341,6 +383,15 @@ func (cm *ConfigManager) GetAgentConfig() *AgentManagerConfig {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 	return cm.agentConfig
+}
+
+// UpdateI18nConfig updates the i18n configuration
+func (cm *ConfigManager) UpdateI18nConfig(config *I18nConfig) error {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
+	cm.i18nConfig = config
+	return cm.saveConfig()
 }
 
 // UpdateMemoryConfig updates the memory configuration
@@ -424,6 +475,7 @@ func (cm *ConfigManager) ExportConfig(path string) error {
 	config := SystemConfig{
 		ConfigVersion:   "1.0",
 		LastUpdated:     time.Now(),
+		I18nConfig:      cm.i18nConfig,
 		MemoryConfig:    cm.memoryConfig,
 		AIConfig:        cm.aiConfig,
 		VectorConfig:    cm.vectorConfig,
@@ -468,6 +520,7 @@ func (cm *ConfigManager) ImportConfig(path string) error {
 	}
 
 	// Set component configurations
+	cm.i18nConfig = config.I18nConfig
 	cm.memoryConfig = config.MemoryConfig
 	cm.aiConfig = config.AIConfig
 	cm.vectorConfig = config.VectorConfig
@@ -484,7 +537,14 @@ func (cm *ConfigManager) ImportConfig(path string) error {
 // applyEnvironmentOverrides applies settings from environment variables
 func (cm *ConfigManager) applyEnvironmentOverrides() {
 	// Only apply environment variables if the component configs exist
-	
+
+	// I18n config overrides
+	if cm.i18nConfig != nil {
+		cm.i18nConfig.Locale = getEnvString("DELTA_LOCALE", cm.i18nConfig.Locale)
+		cm.i18nConfig.FallbackLocale = getEnvString("DELTA_FALLBACK_LOCALE", cm.i18nConfig.FallbackLocale)
+		cm.i18nConfig.AutoDetectLanguage = getEnvBool("DELTA_AUTO_DETECT_LANGUAGE", cm.i18nConfig.AutoDetectLanguage)
+	}
+
 	// Memory config overrides
 	if cm.memoryConfig != nil {
 		cm.memoryConfig.Enabled = getEnvBool("DELTA_MEMORY_ENABLED", cm.memoryConfig.Enabled)
@@ -492,28 +552,28 @@ func (cm *ConfigManager) applyEnvironmentOverrides() {
 		cm.memoryConfig.MaxEntries = getEnvInt("DELTA_MEMORY_MAX_ENTRIES", cm.memoryConfig.MaxEntries)
 		cm.memoryConfig.StoragePath = getEnvString("DELTA_MEMORY_STORAGE_PATH", cm.memoryConfig.StoragePath)
 	}
-	
+
 	// AI config overrides
 	if cm.aiConfig != nil {
 		cm.aiConfig.Enabled = getEnvBool("DELTA_AI_ENABLED", cm.aiConfig.Enabled)
 		cm.aiConfig.ModelName = getEnvString("DELTA_AI_MODEL", cm.aiConfig.ModelName)
 		cm.aiConfig.ServerURL = getEnvString("DELTA_AI_SERVER_URL", cm.aiConfig.ServerURL)
 	}
-	
+
 	// Vector config overrides
 	if cm.vectorConfig != nil {
 		cm.vectorConfig.Enabled = getEnvBool("DELTA_VECTOR_ENABLED", cm.vectorConfig.Enabled)
 		cm.vectorConfig.DBPath = getEnvString("DELTA_VECTOR_DB_PATH", cm.vectorConfig.DBPath)
 		cm.vectorConfig.InMemoryMode = getEnvBool("DELTA_VECTOR_IN_MEMORY_MODE", cm.vectorConfig.InMemoryMode)
 	}
-	
+
 	// Embedding config overrides
 	if cm.embeddingConfig != nil {
 		cm.embeddingConfig.Enabled = getEnvBool("DELTA_EMBEDDING_ENABLED", cm.embeddingConfig.Enabled)
 		cm.embeddingConfig.Dimensions = getEnvInt("DELTA_EMBEDDING_DIMENSIONS", cm.embeddingConfig.Dimensions)
 		cm.embeddingConfig.CacheSize = getEnvInt("DELTA_EMBEDDING_CACHE_SIZE", cm.embeddingConfig.CacheSize)
 	}
-	
+
 	// Inference config overrides
 	if cm.inferenceConfig != nil {
 		cm.inferenceConfig.Enabled = getEnvBool("DELTA_INFERENCE_ENABLED", cm.inferenceConfig.Enabled)
@@ -521,7 +581,7 @@ func (cm *ConfigManager) applyEnvironmentOverrides() {
 		cm.inferenceConfig.MaxTokens = getEnvInt("DELTA_INFERENCE_MAX_TOKENS", cm.inferenceConfig.MaxTokens)
 		cm.inferenceConfig.Temperature = getEnvFloat("DELTA_INFERENCE_TEMPERATURE", cm.inferenceConfig.Temperature)
 	}
-	
+
 	// Learning config overrides
 	if cm.learningConfig != nil {
 		cm.learningConfig.CollectFeedback = getEnvBool("DELTA_LEARNING_COLLECT_FEEDBACK", cm.learningConfig.CollectFeedback)
@@ -529,14 +589,14 @@ func (cm *ConfigManager) applyEnvironmentOverrides() {
 		cm.learningConfig.CustomModelPath = getEnvString("DELTA_LEARNING_CUSTOM_MODEL_PATH", cm.learningConfig.CustomModelPath)
 		cm.learningConfig.TrainingThreshold = getEnvInt("DELTA_LEARNING_TRAINING_THRESHOLD", cm.learningConfig.TrainingThreshold)
 	}
-	
+
 	// Tokenizer config overrides
 	if cm.tokenConfig != nil {
 		cm.tokenConfig.Enabled = getEnvBool("DELTA_TOKEN_ENABLED", cm.tokenConfig.Enabled)
 		cm.tokenConfig.VocabSize = getEnvInt("DELTA_TOKEN_VOCAB_SIZE", cm.tokenConfig.VocabSize)
 		cm.tokenConfig.StoragePath = getEnvString("DELTA_TOKEN_STORAGE_PATH", cm.tokenConfig.StoragePath)
 	}
-	
+
 	// Agent config overrides
 	if cm.agentConfig != nil {
 		cm.agentConfig.Enabled = getEnvBool("DELTA_AGENT_ENABLED", cm.agentConfig.Enabled)
@@ -545,37 +605,44 @@ func (cm *ConfigManager) applyEnvironmentOverrides() {
 		cm.agentConfig.UseDockerBuilds = getEnvBool("DELTA_AGENT_USE_DOCKER", cm.agentConfig.UseDockerBuilds)
 		cm.agentConfig.UseAIAssistance = getEnvBool("DELTA_AGENT_USE_AI", cm.agentConfig.UseAIAssistance)
 	}
-	
+
 	// Important: Update the components with the new settings if they're already initialized
 	cm.updateComponentConfigs()
 }
 
 // updateComponentConfigs updates all component managers with the current configuration
 func (cm *ConfigManager) updateComponentConfigs() {
+	// I18n Manager
+	i18n := GetI18nManager()
+	if i18n != nil && cm.i18nConfig != nil {
+		i18n.SetLocale(cm.i18nConfig.Locale)
+		i18n.fallbackLocale = cm.i18nConfig.FallbackLocale
+	}
+
 	// Memory Manager
 	mm := GetMemoryManager()
 	if mm != nil && cm.memoryConfig != nil {
 		mm.config = *cm.memoryConfig
 	}
-	
+
 	// AI Manager
 	ai := GetAIManager()
 	if ai != nil && cm.aiConfig != nil {
 		ai.config = *cm.aiConfig
 	}
-	
+
 	// Vector DB Manager
 	vdb := GetVectorDBManager()
 	if vdb != nil && cm.vectorConfig != nil {
 		vdb.config = *cm.vectorConfig
 	}
-	
+
 	// Embedding Manager
 	em := GetEmbeddingManager()
 	if em != nil && cm.embeddingConfig != nil {
 		em.config = *cm.embeddingConfig
 	}
-	
+
 	// Inference Manager
 	im := GetInferenceManager()
 	if im != nil {
@@ -586,13 +653,13 @@ func (cm *ConfigManager) updateComponentConfigs() {
 			im.learningConfig = *cm.learningConfig
 		}
 	}
-	
+
 	// Tokenizer
 	tk := GetTokenizer()
 	if tk != nil && cm.tokenConfig != nil {
 		tk.Config = *cm.tokenConfig
 	}
-	
+
 	// Agent Manager
 	am := GetAgentManager()
 	if am != nil && cm.agentConfig != nil {
@@ -609,12 +676,12 @@ func getEnvBool(key string, defaultValue bool) bool {
 	if value == "" {
 		return defaultValue
 	}
-	
+
 	val, err := strconv.ParseBool(value)
 	if err != nil {
 		return defaultValue
 	}
-	
+
 	return val
 }
 
@@ -623,12 +690,12 @@ func getEnvInt(key string, defaultValue int) int {
 	if value == "" {
 		return defaultValue
 	}
-	
+
 	val, err := strconv.Atoi(value)
 	if err != nil {
 		return defaultValue
 	}
-	
+
 	return val
 }
 
@@ -637,7 +704,7 @@ func getEnvString(key string, defaultValue string) string {
 	if value == "" {
 		return defaultValue
 	}
-	
+
 	return value
 }
 
@@ -646,12 +713,12 @@ func getEnvFloat(key string, defaultValue float64) float64 {
 	if value == "" {
 		return defaultValue
 	}
-	
+
 	val, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		return defaultValue
 	}
-	
+
 	return val
 }
 

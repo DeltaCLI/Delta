@@ -68,5 +68,86 @@ When creating git commits, use the following format:
 - Always add: "Co-Authored-By: Delta Operator <noreply@deltacli.dev>"
 - NEVER use "Co-Authored-By: Claude <noreply@anthropic.com>"
 
+## Internationalization (i18n)
+
+### Adding New Languages
+When adding support for new languages:
+
+1. **Create Language Directory Structure**:
+   ```bash
+   mkdir -p i18n/locales/<language_code>
+   ```
+   - Use ISO 639-1 language codes (e.g., `de` for German, `pt` for Portuguese)
+   - For regional variants, use ISO 3166 country codes (e.g., `zh-CN` for Simplified Chinese)
+
+2. **Required Translation Files**:
+   Each language directory must contain:
+   - `commands.json` - Command-specific translations
+   - `interface.json` - UI and system message translations
+
+3. **Translation File Structure**:
+   - Follow the exact JSON structure of existing files in `i18n/locales/en/`
+   - All translation keys must match the English version
+   - Include metadata section with language info:
+     ```json
+     {
+       "meta": {
+         "language": "Language Name",
+         "locale": "language_code",
+         "version": "1.0.0",
+         "contributors": ["Delta Team", "Translator Name"]
+       },
+       ...
+     }
+     ```
+
+4. **Supported Languages**:
+   Currently supported languages include:
+   - English (en) - Base language
+   - Spanish (es)
+   - French (fr)
+   - Italian (it)
+   - Dutch (nl)
+   - Chinese Simplified (zh-CN)
+   - German (de) - v0.2.0-alpha
+   - Portuguese (pt) - v0.2.0-alpha
+   - Russian (ru) - v0.2.0-alpha
+   - Japanese (ja) - v0.2.0-alpha
+   - Korean (ko) - v0.2.0-alpha
+
+5. **Advanced Pluralization Support**:
+   - Supports complex pluralization rules for 25+ languages
+   - Use standard CLDR plural categories: `zero`, `one`, `two`, `few`, `many`, `other`
+   - Examples:
+     ```json
+     "items": {
+       "one": "{{count}} item",
+       "other": "{{count}} items"
+     }
+     ```
+   - For complex languages (Russian, Arabic, etc.):
+     ```json
+     "files": {
+       "one": "{{count}} файл",     // 1 file
+       "few": "{{count}} файла",    // 2-4 files  
+       "many": "{{count}} файлов"   // 5+ files
+     }
+     ```
+   - Supported pluralization patterns:
+     - **Simple (2 forms)**: English, German, Dutch, Swedish, etc.
+     - **Slavic (3 forms)**: Russian, Polish, Czech, Ukrainian, etc.
+     - **Celtic (4-6 forms)**: Irish, Welsh, Scottish Gaelic, Breton
+     - **Semitic (6 forms)**: Arabic
+     - **No pluralization**: Japanese, Korean, Chinese, Thai, Vietnamese
+
+6. **Variable Interpolation**:
+   - Use `{{variable_name}}` syntax for dynamic content
+   - Example: `"welcome": "Hello {{name}}!"`
+
+### Configuration Integration
+- Language preferences are persisted in the user configuration
+- Set via environment variables: `DELTA_LOCALE`, `DELTA_FALLBACK_LOCALE`, `DELTA_AUTO_DETECT_LANGUAGE`
+- Commands: `:i18n locale <code>` to change language, `:i18n list` to see available languages
+
 ## Special User Commands
 - If the user says "continue", analyze TASKS.md, docs/planning/PLAN.md, or milestone files to determine the next course of action

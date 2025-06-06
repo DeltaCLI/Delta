@@ -100,13 +100,13 @@ func showTrainingDataStats(tds *TrainingDataService) {
 	fmt.Println("=======================")
 
 	fmt.Printf("Total Examples: %d\n", stats["total_examples"].(int))
-	fmt.Printf("  Positive: %d (%.1f%%)\n", 
+	fmt.Printf("  Positive: %d (%.1f%%)\n",
 		stats["positive_examples"].(int),
 		100*float64(stats["positive_examples"].(int))/float64(stats["total_examples"].(int)))
-	fmt.Printf("  Negative: %d (%.1f%%)\n", 
+	fmt.Printf("  Negative: %d (%.1f%%)\n",
 		stats["negative_examples"].(int),
 		100*float64(stats["negative_examples"].(int))/float64(stats["total_examples"].(int)))
-	fmt.Printf("  Neutral: %d (%.1f%%)\n", 
+	fmt.Printf("  Neutral: %d (%.1f%%)\n",
 		stats["neutral_examples"].(int),
 		100*float64(stats["neutral_examples"].(int))/float64(stats["total_examples"].(int)))
 
@@ -114,7 +114,7 @@ func showTrainingDataStats(tds *TrainingDataService) {
 	fmt.Println("\nSource Distribution:")
 	srcDist := stats["source_distribution"].(map[string]int)
 	for src, count := range srcDist {
-		fmt.Printf("  %s: %d (%.1f%%)\n", 
+		fmt.Printf("  %s: %d (%.1f%%)\n",
 			src, count,
 			100*float64(count)/float64(stats["total_examples"].(int)))
 	}
@@ -139,13 +139,13 @@ func showTrainingDataStats(tds *TrainingDataService) {
 
 	// Quality assessment
 	fmt.Println("\nData Quality Assessment:")
-	
+
 	// Calculate class balance ratio
 	positive := float64(stats["positive_examples"].(int))
 	negative := float64(stats["negative_examples"].(int))
 	neutral := float64(stats["neutral_examples"].(int))
 	total := positive + negative + neutral
-	
+
 	if total > 0 {
 		classBalance := 0.0
 		if positive > 0 && negative > 0 {
@@ -155,7 +155,7 @@ func showTrainingDataStats(tds *TrainingDataService) {
 				classBalance = positive / negative
 			}
 		}
-		
+
 		fmt.Printf("  Class Balance: %.2f (", classBalance)
 		if classBalance >= 0.8 {
 			fmt.Print("Good - classes are well balanced)")
@@ -166,9 +166,9 @@ func showTrainingDataStats(tds *TrainingDataService) {
 		}
 		fmt.Println()
 	}
-	
+
 	// Coverage assessment
-	coverageRatio := float64(stats["total_examples"].(int)) / float64(stats["total_commands"].(int) + 1)
+	coverageRatio := float64(stats["total_examples"].(int)) / float64(stats["total_commands"].(int)+1)
 	fmt.Printf("  Command Coverage: %.3f (", coverageRatio)
 	if coverageRatio >= 0.1 {
 		fmt.Print("Good - feedback covers many commands)")
@@ -270,7 +270,7 @@ func extractTrainingData(tds *TrainingDataService, args []string) {
 	fmt.Printf("  Positive: %d\n", stats["positive_examples"].(int))
 	fmt.Printf("  Negative: %d\n", stats["negative_examples"].(int))
 	fmt.Printf("  Neutral: %d\n", stats["neutral_examples"].(int))
-	
+
 	// Show next steps
 	fmt.Println("\nNext Steps:")
 	fmt.Println("1. Use this data for training with ':memory train start'")
@@ -303,7 +303,7 @@ func evaluateTrainingData(tds *TrainingDataService, args []string) {
 			fmt.Printf("Error getting home directory: %v\n", err)
 			return
 		}
-		
+
 		// Try to find the most recent training data
 		dataDir := filepath.Join(homeDir, ".config", "delta", "memory", "training_data")
 		files, err := os.ReadDir(dataDir)
@@ -311,7 +311,7 @@ func evaluateTrainingData(tds *TrainingDataService, args []string) {
 			fmt.Printf("Error reading training data directory: %v\n", err)
 			return
 		}
-		
+
 		// Find the most recent metadata file
 		var newest os.FileInfo
 		var newestPath string
@@ -321,14 +321,14 @@ func evaluateTrainingData(tds *TrainingDataService, args []string) {
 				if err != nil {
 					continue
 				}
-				
+
 				if newest == nil || info.ModTime().After(newest.ModTime()) {
 					newest = info
 					newestPath = filepath.Join(dataDir, file.Name())
 				}
 			}
 		}
-		
+
 		if newestPath != "" {
 			dataPath = strings.TrimSuffix(newestPath, filepath.Ext(newestPath))
 		} else {
@@ -346,25 +346,25 @@ func evaluateTrainingData(tds *TrainingDataService, args []string) {
 	fmt.Println("Training Data Evaluation")
 	fmt.Println("=======================")
 	fmt.Printf("Evaluating data from: %s\n", dataPath)
-	
+
 	// For now, show basic statistics
 	// In a full implementation, we'd load and analyze the data in detail
 	stats := tds.GetTrainingDataStats()
-	
+
 	fmt.Printf("\nData Size: %d examples\n", stats["total_examples"].(int))
-	
+
 	// Calculate class balance metrics
 	positive := float64(stats["positive_examples"].(int))
 	negative := float64(stats["negative_examples"].(int))
 	neutral := float64(stats["neutral_examples"].(int))
 	total := positive + negative + neutral
-	
+
 	if total > 0 {
 		fmt.Printf("\nClass Distribution:\n")
 		fmt.Printf("  Positive: %.1f%%\n", 100*positive/total)
 		fmt.Printf("  Negative: %.1f%%\n", 100*negative/total)
 		fmt.Printf("  Neutral: %.1f%%\n", 100*neutral/total)
-		
+
 		classBalance := 0.0
 		if positive > 0 && negative > 0 {
 			if positive > negative {
@@ -373,7 +373,7 @@ func evaluateTrainingData(tds *TrainingDataService, args []string) {
 				classBalance = positive / negative
 			}
 		}
-		
+
 		fmt.Printf("\nClass Balance Score: %.2f\n", classBalance)
 		if classBalance >= 0.8 {
 			fmt.Println("  ✓ Good - classes are well balanced")
@@ -383,18 +383,18 @@ func evaluateTrainingData(tds *TrainingDataService, args []string) {
 			fmt.Println("  ✗ Poor - significant class imbalance")
 		}
 	}
-	
+
 	// Source distribution metrics
 	fmt.Println("\nSource Distribution:")
 	srcDist := stats["source_distribution"].(map[string]int)
 	for src, count := range srcDist {
-		fmt.Printf("  %s: %d (%.1f%%)\n", 
+		fmt.Printf("  %s: %d (%.1f%%)\n",
 			src, count,
 			100*float64(count)/float64(stats["total_examples"].(int)))
 	}
-	
+
 	// Coverage assessment
-	coverageRatio := float64(stats["total_examples"].(int)) / float64(stats["total_commands"].(int) + 1)
+	coverageRatio := float64(stats["total_examples"].(int)) / float64(stats["total_commands"].(int)+1)
 	fmt.Printf("\nCommand Coverage: %.3f\n", coverageRatio)
 	if coverageRatio >= 0.1 {
 		fmt.Println("  ✓ Good - feedback covers many commands")
@@ -403,9 +403,9 @@ func evaluateTrainingData(tds *TrainingDataService, args []string) {
 	} else {
 		fmt.Println("  ✗ Limited - feedback covers few commands")
 	}
-	
+
 	// Overall quality score
-	qualityScore := (coverageRatio * 5 + classBalance) / 2
+	qualityScore := (coverageRatio*5 + classBalance) / 2
 	fmt.Printf("\nOverall Quality Score: %.2f/5.0\n", qualityScore)
 	if qualityScore >= 3.5 {
 		fmt.Println("  ✓ Good - data is ready for training")
@@ -414,19 +414,19 @@ func evaluateTrainingData(tds *TrainingDataService, args []string) {
 	} else {
 		fmt.Println("  ✗ Poor - consider collecting more diverse feedback")
 	}
-	
+
 	// Recommendations
 	fmt.Println("\nRecommendations:")
-	if negative < positive * 0.5 {
+	if negative < positive*0.5 {
 		fmt.Println("  - Collect more negative feedback for better balance")
 	}
-	if neutral < total * 0.1 {
+	if neutral < total*0.1 {
 		fmt.Println("  - Add more correction examples for improved quality")
 	}
 	if coverageRatio < 0.05 {
 		fmt.Println("  - Provide feedback for a wider variety of commands")
 	}
-	
+
 	// General recommendation
 	fmt.Println("  - Continue collecting feedback with ':inference feedback'")
 }
@@ -440,7 +440,7 @@ func showTrainingCommandHelp() {
 	fmt.Println("  :training extract [options] - Extract training data")
 	fmt.Println("  :training evaluate [options] - Evaluate training data quality")
 	fmt.Println("  :training help             - Show this help message")
-	
+
 	fmt.Println("\nExtract Options:")
 	fmt.Println("  --json                     - Use JSON format (default)")
 	fmt.Println("  --csv                      - Use CSV format")
@@ -454,7 +454,7 @@ func showTrainingCommandHelp() {
 	fmt.Println("  --filter <types>           - Filter by feedback types (helpful,unhelpful,correction)")
 	fmt.Println("  --from <date>              - Start date (YYYY-MM-DD)")
 	fmt.Println("  --to <date>                - End date (YYYY-MM-DD)")
-	
+
 	fmt.Println("\nEvaluate Options:")
 	fmt.Println("  --path <path>              - Path to training data directory")
 	fmt.Println("  --verbose                  - Show detailed evaluation")

@@ -112,19 +112,19 @@ func HandleInferenceCommand(args []string) bool {
 func showInferenceStatus(im *InferenceManager) {
 	fmt.Println("Inference System Status")
 	fmt.Println("=======================")
-	
+
 	stats := im.GetInferenceStats()
-	
+
 	enabled := stats["learning_enabled"].(bool)
 	fmt.Printf("Learning System: %s\n", formatStatus(enabled))
-	
+
 	fmt.Printf("Feedback Collection: %s\n", formatStatus(stats["feedback_collection"].(bool)))
 	fmt.Printf("Feedback Count: %d\n", stats["feedback_count"].(int))
 	fmt.Printf("Training Examples: %d\n", stats["training_examples"].(int))
-	
+
 	fmt.Printf("\nModel Information:\n")
 	fmt.Printf("  Custom Model: %s\n", formatStatus(stats["custom_model_enabled"].(bool)))
-	
+
 	if stats["custom_model_enabled"].(bool) {
 		if stats["custom_model_available"].(bool) {
 			fmt.Printf("  Model Path: %s\n", stats["model_path"])
@@ -132,10 +132,10 @@ func showInferenceStatus(im *InferenceManager) {
 			fmt.Printf("  Model Status: Not found\n")
 		}
 	}
-	
+
 	fmt.Printf("  Ollama Inference: %s\n", formatStatus(stats["ollama_enabled"].(bool)))
 	fmt.Printf("  Local Inference: %s\n", formatStatus(stats["local_inference_enabled"].(bool)))
-	
+
 	fmt.Printf("\nTraining Status:\n")
 	fmt.Printf("  Periodic Training: %s\n", formatStatus(stats["periodic_training"].(bool)))
 	fmt.Printf("  Training Interval: %d days\n", stats["training_interval_days"].(int))
@@ -146,19 +146,19 @@ func showInferenceStatus(im *InferenceManager) {
 func showInferenceStats(im *InferenceManager) {
 	fmt.Println("Inference System Statistics")
 	fmt.Println("==========================")
-	
+
 	stats := im.GetInferenceStats()
-	
+
 	fmt.Printf("Learning System: %s\n", formatStatus(stats["learning_enabled"].(bool)))
 	fmt.Printf("Feedback Collection: %s\n", formatStatus(stats["feedback_collection"].(bool)))
 	fmt.Printf("Automatic Feedback: %s\n", formatStatus(stats["automatic_feedback"].(bool)))
-	
+
 	// Feedback data
 	fmt.Printf("\nFeedback Data:\n")
 	fmt.Printf("  Total Feedback Entries: %d\n", stats["feedback_count"].(int))
 	fmt.Printf("  Training Examples: %d\n", stats["training_examples"].(int))
 	fmt.Printf("  Accumulated Examples: %d\n", stats["accumulated_examples"].(int))
-	
+
 	// Recent feedback breakdown
 	fmt.Printf("\nRecent Feedback Breakdown:\n")
 	feedbacks, err := im.GetFeedbacks(time.Now().AddDate(0, -1, 0), time.Time{})
@@ -166,7 +166,7 @@ func showInferenceStats(im *InferenceManager) {
 		helpfulCount := 0
 		unhelpfulCount := 0
 		correctionCount := 0
-		
+
 		for _, feedback := range feedbacks {
 			switch feedback.FeedbackType {
 			case "helpful":
@@ -177,21 +177,21 @@ func showInferenceStats(im *InferenceManager) {
 				correctionCount++
 			}
 		}
-		
+
 		fmt.Printf("  Helpful: %d\n", helpfulCount)
 		fmt.Printf("  Unhelpful: %d\n", unhelpfulCount)
 		fmt.Printf("  Corrections: %d\n", correctionCount)
 		fmt.Printf("  Total Recent: %d\n", len(feedbacks))
 	}
-	
+
 	// Model information
 	fmt.Printf("\nModel Information:\n")
 	fmt.Printf("  Custom Model: %s\n", formatStatus(stats["custom_model_enabled"].(bool)))
-	
+
 	if stats["custom_model_enabled"].(bool) {
 		if stats["custom_model_available"].(bool) {
 			fmt.Printf("  Model Path: %s\n", stats["model_path"])
-			
+
 			// Get model file info
 			if fileInfo, err := os.Stat(stats["model_path"].(string)); err == nil {
 				fmt.Printf("  Model Size: %.2f MB\n", float64(fileInfo.Size())/(1024*1024))
@@ -201,15 +201,15 @@ func showInferenceStats(im *InferenceManager) {
 			fmt.Printf("  Model Status: Not found\n")
 		}
 	}
-	
+
 	fmt.Printf("  Ollama Inference: %s\n", formatStatus(stats["ollama_enabled"].(bool)))
 	fmt.Printf("  Local Inference: %s\n", formatStatus(stats["local_inference_enabled"].(bool)))
-	
+
 	fmt.Printf("\nTraining Information:\n")
 	fmt.Printf("  Periodic Training: %s\n", formatStatus(stats["periodic_training"].(bool)))
 	fmt.Printf("  Training Interval: %d days\n", stats["training_interval_days"].(int))
 	fmt.Printf("  Last Training: %s\n", stats["last_training"])
-	
+
 	// Check if training should be triggered
 	if im.ShouldTrain() {
 		fmt.Printf("\n* Training is due. Run ':memory train start' to start training.\n")
@@ -339,14 +339,14 @@ func manageCustomModel(im *InferenceManager, args []string) {
 		showInferenceStatus(im)
 		return
 	}
-	
+
 	subcmd := args[0]
-	
+
 	switch subcmd {
 	case "use":
 		if len(args) >= 2 {
 			modelPath := args[1]
-			
+
 			// If relative path, convert to absolute
 			if !filepath.IsAbs(modelPath) {
 				homeDir, _ := os.UserHomeDir()
@@ -355,67 +355,67 @@ func manageCustomModel(im *InferenceManager, args []string) {
 					modelPath = fullPath
 				}
 			}
-			
+
 			// Check if model exists
 			if _, err := os.Stat(modelPath); err != nil {
 				fmt.Printf("Model not found: %s\n", modelPath)
 				return
 			}
-			
+
 			// Update config
 			config := im.inferenceConfig
 			learning := im.learningConfig
-			
+
 			learning.UseCustomModel = true
 			learning.CustomModelPath = modelPath
 			config.UseLocalInference = true
 			config.ModelPath = modelPath
-			
+
 			err := im.UpdateConfig(config, learning)
 			if err != nil {
 				fmt.Printf("Error updating config: %v\n", err)
 				return
 			}
-			
+
 			fmt.Printf("Now using custom model: %s\n", modelPath)
 		} else {
 			fmt.Println("Usage: :inference model use <model_path>")
 		}
-		
+
 	case "disable":
 		// Disable custom model
 		config := im.inferenceConfig
 		learning := im.learningConfig
-		
+
 		learning.UseCustomModel = false
 		config.UseLocalInference = false
-		
+
 		err := im.UpdateConfig(config, learning)
 		if err != nil {
 			fmt.Printf("Error updating config: %v\n", err)
 			return
 		}
-		
+
 		fmt.Println("Custom model disabled")
-		
+
 	case "info":
 		// Show model info
 		stats := im.GetInferenceStats()
-		
+
 		fmt.Println("Model Information")
 		fmt.Println("=================")
 		fmt.Printf("Custom Model: %s\n", formatStatus(stats["custom_model_enabled"].(bool)))
-		
+
 		if stats["custom_model_enabled"].(bool) {
 			fmt.Printf("Model Path: %s\n", stats["model_path"])
-			
+
 			// Check if model exists
 			modelPath := stats["model_path"].(string)
 			if _, err := os.Stat(modelPath); err != nil {
 				fmt.Println("Model Status: Not found")
 			} else {
 				fmt.Println("Model Status: Available")
-				
+
 				// Get file info
 				if fileInfo, err := os.Stat(modelPath); err == nil {
 					fmt.Printf("Model Size: %.2f MB\n", float64(fileInfo.Size())/(1024*1024))
@@ -423,21 +423,21 @@ func manageCustomModel(im *InferenceManager, args []string) {
 				}
 			}
 		}
-		
+
 		// List available models
 		homeDir, _ := os.UserHomeDir()
 		modelsDir := filepath.Join(homeDir, ".config", "delta", "memory", "models")
-		
+
 		if files, err := os.ReadDir(modelsDir); err == nil {
 			var models []string
 			for _, file := range files {
-				if !file.IsDir() && (strings.HasSuffix(file.Name(), ".onnx") || 
-									strings.HasSuffix(file.Name(), ".pt") ||
-									strings.HasSuffix(file.Name(), ".bin")) {
+				if !file.IsDir() && (strings.HasSuffix(file.Name(), ".onnx") ||
+					strings.HasSuffix(file.Name(), ".pt") ||
+					strings.HasSuffix(file.Name(), ".bin")) {
 					models = append(models, file.Name())
 				}
 			}
-			
+
 			if len(models) > 0 {
 				fmt.Println("\nAvailable Models:")
 				for _, model := range models {
@@ -448,7 +448,7 @@ func manageCustomModel(im *InferenceManager, args []string) {
 				fmt.Println("Use ':memory train start' to train a new model")
 			}
 		}
-		
+
 	default:
 		fmt.Printf("Unknown subcommand: %s\n", subcmd)
 		fmt.Println("Usage: :inference model <use|disable|info>")
@@ -463,20 +463,20 @@ func showTrainingExamples(im *InferenceManager) {
 		fmt.Printf("Error getting examples: %v\n", err)
 		return
 	}
-	
+
 	if len(examples) == 0 {
 		fmt.Println("No training examples available")
 		fmt.Println("Add feedback with ':inference feedback [helpful|unhelpful|correction]'")
 		return
 	}
-	
+
 	fmt.Println("Training Examples")
 	fmt.Println("=================")
-	
+
 	for i, example := range examples {
 		fmt.Printf("%d. Command: %s\n", i+1, example.Command)
 		fmt.Printf("   Prediction: %s\n", example.Prediction)
-		
+
 		// Format label
 		var labelStr string
 		switch example.Label {
@@ -487,15 +487,15 @@ func showTrainingExamples(im *InferenceManager) {
 		default:
 			labelStr = "Neutral"
 		}
-		
+
 		fmt.Printf("   Label: %s (weight: %.2f)\n", labelStr, example.Weight)
 		fmt.Printf("   Source: %s\n", example.Source)
-		
+
 		if i < len(examples)-1 {
 			fmt.Println()
 		}
 	}
-	
+
 	total := im.GetInferenceStats()
 	fmt.Printf("\nShowing %d of %d total examples\n", len(examples), total["training_examples"].(int))
 }
@@ -504,7 +504,7 @@ func showTrainingExamples(im *InferenceManager) {
 func showInferenceConfig(im *InferenceManager) {
 	fmt.Println("Inference Configuration")
 	fmt.Println("======================")
-	
+
 	// Display inference config
 	fmt.Println("\nInference Settings:")
 	fmt.Printf("  Model Type: %s\n", im.inferenceConfig.ModelType)
@@ -514,7 +514,7 @@ func showInferenceConfig(im *InferenceManager) {
 	fmt.Printf("  Top-P: %.2f\n", im.inferenceConfig.TopP)
 	fmt.Printf("  Use Speculative Decoding: %v\n", im.inferenceConfig.UseSpeculative)
 	fmt.Printf("  Batch Size: %d\n", im.inferenceConfig.BatchSize)
-	
+
 	// Display learning config
 	fmt.Println("\nLearning Settings:")
 	fmt.Printf("  Enabled: %v\n", im.learningConfig.Enabled)
@@ -533,28 +533,28 @@ func configureInference(im *InferenceManager, args []string) {
 		fmt.Println("Usage: :inference config set <setting> <value>")
 		return
 	}
-	
+
 	setting := args[0]
 	value := args[1]
-	
+
 	// Get current configs
 	inferenceConfig := im.inferenceConfig
 	learningConfig := im.learningConfig
-	
+
 	// Update setting
 	switch setting {
 	case "enabled":
 		learningConfig.Enabled = parseBool(value)
-		
+
 	case "collect_feedback":
 		learningConfig.CollectFeedback = parseBool(value)
-		
+
 	case "automatic_feedback":
 		learningConfig.AutomaticFeedback = parseBool(value)
-		
+
 	case "periodic_training":
 		learningConfig.PeriodicTraining = parseBool(value)
-		
+
 	case "training_interval":
 		if days, err := parseInteger(value); err == nil && days > 0 {
 			learningConfig.TrainingInterval = days
@@ -562,7 +562,7 @@ func configureInference(im *InferenceManager, args []string) {
 			fmt.Println("Training interval must be a positive integer")
 			return
 		}
-		
+
 	case "temperature":
 		if temp, err := parseFloat(value); err == nil && temp >= 0 && temp <= 1 {
 			inferenceConfig.Temperature = temp
@@ -570,25 +570,25 @@ func configureInference(im *InferenceManager, args []string) {
 			fmt.Println("Temperature must be between 0 and 1")
 			return
 		}
-		
+
 	case "use_ollama":
 		inferenceConfig.UseOllama = parseBool(value)
-		
+
 	case "use_local_inference":
 		inferenceConfig.UseLocalInference = parseBool(value)
-		
+
 	default:
 		fmt.Printf("Unknown setting: %s\n", setting)
 		return
 	}
-	
+
 	// Save updated config
 	err := im.UpdateConfig(inferenceConfig, learningConfig)
 	if err != nil {
 		fmt.Printf("Error updating configuration: %v\n", err)
 		return
 	}
-	
+
 	fmt.Printf("Updated %s to %s\n", setting, value)
 }
 

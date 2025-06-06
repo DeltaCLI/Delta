@@ -23,12 +23,12 @@ type OllamaClient struct {
 
 // OllamaRequest represents a request to the Ollama API
 type OllamaRequest struct {
-	Model     string                 `json:"model"`
-	Prompt    string                 `json:"prompt"`
-	System    string                 `json:"system,omitempty"`
-	Context   []int                  `json:"context,omitempty"`
-	Options   map[string]interface{} `json:"options,omitempty"`
-	Stream    bool                   `json:"stream"`
+	Model   string                 `json:"model"`
+	Prompt  string                 `json:"prompt"`
+	System  string                 `json:"system,omitempty"`
+	Context []int                  `json:"context,omitempty"`
+	Options map[string]interface{} `json:"options,omitempty"`
+	Stream  bool                   `json:"stream"`
 }
 
 // OllamaResponse represents a response from the Ollama API
@@ -132,23 +132,23 @@ func (c *OllamaClient) CheckModelAvailability() (bool, error) {
 		return false, err
 	}
 	defer resp.Body.Close()
-	
+
 	var result struct {
 		Models []struct {
 			Name string `json:"name"`
 		} `json:"models"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return false, err
 	}
-	
+
 	for _, model := range result.Models {
 		if model.Name == c.ModelName {
 			return true, nil
 		}
 	}
-	
+
 	return false, nil
 }
 
@@ -157,12 +157,12 @@ func (c *OllamaClient) DownloadModel() error {
 	downloadReq := struct {
 		Name string `json:"name"`
 	}{Name: c.ModelName}
-	
+
 	jsonData, err := json.Marshal(downloadReq)
 	if err != nil {
 		return err
 	}
-	
+
 	resp, err := c.HttpClient.Post(
 		c.BaseURL+"/api/pull",
 		"application/json",
@@ -172,7 +172,7 @@ func (c *OllamaClient) DownloadModel() error {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	// Check if the response indicates an error
 	if resp.StatusCode >= 400 {
 		var errorResp struct {
@@ -183,6 +183,6 @@ func (c *OllamaClient) DownloadModel() error {
 		}
 		return fmt.Errorf("ollama error: status code %d", resp.StatusCode)
 	}
-	
+
 	return nil
 }

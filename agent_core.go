@@ -24,13 +24,13 @@ func createAgentImplementation(agent *Agent, manager *AgentManager) (AgentInterf
 		}
 		return dockerAgent, nil
 	}
-	
+
 	// Default to generic agent
 	return &GenericAgent{
-		config:     agent,
-		manager:    manager,
-		isRunning:  false,
-		mutex:      sync.RWMutex{},
+		config:    agent,
+		manager:   manager,
+		isRunning: false,
+		mutex:     sync.RWMutex{},
 	}, nil
 }
 
@@ -93,52 +93,52 @@ func (dm *DockerManager) RunDockerCompose(ctx context.Context, options DockerCom
 
 	// Build Docker Compose command
 	args := []string{"compose"}
-	
+
 	// Add file if specified
 	if options.File != "" {
 		args = append(args, "-f", options.File)
 	}
-	
+
 	// Add project name if specified
 	if options.ProjectName != "" {
 		args = append(args, "-p", options.ProjectName)
 	}
-	
+
 	// Add up command
 	args = append(args, "up")
-	
+
 	// Add options
 	if options.Detached {
 		args = append(args, "-d")
 	}
-	
+
 	if options.RemoveOrphans {
 		args = append(args, "--remove-orphans")
 	}
-	
+
 	if options.ForceRecreate {
 		args = append(args, "--force-recreate")
 	}
-	
+
 	if options.NoBuild {
 		args = append(args, "--no-build")
 	}
-	
+
 	// Add services
 	args = append(args, options.Services...)
-	
+
 	// Create environment
 	env := os.Environ()
 	for k, v := range options.Environment {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
-	
+
 	// Create command
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Env = env
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	// Run command
 	return cmd.Run()
 }
@@ -151,30 +151,30 @@ func (dm *DockerManager) CleanupDockerCompose(ctx context.Context, options Docke
 
 	// Build Docker Compose command
 	args := []string{"compose"}
-	
+
 	// Add file if specified
 	if options.File != "" {
 		args = append(args, "-f", options.File)
 	}
-	
+
 	// Add project name if specified
 	if options.ProjectName != "" {
 		args = append(args, "-p", options.ProjectName)
 	}
-	
+
 	// Add down command
 	args = append(args, "down")
-	
+
 	// Add options
 	if options.RemoveOrphans {
 		args = append(args, "--remove-orphans")
 	}
-	
+
 	// Create command
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	// Run command
 	return cmd.Run()
 }
@@ -189,12 +189,12 @@ func ExecuteCommand(ctx context.Context, config CommandConfig) (string, error) {
 
 	// Build command
 	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
-	
+
 	// Set working directory
 	if config.WorkingDir != "" {
 		cmd.Dir = config.WorkingDir
 	}
-	
+
 	// Set environment
 	if config.Environment != nil {
 		env := os.Environ()
@@ -203,15 +203,15 @@ func ExecuteCommand(ctx context.Context, config CommandConfig) (string, error) {
 		}
 		cmd.Env = env
 	}
-	
+
 	// Run command
 	output, err := cmd.CombinedOutput()
-	
+
 	// Check for timeout
 	if ctx.Err() == context.DeadlineExceeded {
 		return string(output), fmt.Errorf("command timed out after %d seconds", config.Timeout)
 	}
-	
+
 	// Check for error
 	if err != nil {
 		// Check error patterns
@@ -219,12 +219,12 @@ func ExecuteCommand(ctx context.Context, config CommandConfig) (string, error) {
 			return string(output), fmt.Errorf("command failed: %v", err)
 		}
 	}
-	
+
 	// Check success patterns
 	if isSuccessMatch(string(output), config.SuccessPatterns) {
 		return string(output), nil
 	}
-	
+
 	return string(output), err
 }
 
@@ -233,14 +233,14 @@ func isErrorMatch(output string, patterns []string) bool {
 	if len(patterns) == 0 {
 		return false
 	}
-	
+
 	for _, pattern := range patterns {
 		match, err := regexp.MatchString(pattern, output)
 		if err == nil && match {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -249,32 +249,32 @@ func isSuccessMatch(output string, patterns []string) bool {
 	if len(patterns) == 0 {
 		return true
 	}
-	
+
 	for _, pattern := range patterns {
 		match, err := regexp.MatchString(pattern, output)
 		if err == nil && match {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 // GenericAgent implements a generic agent
 type GenericAgent struct {
-	config          *Agent
-	manager         *AgentManager
-	isRunning       bool
-	startTime       time.Time
-	endTime         time.Time
-	currentCommand  string
-	lastError       error
-	progress        float64
-	successCount    int
-	errorCount      int
-	lastOutput      string
-	cancelFunc      context.CancelFunc
-	mutex           sync.RWMutex
+	config         *Agent
+	manager        *AgentManager
+	isRunning      bool
+	startTime      time.Time
+	endTime        time.Time
+	currentCommand string
+	lastError      error
+	progress       float64
+	successCount   int
+	errorCount     int
+	lastOutput     string
+	cancelFunc     context.CancelFunc
+	mutex          sync.RWMutex
 }
 
 // Initialize initializes the agent

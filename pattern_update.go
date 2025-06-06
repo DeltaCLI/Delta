@@ -53,12 +53,12 @@ func NewPatternUpdateManager() (*PatternUpdateManager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get home directory: %v", err)
 	}
-	
+
 	patternDir := filepath.Join(homeDir, ".config", "delta", "patterns")
 	if err := os.MkdirAll(patternDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create pattern directory: %v", err)
 	}
-	
+
 	// Find embedded patterns directory
 	execDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	embeddedDir := filepath.Join(execDir, "embedded_patterns")
@@ -69,7 +69,7 @@ func NewPatternUpdateManager() (*PatternUpdateManager, error) {
 			"/usr/local/share/delta/embedded_patterns",
 			"/usr/share/delta/embedded_patterns",
 		}
-		
+
 		for _, path := range alternativePaths {
 			if _, err := os.Stat(path); err == nil {
 				embeddedDir = path
@@ -77,7 +77,7 @@ func NewPatternUpdateManager() (*PatternUpdateManager, error) {
 			}
 		}
 	}
-	
+
 	return &PatternUpdateManager{
 		apiBaseURL:      "https://api.delta-cli.org",
 		lastUpdateCheck: time.Time{},
@@ -103,26 +103,26 @@ func (pm *PatternUpdateManager) Initialize() error {
 			ErrorPatternsVersion: "1.0",
 			CommandsVersion:      "1.0",
 		}
-		
+
 		// Save default config
 		if err := pm.saveConfig(config); err != nil {
 			return fmt.Errorf("failed to save default config: %v", err)
 		}
 	}
-	
+
 	// Update configuration
 	pm.apiBaseURL = config.APIBaseURL
 	pm.checkInterval = time.Duration(config.UpdateCheckInterval) * time.Hour
-	
+
 	if t, err := time.Parse(time.RFC3339, config.LastUpdateCheck); err == nil {
 		pm.lastUpdateCheck = t
 	}
-	
+
 	// Copy embedded patterns to user directory if they don't exist
 	if err := pm.initializePatternFiles(); err != nil {
 		return fmt.Errorf("failed to initialize pattern files: %v", err)
 	}
-	
+
 	// If auto update is enabled and it's time to check, do it in the background
 	if config.Enabled && config.AutoUpdate && time.Since(pm.lastUpdateCheck) > pm.checkInterval {
 		go func() {
@@ -131,7 +131,7 @@ func (pm *PatternUpdateManager) Initialize() error {
 			}
 		}()
 	}
-	
+
 	pm.isInitialized = true
 	return nil
 }
@@ -147,7 +147,7 @@ func (pm *PatternUpdateManager) initializePatternFiles() error {
 			return fmt.Errorf("failed to copy error patterns: %v", err)
 		}
 	}
-	
+
 	// Check for common commands
 	commandsPath := filepath.Join(pm.patternDir, "common_commands.json")
 	if _, err := os.Stat(commandsPath); os.IsNotExist(err) {
@@ -157,7 +157,7 @@ func (pm *PatternUpdateManager) initializePatternFiles() error {
 			return fmt.Errorf("failed to copy common commands: %v", err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -168,13 +168,13 @@ func (pm *PatternUpdateManager) copyFile(src, dst string) error {
 		return err
 	}
 	defer in.Close()
-	
+
 	out, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
-	
+
 	_, err = io.Copy(out, in)
 	return err
 }
@@ -182,29 +182,29 @@ func (pm *PatternUpdateManager) copyFile(src, dst string) error {
 // loadConfig loads the pattern update configuration
 func (pm *PatternUpdateManager) loadConfig() (PatternUpdateConfig, error) {
 	configPath := filepath.Join(pm.patternDir, "config.json")
-	
+
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return PatternUpdateConfig{}, err
 	}
-	
+
 	var config PatternUpdateConfig
 	if err := json.Unmarshal(data, &config); err != nil {
 		return PatternUpdateConfig{}, err
 	}
-	
+
 	return config, nil
 }
 
 // saveConfig saves the pattern update configuration
 func (pm *PatternUpdateManager) saveConfig(config PatternUpdateConfig) error {
 	configPath := filepath.Join(pm.patternDir, "config.json")
-	
+
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return err
 	}
-	
+
 	return os.WriteFile(configPath, data, 0644)
 }
 
@@ -213,33 +213,33 @@ func (pm *PatternUpdateManager) CheckForUpdates() (bool, error) {
 	if !pm.isInitialized {
 		return false, fmt.Errorf("pattern update manager not initialized")
 	}
-	
+
 	// Update last check time
 	pm.lastUpdateCheck = time.Now()
-	
+
 	// Update config with new check time
 	config, err := pm.loadConfig()
 	if err == nil {
 		config.LastUpdateCheck = pm.lastUpdateCheck.Format(time.RFC3339)
 		pm.saveConfig(config)
 	}
-	
+
 	// Get current versions
 	currentVersions, err := pm.getCurrentVersions()
 	if err != nil {
 		return false, fmt.Errorf("failed to get current versions: %v", err)
 	}
-	
+
 	// Get latest versions from API
 	latestVersions, err := pm.getLatestVersions()
 	if err != nil {
 		return false, fmt.Errorf("failed to get latest versions: %v", err)
 	}
-	
+
 	// Check if updates are available
 	errorPatternsNeedsUpdate := latestVersions.Patterns.ErrorPatterns.Version != currentVersions.ErrorPatterns
 	commandsNeedsUpdate := latestVersions.Patterns.CommonCommands.Version != currentVersions.CommandsVersion
-	
+
 	return errorPatternsNeedsUpdate || commandsNeedsUpdate, nil
 }
 
@@ -248,21 +248,21 @@ func (pm *PatternUpdateManager) DownloadUpdates() error {
 	if !pm.isInitialized {
 		return fmt.Errorf("pattern update manager not initialized")
 	}
-	
+
 	// Get latest versions from API
 	latestVersions, err := pm.getLatestVersions()
 	if err != nil {
 		return fmt.Errorf("failed to get latest versions: %v", err)
 	}
-	
+
 	// Get current versions
 	currentVersions, err := pm.getCurrentVersions()
 	if err != nil {
 		return fmt.Errorf("failed to get current versions: %v", err)
 	}
-	
+
 	updatedFiles := 0
-	
+
 	// Download error patterns if needed
 	if latestVersions.Patterns.ErrorPatterns.Version != currentVersions.ErrorPatterns {
 		if err := pm.downloadFile("error_patterns.json", latestVersions.Patterns.ErrorPatterns.Version); err != nil {
@@ -270,13 +270,13 @@ func (pm *PatternUpdateManager) DownloadUpdates() error {
 		}
 		fmt.Println("Updated error patterns to version", latestVersions.Patterns.ErrorPatterns.Version)
 		updatedFiles++
-		
+
 		// Update config with new version
 		config, _ := pm.loadConfig()
 		config.ErrorPatternsVersion = latestVersions.Patterns.ErrorPatterns.Version
 		pm.saveConfig(config)
 	}
-	
+
 	// Download common commands if needed
 	if latestVersions.Patterns.CommonCommands.Version != currentVersions.CommandsVersion {
 		if err := pm.downloadFile("common_commands.json", latestVersions.Patterns.CommonCommands.Version); err != nil {
@@ -284,29 +284,29 @@ func (pm *PatternUpdateManager) DownloadUpdates() error {
 		}
 		fmt.Println("Updated common commands to version", latestVersions.Patterns.CommonCommands.Version)
 		updatedFiles++
-		
+
 		// Update config with new version
 		config, _ := pm.loadConfig()
 		config.CommandsVersion = latestVersions.Patterns.CommonCommands.Version
 		pm.saveConfig(config)
 	}
-	
+
 	if updatedFiles == 0 {
 		fmt.Println("All pattern files are already up to date.")
 	}
-	
+
 	return nil
 }
 
 // getCurrentVersions gets the current versions from the config
-func (pm *PatternUpdateManager) getCurrentVersions() (struct{ErrorPatterns, CommandsVersion string}, error) {
+func (pm *PatternUpdateManager) getCurrentVersions() (struct{ ErrorPatterns, CommandsVersion string }, error) {
 	config, err := pm.loadConfig()
 	if err != nil {
-		return struct{ErrorPatterns, CommandsVersion string}{}, err
+		return struct{ ErrorPatterns, CommandsVersion string }{}, err
 	}
-	
-	return struct{ErrorPatterns, CommandsVersion string}{
-		ErrorPatterns: config.ErrorPatternsVersion,
+
+	return struct{ ErrorPatterns, CommandsVersion string }{
+		ErrorPatterns:   config.ErrorPatternsVersion,
 		CommandsVersion: config.CommandsVersion,
 	}, nil
 }
@@ -315,31 +315,31 @@ func (pm *PatternUpdateManager) getCurrentVersions() (struct{ErrorPatterns, Comm
 func (pm *PatternUpdateManager) getLatestVersions() (*PatternVersionResponse, error) {
 	// Build API URL
 	url := fmt.Sprintf("%s/api/patterns/versions", pm.apiBaseURL)
-	
+
 	// Send request
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %v", err)
 	}
 	defer resp.Body.Close()
-	
+
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("API request failed with status: %d", resp.StatusCode)
 	}
-	
+
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
-	
+
 	// Parse response
 	var versions PatternVersionResponse
 	if err := json.Unmarshal(body, &versions); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %v", err)
 	}
-	
+
 	return &versions, nil
 }
 
@@ -347,31 +347,31 @@ func (pm *PatternUpdateManager) getLatestVersions() (*PatternVersionResponse, er
 func (pm *PatternUpdateManager) downloadFile(fileName, version string) error {
 	// Build API URL
 	url := fmt.Sprintf("%s/api/patterns/%s?version=%s", pm.apiBaseURL, fileName, version)
-	
+
 	// Send request
 	resp, err := http.Get(url)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %v", err)
 	}
 	defer resp.Body.Close()
-	
+
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("API request failed with status: %d", resp.StatusCode)
 	}
-	
+
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %v", err)
 	}
-	
+
 	// Write to file
 	filePath := filepath.Join(pm.patternDir, fileName)
 	if err := os.WriteFile(filePath, body, 0644); err != nil {
 		return fmt.Errorf("failed to write file: %v", err)
 	}
-	
+
 	return nil
 }
 
@@ -380,12 +380,12 @@ func (pm *PatternUpdateManager) IsEnabled() bool {
 	if !pm.isInitialized {
 		return false
 	}
-	
+
 	config, err := pm.loadConfig()
 	if err != nil {
 		return false
 	}
-	
+
 	return config.Enabled
 }
 
@@ -394,12 +394,12 @@ func (pm *PatternUpdateManager) Enable() error {
 	if !pm.isInitialized {
 		return fmt.Errorf("pattern update manager not initialized")
 	}
-	
+
 	config, err := pm.loadConfig()
 	if err != nil {
 		return err
 	}
-	
+
 	config.Enabled = true
 	return pm.saveConfig(config)
 }
@@ -409,12 +409,12 @@ func (pm *PatternUpdateManager) Disable() error {
 	if !pm.isInitialized {
 		return fmt.Errorf("pattern update manager not initialized")
 	}
-	
+
 	config, err := pm.loadConfig()
 	if err != nil {
 		return err
 	}
-	
+
 	config.Enabled = false
 	return pm.saveConfig(config)
 }
@@ -424,12 +424,12 @@ func (pm *PatternUpdateManager) EnableAutoUpdate() error {
 	if !pm.isInitialized {
 		return fmt.Errorf("pattern update manager not initialized")
 	}
-	
+
 	config, err := pm.loadConfig()
 	if err != nil {
 		return err
 	}
-	
+
 	config.AutoUpdate = true
 	return pm.saveConfig(config)
 }
@@ -439,12 +439,12 @@ func (pm *PatternUpdateManager) DisableAutoUpdate() error {
 	if !pm.isInitialized {
 		return fmt.Errorf("pattern update manager not initialized")
 	}
-	
+
 	config, err := pm.loadConfig()
 	if err != nil {
 		return err
 	}
-	
+
 	config.AutoUpdate = false
 	return pm.saveConfig(config)
 }
@@ -454,19 +454,19 @@ func (pm *PatternUpdateManager) UpdateCheckInterval(hours int) error {
 	if !pm.isInitialized {
 		return fmt.Errorf("pattern update manager not initialized")
 	}
-	
+
 	if hours <= 0 {
 		return fmt.Errorf("check interval must be positive")
 	}
-	
+
 	config, err := pm.loadConfig()
 	if err != nil {
 		return err
 	}
-	
+
 	config.UpdateCheckInterval = hours
 	pm.checkInterval = time.Duration(hours) * time.Hour
-	
+
 	return pm.saveConfig(config)
 }
 
@@ -475,15 +475,15 @@ func (pm *PatternUpdateManager) GetStats() (map[string]interface{}, error) {
 	if !pm.isInitialized {
 		return nil, fmt.Errorf("pattern update manager not initialized")
 	}
-	
+
 	stats := make(map[string]interface{})
-	
+
 	// Get current versions
 	config, err := pm.loadConfig()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	stats["enabled"] = config.Enabled
 	stats["auto_update"] = config.AutoUpdate
 	stats["api_base_url"] = config.APIBaseURL
@@ -491,29 +491,29 @@ func (pm *PatternUpdateManager) GetStats() (map[string]interface{}, error) {
 	stats["last_update_check"] = config.LastUpdateCheck
 	stats["error_patterns_version"] = config.ErrorPatternsVersion
 	stats["commands_version"] = config.CommandsVersion
-	
+
 	// Check if files exist
 	errorPatternsPath := filepath.Join(pm.patternDir, "error_patterns.json")
 	errorPatternsExists := fileExists(errorPatternsPath)
 	stats["error_patterns_exists"] = errorPatternsExists
-	
+
 	commandsPath := filepath.Join(pm.patternDir, "common_commands.json")
 	commandsExists := fileExists(commandsPath)
 	stats["commands_exists"] = commandsExists
-	
+
 	// Get file sizes
 	if errorPatternsExists {
 		if info, err := os.Stat(errorPatternsPath); err == nil {
 			stats["error_patterns_size"] = info.Size()
 		}
 	}
-	
+
 	if commandsExists {
 		if info, err := os.Stat(commandsPath); err == nil {
 			stats["commands_size"] = info.Size()
 		}
 	}
-	
+
 	// Get pattern counts
 	if errorPatternsExists {
 		data, err := os.ReadFile(errorPatternsPath)
@@ -526,7 +526,7 @@ func (pm *PatternUpdateManager) GetStats() (map[string]interface{}, error) {
 			}
 		}
 	}
-	
+
 	if commandsExists {
 		data, err := os.ReadFile(commandsPath)
 		if err == nil {
@@ -538,7 +538,7 @@ func (pm *PatternUpdateManager) GetStats() (map[string]interface{}, error) {
 			}
 		}
 	}
-	
+
 	return stats, nil
 }
 
@@ -554,7 +554,7 @@ func GetPatternUpdateManager() *PatternUpdateManager {
 			fmt.Printf("Error creating pattern update manager: %v\n", err)
 			return nil
 		}
-		
+
 		// Initialize in the background to avoid blocking
 		go func() {
 			if err := globalPatternUpdateManager.Initialize(); err != nil {
@@ -562,7 +562,7 @@ func GetPatternUpdateManager() *PatternUpdateManager {
 			}
 		}()
 	}
-	
+
 	return globalPatternUpdateManager
 }
 

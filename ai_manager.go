@@ -30,14 +30,14 @@ type AIPredictionManager struct {
 	isInitialized     bool
 	waitGroup         sync.WaitGroup
 	predictionEnabled bool
-	errorPrinted      bool    // Track whether error messages have been printed
+	errorPrinted      bool               // Track whether error messages have been printed
 	cancelFunc        context.CancelFunc // Used to cancel pending requests
 	lastPrediction    struct {           // Tracking for feedback
 		command    string
 		prediction string
 		timestamp  time.Time
 	}
-	config            AIPredictionConfig // Configuration for AI prediction
+	config AIPredictionConfig // Configuration for AI prediction
 }
 
 // NewAIPredictionManager creates a new AI prediction manager
@@ -73,7 +73,7 @@ func (m *AIPredictionManager) Initialize() bool {
 	if m.isInitialized {
 		return m.predictionEnabled
 	}
-	
+
 	// Check if Ollama is available
 	if !m.ollamaClient.IsAvailable() {
 		if !m.errorPrinted {
@@ -432,7 +432,7 @@ func (m *AIPredictionManager) GetAIResponse(prompt string) (string, error) {
 	if !m.IsEnabled() {
 		return "", fmt.Errorf("AI prediction manager is not enabled")
 	}
-	
+
 	// For now, just return a simple fixed response for error analysis
 	// In a full implementation, this would call Ollama or another LLM service
 	return "Try running 'make clean' followed by 'make build' to resolve the issue.", nil

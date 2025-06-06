@@ -25,54 +25,54 @@ const (
 
 // ModelDeploymentConfig contains configuration for model deployment
 type ModelDeploymentConfig struct {
-	ModelPath       string       // Path to the model to deploy
-	ModelFormat     ModelFormat  // Format of the model
-	TargetPath      string       // Where to deploy the model
-	Optimize        bool         // Whether to optimize the model for inference
-	Quantize        bool         // Whether to quantize the model
-	ValidateModel   bool         // Whether to validate the model before deployment
-	BackupExisting  bool         // Whether to backup existing model
-	CreateSymlink   bool         // Whether to create a symlink to the latest model
-	OptimizationLevel int        // Level of optimization (0-3)
+	ModelPath         string      // Path to the model to deploy
+	ModelFormat       ModelFormat // Format of the model
+	TargetPath        string      // Where to deploy the model
+	Optimize          bool        // Whether to optimize the model for inference
+	Quantize          bool        // Whether to quantize the model
+	ValidateModel     bool        // Whether to validate the model before deployment
+	BackupExisting    bool        // Whether to backup existing model
+	CreateSymlink     bool        // Whether to create a symlink to the latest model
+	OptimizationLevel int         // Level of optimization (0-3)
 }
 
 // ModelDeploymentResult contains results of model deployment
 type ModelDeploymentResult struct {
-	SourcePath      string       // Original model path
-	DeployedPath    string       // Path where model was deployed
-	ModelFormat     ModelFormat  // Format of the model
-	ModelSize       int64        // Size of the model in bytes
-	OptimizedSize   int64        // Size after optimization (if applicable)
-	DeploymentTime  time.Time    // When deployment was performed
-	ValidationScore float64      // Validation score (if validated)
-	BackupPath      string       // Path to backup if created
-	SymlinkPath     string       // Path to symlink if created
-	Optimized       bool         // Whether optimization was performed
-	Quantized       bool         // Whether quantization was performed
-	Success         bool         // Whether deployment was successful
-	Error           string       // Error message if unsuccessful
+	SourcePath      string      // Original model path
+	DeployedPath    string      // Path where model was deployed
+	ModelFormat     ModelFormat // Format of the model
+	ModelSize       int64       // Size of the model in bytes
+	OptimizedSize   int64       // Size after optimization (if applicable)
+	DeploymentTime  time.Time   // When deployment was performed
+	ValidationScore float64     // Validation score (if validated)
+	BackupPath      string      // Path to backup if created
+	SymlinkPath     string      // Path to symlink if created
+	Optimized       bool        // Whether optimization was performed
+	Quantized       bool        // Whether quantization was performed
+	Success         bool        // Whether deployment was successful
+	Error           string      // Error message if unsuccessful
 }
 
 // ModelInfo contains information about a model
 type ModelInfo struct {
-	Path           string       // Path to the model
-	Format         ModelFormat  // Format of the model
-	Size           int64        // Size in bytes
-	ModTime        time.Time    // Last modification time
-	IsDeployed     bool         // Whether the model is deployed
-	IsLatest       bool         // Whether this is the latest model
+	Path            string      // Path to the model
+	Format          ModelFormat // Format of the model
+	Size            int64       // Size in bytes
+	ModTime         time.Time   // Last modification time
+	IsDeployed      bool        // Whether the model is deployed
+	IsLatest        bool        // Whether this is the latest model
 	ValidationScore float64     // Validation score if available
-	DeploymentTime time.Time    // When the model was deployed
+	DeploymentTime  time.Time   // When the model was deployed
 }
 
 // ModelDeploymentService manages model deployment
 type ModelDeploymentService struct {
-	modelsDir       string       // Directory for model storage
-	deploymentDir   string       // Directory for deployed models
-	backupDir       string       // Directory for model backups
-	metadataDir     string       // Directory for deployment metadata
+	modelsDir        string            // Directory for model storage
+	deploymentDir    string            // Directory for deployed models
+	backupDir        string            // Directory for model backups
+	metadataDir      string            // Directory for deployment metadata
 	inferenceManager *InferenceManager // Reference to inference manager
-	evaluator       *ModelEvaluator // Reference to model evaluator
+	evaluator        *ModelEvaluator   // Reference to model evaluator
 }
 
 // NewModelDeploymentService creates a new model deployment service
@@ -110,12 +110,12 @@ func NewModelDeploymentService() (*ModelDeploymentService, error) {
 	}
 
 	return &ModelDeploymentService{
-		modelsDir:       modelsDir,
-		deploymentDir:   deploymentDir,
-		backupDir:       backupDir,
-		metadataDir:     metadataDir,
+		modelsDir:        modelsDir,
+		deploymentDir:    deploymentDir,
+		backupDir:        backupDir,
+		metadataDir:      metadataDir,
 		inferenceManager: inferenceManager,
-		evaluator:       evaluator,
+		evaluator:        evaluator,
 	}, nil
 }
 
@@ -166,7 +166,7 @@ func (s *ModelDeploymentService) DeployModel(config ModelDeploymentConfig) (*Mod
 	if config.TargetPath == "" {
 		modelName := filepath.Base(config.ModelPath)
 		timestamp := time.Now().Format("20060102_150405")
-		targetName := fmt.Sprintf("%s_deployed_%s%s", 
+		targetName := fmt.Sprintf("%s_deployed_%s%s",
 			strings.TrimSuffix(modelName, filepath.Ext(modelName)),
 			timestamp,
 			filepath.Ext(modelName))
@@ -237,10 +237,10 @@ func (s *ModelDeploymentService) DeployModel(config ModelDeploymentConfig) (*Mod
 	// Create symlink if requested
 	if config.CreateSymlink {
 		symlinkPath := filepath.Join(s.deploymentDir, "latest_model"+filepath.Ext(config.TargetPath))
-		
+
 		// Remove existing symlink if it exists
 		os.Remove(symlinkPath)
-		
+
 		// Create the symlink
 		err = os.Symlink(config.TargetPath, symlinkPath)
 		if err != nil {
@@ -272,8 +272,8 @@ func (s *ModelDeploymentService) DeployModel(config ModelDeploymentConfig) (*Mod
 // GetCurrentDeployedModel returns the path to the currently deployed model
 func (s *ModelDeploymentService) GetCurrentDeployedModel() string {
 	// Check if inference manager has a custom model set
-	if s.inferenceManager.learningConfig.UseCustomModel && 
-	   s.inferenceManager.learningConfig.CustomModelPath != "" {
+	if s.inferenceManager.learningConfig.UseCustomModel &&
+		s.inferenceManager.learningConfig.CustomModelPath != "" {
 		return s.inferenceManager.learningConfig.CustomModelPath
 	}
 
@@ -370,10 +370,10 @@ func (s *ModelDeploymentService) ListAvailableModels() ([]ModelInfo, error) {
 			// Create model info
 			modelPath := filepath.Join(dir, file.Name())
 			isDeployed := modelPath == currentModel
-			
+
 			// Find metadata if available
 			metadata, _ := s.getModelMetadata(modelPath)
-			
+
 			// Build the model info
 			modelInfo := ModelInfo{
 				Path:       modelPath,
@@ -383,13 +383,13 @@ func (s *ModelDeploymentService) ListAvailableModels() ([]ModelInfo, error) {
 				IsDeployed: isDeployed,
 				IsLatest:   false, // Will set this later for the newest model
 			}
-			
+
 			// Add metadata if available
 			if metadata != nil {
 				modelInfo.ValidationScore = metadata.ValidationScore
 				modelInfo.DeploymentTime = metadata.DeploymentTime
 			}
-			
+
 			models = append(models, modelInfo)
 		}
 	}
@@ -460,7 +460,7 @@ func (s *ModelDeploymentService) backupModel(modelPath string) (string, error) {
 	// Create backup filename
 	modelName := filepath.Base(modelPath)
 	timestamp := time.Now().Format("20060102_150405")
-	backupName := fmt.Sprintf("%s_backup_%s%s", 
+	backupName := fmt.Sprintf("%s_backup_%s%s",
 		strings.TrimSuffix(modelName, filepath.Ext(modelName)),
 		timestamp,
 		filepath.Ext(modelName))
@@ -479,7 +479,7 @@ func (s *ModelDeploymentService) backupModel(modelPath string) (string, error) {
 func (s *ModelDeploymentService) validateModel(modelPath string) (float64, error) {
 	// In a real implementation, we'd run the model on validation data
 	// For now, return a simulated score
-	
+
 	// Simulate validation by checking if the model is valid
 	modelInfo, err := os.Stat(modelPath)
 	if err != nil {
@@ -501,11 +501,11 @@ func (s *ModelDeploymentService) validateModel(modelPath string) (float64, error
 func (s *ModelDeploymentService) optimizeModel(modelPath string, format ModelFormat, level int) (string, error) {
 	// In a real implementation, we'd use a model optimization tool
 	// For now, just copy the model and pretend we optimized it
-	
+
 	// Create optimized model filename
 	modelName := filepath.Base(modelPath)
 	timestamp := time.Now().Format("20060102_150405")
-	optimizedName := fmt.Sprintf("%s_optimized_%s%s", 
+	optimizedName := fmt.Sprintf("%s_optimized_%s%s",
 		strings.TrimSuffix(modelName, filepath.Ext(modelName)),
 		timestamp,
 		filepath.Ext(modelName))
@@ -534,11 +534,11 @@ func (s *ModelDeploymentService) optimizeModel(modelPath string, format ModelFor
 func (s *ModelDeploymentService) quantizeModel(modelPath string, format ModelFormat) (string, error) {
 	// In a real implementation, we'd use a model quantization tool
 	// For now, just copy the model and pretend we quantized it
-	
+
 	// Create quantized model filename
 	modelName := filepath.Base(modelPath)
 	timestamp := time.Now().Format("20060102_150405")
-	quantizedName := fmt.Sprintf("%s_quantized_%s%s", 
+	quantizedName := fmt.Sprintf("%s_quantized_%s%s",
 		strings.TrimSuffix(modelName, filepath.Ext(modelName)),
 		timestamp,
 		filepath.Ext(modelName))
@@ -558,7 +558,7 @@ func (s *ModelDeploymentService) saveDeploymentMetadata(result *ModelDeploymentR
 	// Create metadata filename
 	timestamp := result.DeploymentTime.Format("20060102_150405")
 	modelName := filepath.Base(result.DeployedPath)
-	metadataName := fmt.Sprintf("%s_metadata_%s.json", 
+	metadataName := fmt.Sprintf("%s_metadata_%s.json",
 		strings.TrimSuffix(modelName, filepath.Ext(modelName)),
 		timestamp)
 	metadataPath := filepath.Join(s.metadataDir, metadataName)
@@ -591,8 +591,8 @@ func (s *ModelDeploymentService) getModelMetadata(modelPath string) (*ModelDeplo
 	}
 
 	for _, file := range files {
-		if !file.IsDir() && strings.HasPrefix(file.Name(), modelNameWithoutExt) && 
-		   strings.Contains(file.Name(), "_metadata_") && strings.HasSuffix(file.Name(), ".json") {
+		if !file.IsDir() && strings.HasPrefix(file.Name(), modelNameWithoutExt) &&
+			strings.Contains(file.Name(), "_metadata_") && strings.HasSuffix(file.Name(), ".json") {
 			// Read metadata file
 			metadataPath := filepath.Join(s.metadataDir, file.Name())
 			data, err := os.ReadFile(metadataPath)

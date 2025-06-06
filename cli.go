@@ -36,22 +36,22 @@ func getOriginalTerminalTitle() string {
 
 	// Method 1: Check if any environment variables give us hints about the original title
 	envVars := []string{
-		"TERM_PROGRAM_TITLE",  // Some terminal programs set this
-		"TERMINAL_TITLE",      // Custom env var if set by user
+		"TERM_PROGRAM_TITLE", // Some terminal programs set this
+		"TERMINAL_TITLE",     // Custom env var if set by user
 	}
-	
+
 	for _, envVar := range envVars {
 		if value := os.Getenv(envVar); value != "" {
 			return value
 		}
 	}
-	
+
 	// Method 2: Get the shell name - this is most likely what the title was
 	shell := os.Getenv("SHELL")
 	if shell != "" {
 		return filepath.Base(shell)
 	}
-	
+
 	// Method 3: Try to determine from parent process
 	if ppid := os.Getppid(); ppid > 0 {
 		// Read parent process info from /proc on Linux
@@ -61,7 +61,7 @@ func getOriginalTerminalTitle() string {
 			// Replace null bytes with spaces and clean up
 			cmdline = strings.ReplaceAll(cmdline, "\x00", " ")
 			cmdline = strings.TrimSpace(cmdline)
-			
+
 			if cmdline != "" {
 				parts := strings.Fields(cmdline)
 				if len(parts) > 0 {
@@ -77,7 +77,7 @@ func getOriginalTerminalTitle() string {
 			}
 		}
 	}
-	
+
 	// Fallback: return empty string - we'll just reset to empty title
 	return ""
 }
@@ -1262,13 +1262,13 @@ var globalAIManager *AIPredictionManager
 func runInteractiveShell() {
 	// Determine what the original terminal title should be restored to
 	originalTerminalTitle = getOriginalTerminalTitle()
-	
+
 	// Set the initial terminal title
 	setDeltaTitle()
-	
+
 	// Initialize i18n system first
 	initializeI18nSystem()
-	
+
 	fmt.Println(T("interface.welcome.message"))
 	fmt.Println()
 
@@ -1527,7 +1527,7 @@ func runInteractiveShell() {
 			go func(cmd string) {
 				// Get current context
 				dir, _ := os.Getwd()
-				
+
 				// Preprocess the command into a feature vector
 				preprocessor := GetART2Preprocessor()
 				if preprocessor != nil {
@@ -1540,7 +1540,7 @@ func runInteractiveShell() {
 							Context:   dir,
 							Timestamp: time.Now(),
 						}
-						
+
 						// Process with ART-2 algorithm
 						art2Mgr.ProcessInput(art2Input)
 					}
@@ -1650,7 +1650,7 @@ func runCommand(command string, sigChan chan os.Signal) (int, time.Duration) {
 	if strings.Contains(programName, "/") {
 		programName = filepath.Base(programName)
 	}
-	
+
 	// Set the terminal title to show the running program
 	setProgramTitle(programName)
 
@@ -1809,10 +1809,10 @@ func runCommand(command string, sigChan chan os.Signal) (int, time.Duration) {
 
 	// Now run the command
 	exitCode, duration := runShellCommand(shell, shellCmd, sigChan)
-	
+
 	// Restore the delta title after command completion
 	setDeltaTitle()
-	
+
 	return exitCode, duration
 }
 

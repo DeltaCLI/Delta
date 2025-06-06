@@ -1,6 +1,6 @@
 package main
 
-// This file contains helper functions to integrate the jump_manager.go functionality 
+// This file contains helper functions to integrate the jump_manager.go functionality
 // with the main CLI code. It helps keep the concerns separated.
 
 import (
@@ -22,7 +22,7 @@ func checkForJumpCommand(command string, args []string) bool {
 		handleJumpCommand(args)
 		return true
 	}
-	
+
 	return false
 }
 

@@ -125,12 +125,12 @@ func (sd *SpeculativeDecoder) Initialize() error {
 
 	// Initialize statistics
 	sd.perfStats = map[string]float64{
-		"tokens_per_second":   0,
-		"acceptance_rate":     0,
+		"tokens_per_second":       0,
+		"acceptance_rate":         0,
 		"draft_tokens_per_prompt": 0,
-		"avg_latency_ms":      0,
-		"total_prompts":       0,
-		"total_tokens":        0,
+		"avg_latency_ms":          0,
+		"total_prompts":           0,
+		"total_tokens":            0,
 	}
 
 	sd.tokensAccepted = 0
@@ -213,7 +213,7 @@ func (sd *SpeculativeDecoder) GenerateDraftTokens(prompt string, numTokens int) 
 			tokens := make([]string, len(cached))
 			copy(tokens, cached) // Create a copy to avoid modification
 			sd.cacheMutex.RUnlock()
-			
+
 			// Limit to requested number of tokens
 			if len(tokens) > numTokens {
 				tokens = tokens[:numTokens]
@@ -290,7 +290,7 @@ func (sd *SpeculativeDecoder) generateNGramDraftTokens(prompt string, numTokens 
 	if sd.config.UseCache {
 		sd.cacheMutex.Lock()
 		sd.ngramCache[prompt] = drafts
-		
+
 		// Evict oldest entries if cache is full
 		if len(sd.ngramCache) > sd.config.CacheSize {
 			// Simple eviction: just remove a random entry
@@ -310,12 +310,12 @@ func (sd *SpeculativeDecoder) generateNGramDraftTokens(prompt string, numTokens 
 func (sd *SpeculativeDecoder) generatePlaceholderDraftTokens(prompt string, numTokens int) ([]string, error) {
 	// This is a placeholder function that returns dummy draft tokens
 	// In a real implementation, this would use a draft model
-	
+
 	drafts := make([]string, numTokens)
 	for i := 0; i < numTokens; i++ {
 		drafts[i] = fmt.Sprintf("<draft_%d>", i)
 	}
-	
+
 	return drafts, nil
 }
 
@@ -327,16 +327,16 @@ func (sd *SpeculativeDecoder) VerifyDraftTokens(prompt string, draftTokens []str
 
 	// This is a placeholder implementation that simulates verification
 	// In a real implementation, this would use the target model to verify the draft tokens
-	
+
 	acceptedTokens := make([]string, 0, len(draftTokens))
 	accepted := make([]bool, len(draftTokens))
-	
+
 	// Simulate token verification with random acceptance based on context
 	for i, token := range draftTokens {
 		// Simple heuristic to simulate acceptance
 		// In a real implementation, this would compare with actual model outputs
 		var isAccepted bool
-		
+
 		switch {
 		case strings.Contains(prompt, "git") && strings.Contains(token, "git"):
 			isAccepted = true
@@ -352,11 +352,11 @@ func (sd *SpeculativeDecoder) VerifyDraftTokens(prompt string, draftTokens []str
 			isAccepted = true
 		default:
 			// 50% chance of acceptance for other tokens
-			isAccepted = (i % 2 == 0)
+			isAccepted = (i%2 == 0)
 		}
-		
+
 		accepted[i] = isAccepted
-		
+
 		if isAccepted {
 			acceptedTokens = append(acceptedTokens, token)
 			sd.tokensAccepted++
@@ -365,15 +365,15 @@ func (sd *SpeculativeDecoder) VerifyDraftTokens(prompt string, draftTokens []str
 			break // Stop at first rejection
 		}
 	}
-	
+
 	// Update stats
 	sd.statsLock.Lock()
-	sd.perfStats["acceptance_rate"] = float64(sd.tokensAccepted) / float64(sd.tokensAccepted + sd.tokensRejected)
+	sd.perfStats["acceptance_rate"] = float64(sd.tokensAccepted) / float64(sd.tokensAccepted+sd.tokensRejected)
 	sd.perfStats["total_tokens"] += float64(len(draftTokens))
 	sd.perfStats["total_prompts"]++
 	sd.perfStats["draft_tokens_per_prompt"] = sd.perfStats["total_tokens"] / sd.perfStats["total_prompts"]
 	sd.statsLock.Unlock()
-	
+
 	return acceptedTokens, accepted, nil
 }
 
@@ -381,14 +381,14 @@ func (sd *SpeculativeDecoder) VerifyDraftTokens(prompt string, draftTokens []str
 func (sd *SpeculativeDecoder) GetStats() map[string]interface{} {
 	sd.statsLock.Lock()
 	defer sd.statsLock.Unlock()
-	
+
 	// Calculate tokens per second
 	elapsedTime := time.Since(sd.lastReset).Seconds()
 	if elapsedTime > 0 {
 		totalTokens := sd.tokensAccepted + sd.tokensRejected
 		sd.perfStats["tokens_per_second"] = float64(totalTokens) / elapsedTime
 	}
-	
+
 	// Build stats map
 	stats := map[string]interface{}{
 		"enabled":          sd.config.Enabled,
@@ -402,19 +402,19 @@ func (sd *SpeculativeDecoder) GetStats() map[string]interface{} {
 		"tokens_accepted":  sd.tokensAccepted,
 		"tokens_rejected":  sd.tokensRejected,
 	}
-	
+
 	// Add performance stats
 	for k, v := range sd.perfStats {
 		stats[k] = v
 	}
-	
+
 	// Add cache stats if enabled
 	if sd.config.UseCache {
 		sd.cacheMutex.RLock()
 		stats["cache_entries"] = len(sd.ngramCache)
 		sd.cacheMutex.RUnlock()
 	}
-	
+
 	return stats
 }
 
@@ -422,36 +422,36 @@ func (sd *SpeculativeDecoder) GetStats() map[string]interface{} {
 func (sd *SpeculativeDecoder) ResetStats() {
 	sd.statsLock.Lock()
 	defer sd.statsLock.Unlock()
-	
+
 	sd.tokensAccepted = 0
 	sd.tokensRejected = 0
 	sd.lastReset = time.Now()
-	
+
 	sd.perfStats = map[string]float64{
-		"tokens_per_second":      0,
-		"acceptance_rate":        0,
+		"tokens_per_second":       0,
+		"acceptance_rate":         0,
 		"draft_tokens_per_prompt": 0,
-		"avg_latency_ms":         0,
-		"total_prompts":          0,
-		"total_tokens":           0,
+		"avg_latency_ms":          0,
+		"total_prompts":           0,
+		"total_tokens":            0,
 	}
 }
 
 // UpdateConfig updates the speculative decoding configuration
 func (sd *SpeculativeDecoder) UpdateConfig(config SpeculativeDecodingConfig) error {
 	sd.cacheMutex.Lock()
-	
+
 	// Check if cache size changed
 	resizeCache := config.CacheSize != sd.config.CacheSize
-	
+
 	// Update configuration
 	sd.config = config
-	
+
 	// Resize cache if needed
 	if resizeCache && sd.config.UseCache {
 		// Create a new cache with the new size
 		newCache := make(map[string][]string, sd.config.CacheSize)
-		
+
 		// Copy entries from old cache (up to new size)
 		count := 0
 		for k, v := range sd.ngramCache {
@@ -461,12 +461,12 @@ func (sd *SpeculativeDecoder) UpdateConfig(config SpeculativeDecodingConfig) err
 			newCache[k] = v
 			count++
 		}
-		
+
 		sd.ngramCache = newCache
 	}
-	
+
 	sd.cacheMutex.Unlock()
-	
+
 	return sd.saveConfig()
 }
 
@@ -475,16 +475,16 @@ func (sd *SpeculativeDecoder) LogToFile(writer io.Writer) error {
 	if !sd.config.LogStats {
 		return nil
 	}
-	
+
 	// Get stats
 	stats := sd.GetStats()
-	
+
 	// Format as JSON
 	data, err := json.MarshalIndent(stats, "", "  ")
 	if err != nil {
 		return err
 	}
-	
+
 	// Write to the provided writer
 	_, err = writer.Write(data)
 	return err

@@ -279,7 +279,7 @@ func testSpeculativeDrafting(sd *SpeculativeDecoder, prompt string) {
 		// Calculate expected speedup (theoretical)
 		expectedSpeedup := 1.0 + float64(len(acceptedTokens))/float64(len(draftTokens))
 		fmt.Printf("Expected Speedup: %.2fx\n", expectedSpeedup)
-		
+
 		// Calculate actual speedup from measurements
 		// Note: This is just an estimate since we're not actually running the target model
 		regularTime := float64(verifyDuration) * float64(len(draftTokens)) / float64(len(acceptedTokens)+1)
@@ -298,7 +298,7 @@ func showSpeculativeConfig(sd *SpeculativeDecoder) {
 	fmt.Println("=================================")
 
 	stats := sd.GetStats()
-	
+
 	fmt.Printf("Enabled: %t\n", stats["enabled"].(bool))
 	fmt.Printf("Draft Tokens: %d\n", stats["draft_tokens"].(int))
 	fmt.Printf("Accept Threshold: %.2f\n", stats["accept_threshold"].(float64))
@@ -321,7 +321,7 @@ func showSpeculativeConfig(sd *SpeculativeDecoder) {
 func updateSpeculativeConfig(sd *SpeculativeDecoder, setting, value string) {
 	// Get current configuration from stats
 	stats := sd.GetStats()
-	
+
 	// Create a config object with current values
 	config := SpeculativeDecodingConfig{
 		Enabled:          stats["enabled"].(bool),

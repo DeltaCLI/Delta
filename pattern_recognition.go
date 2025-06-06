@@ -19,11 +19,11 @@ type CommandPattern struct {
 
 // TaskWorkflow represents a higher-level task composed of command sequences
 type TaskWorkflow struct {
-	Name        string          `json:"name"`        // Workflow name
-	Description string          `json:"description"` // Human-readable description
-	Patterns    []CommandPattern `json:"patterns"`   // Command patterns in this workflow
-	Frequency   int             `json:"frequency"`   // How often this workflow is executed
-	LastUsed    string          `json:"last_used"`   // When this workflow was last used
+	Name        string           `json:"name"`        // Workflow name
+	Description string           `json:"description"` // Human-readable description
+	Patterns    []CommandPattern `json:"patterns"`    // Command patterns in this workflow
+	Frequency   int              `json:"frequency"`   // How often this workflow is executed
+	LastUsed    string           `json:"last_used"`   // When this workflow was last used
 }
 
 // findCommandPatterns analyzes command history to find patterns
@@ -65,14 +65,14 @@ func (ha *HistoryAnalyzer) findSequencePatterns() []CommandPattern {
 	// Create a map of command pairs and their frequency
 	// Key format: "command1 -> command2"
 	pairFrequency := make(map[string]int)
-	
+
 	// Track which commands precede others
 	predecessors := make(map[string]map[string]int)
 
 	// Analyze command history to build sequence information
 	sortedHistory := make([]EnhancedHistoryEntry, len(ha.history))
 	copy(sortedHistory, ha.history)
-	
+
 	// Sort by timestamp
 	sort.Slice(sortedHistory, func(i, j int) bool {
 		return sortedHistory[i].Context.Timestamp.Before(sortedHistory[j].Context.Timestamp)
@@ -82,20 +82,20 @@ func (ha *HistoryAnalyzer) findSequencePatterns() []CommandPattern {
 	for i := 1; i < len(sortedHistory); i++ {
 		current := sortedHistory[i].Command
 		previous := sortedHistory[i-1].Command
-		
+
 		// Extract base commands (remove arguments)
 		currentBase := strings.Fields(current)[0]
 		previousBase := strings.Fields(previous)[0]
-		
+
 		// Skip if the same command is repeated
 		if currentBase == previousBase {
 			continue
 		}
-		
+
 		// Create the pair key
 		pairKey := fmt.Sprintf("%s -> %s", previousBase, currentBase)
 		pairFrequency[pairKey]++
-		
+
 		// Update predecessors map
 		if _, ok := predecessors[currentBase]; !ok {
 			predecessors[currentBase] = make(map[string]int)
@@ -110,11 +110,11 @@ func (ha *HistoryAnalyzer) findSequencePatterns() []CommandPattern {
 			parts := strings.Split(pairKey, " -> ")
 			if len(parts) == 2 {
 				commands := []string{parts[0], parts[1]}
-				
+
 				// Calculate confidence based on how often second command follows first
 				totalFirstCommandUsage := ha.commandFrequency[commands[0]]
 				confidence := float64(frequency) / float64(totalFirstCommandUsage)
-				
+
 				// Only include patterns with reasonable confidence
 				if confidence >= 0.3 {
 					pattern := CommandPattern{
@@ -137,35 +137,35 @@ func (ha *HistoryAnalyzer) findSequencePatterns() []CommandPattern {
 // findPrefixPatterns finds commands that share common prefixes by context
 func (ha *HistoryAnalyzer) findPrefixPatterns() []CommandPattern {
 	var patterns []CommandPattern
-	
+
 	// Group commands by directory
 	dirCommands := make(map[string]map[string]int)
-	
+
 	for _, entry := range ha.history {
 		dir := entry.Context.Directory
 		command := entry.Command
-		
+
 		// Skip commands without directories
 		if dir == "" {
 			continue
 		}
-		
+
 		// Initialize map for directory if not exists
 		if _, ok := dirCommands[dir]; !ok {
 			dirCommands[dir] = make(map[string]int)
 		}
-		
+
 		// Increment command count for this directory
 		dirCommands[dir][command]++
 	}
-	
+
 	// Find common command prefixes by directory
 	for dir, commands := range dirCommands {
 		// Skip directories with too few commands
 		if len(commands) < 3 {
 			continue
 		}
-		
+
 		// Find common prefix patterns
 		prefixCounts := make(map[string]int)
 		for cmd := range commands {
@@ -175,20 +175,20 @@ func (ha *HistoryAnalyzer) findPrefixPatterns() []CommandPattern {
 				prefixCounts[prefix]++
 			}
 		}
-		
+
 		// Create patterns for common prefixes
 		for prefix, count := range prefixCounts {
 			if count >= 3 {
 				// Calculate confidence as percentage of commands in this directory with this prefix
 				confidence := float64(count) / float64(len(commands))
-				
+
 				if confidence >= 0.3 {
 					dirName := dir
 					if strings.HasPrefix(dirName, "/home/") {
 						// Shorten home dir paths for readability
 						dirName = "~" + dirName[strings.LastIndex(dirName, "/"):]
 					}
-					
+
 					pattern := CommandPattern{
 						Type:        "prefix",
 						Commands:    []string{prefix + " *"},
@@ -202,63 +202,63 @@ func (ha *HistoryAnalyzer) findPrefixPatterns() []CommandPattern {
 			}
 		}
 	}
-	
+
 	return patterns
 }
 
 // findTimingPatterns finds commands frequently used at certain times
 func (ha *HistoryAnalyzer) findTimingPatterns() []CommandPattern {
 	var patterns []CommandPattern
-	
+
 	// Group commands by hour of day
 	hourCommands := make(map[int]map[string]int)
-	
+
 	for _, entry := range ha.history {
 		hour := entry.Context.Timestamp.Hour()
 		command := entry.Command
-		
+
 		// Initialize map for hour if not exists
 		if _, ok := hourCommands[hour]; !ok {
 			hourCommands[hour] = make(map[string]int)
 		}
-		
+
 		// Increment command count for this hour
 		hourCommands[hour][command]++
 	}
-	
+
 	// Time of day descriptions
 	timeDescriptions := map[int]string{
-		0: "late night", 1: "late night", 2: "late night", 3: "late night", 
+		0: "late night", 1: "late night", 2: "late night", 3: "late night",
 		4: "early morning", 5: "early morning", 6: "early morning", 7: "early morning",
 		8: "morning", 9: "morning", 10: "morning", 11: "morning",
 		12: "midday", 13: "afternoon", 14: "afternoon", 15: "afternoon",
 		16: "late afternoon", 17: "early evening", 18: "evening", 19: "evening",
 		20: "night", 21: "night", 22: "night", 23: "late night",
 	}
-	
+
 	// Find time-specific commands
 	for hour, commands := range hourCommands {
 		// Skip hours with too few commands
 		if len(commands) < 5 {
 			continue
 		}
-		
+
 		// Find commands with unusual frequency at this hour
 		for cmd, count := range commands {
 			// Skip commands used fewer than 3 times
 			if count < 3 {
 				continue
 			}
-			
+
 			// Calculate overall usage of this command
 			totalUsage := ha.commandFrequency[cmd]
 			if totalUsage == 0 {
 				continue // Skip if no data
 			}
-			
+
 			// Calculate what percentage of this command's usage is at this hour
 			hourPercentage := float64(count) / float64(totalUsage)
-			
+
 			// If more than 30% of the command's usage is at this hour, it's a pattern
 			if hourPercentage >= 0.3 {
 				timeDesc := timeDescriptions[hour]
@@ -274,7 +274,7 @@ func (ha *HistoryAnalyzer) findTimingPatterns() []CommandPattern {
 			}
 		}
 	}
-	
+
 	return patterns
 }
 
@@ -282,15 +282,15 @@ func (ha *HistoryAnalyzer) findTimingPatterns() []CommandPattern {
 func (ha *HistoryAnalyzer) identifyTaskWorkflows() []TaskWorkflow {
 	// Get command patterns
 	patterns := ha.findCommandPatterns()
-	
+
 	// Skip if not enough patterns
 	if len(patterns) < 5 {
 		return []TaskWorkflow{}
 	}
-	
+
 	// Group patterns by directory
 	dirPatterns := make(map[string][]CommandPattern)
-	
+
 	for _, pattern := range patterns {
 		// Extract directories from pattern tags
 		for _, tag := range pattern.Tags {
@@ -301,10 +301,10 @@ func (ha *HistoryAnalyzer) identifyTaskWorkflows() []TaskWorkflow {
 			}
 		}
 	}
-	
+
 	// Create workflows for directories with enough patterns
 	var workflows []TaskWorkflow
-	
+
 	for dir, patterns := range dirPatterns {
 		if len(patterns) >= 3 {
 			// Directory has enough patterns to constitute a workflow
@@ -316,7 +316,7 @@ func (ha *HistoryAnalyzer) identifyTaskWorkflows() []TaskWorkflow {
 					dirName = parts[len(parts)-1] // Just the last directory name
 				}
 			}
-			
+
 			workflow := TaskWorkflow{
 				Name:        fmt.Sprintf("%s workflow", dirName),
 				Description: fmt.Sprintf("Common command patterns in %s directory", dir),
@@ -324,23 +324,23 @@ func (ha *HistoryAnalyzer) identifyTaskWorkflows() []TaskWorkflow {
 				Frequency:   calculatePatternGroupFrequency(patterns),
 				LastUsed:    "recently", // This would be replaced with actual timestamp
 			}
-			
+
 			workflows = append(workflows, workflow)
 		}
 	}
-	
+
 	// Also group patterns by type
 	typePatterns := make(map[string][]CommandPattern)
-	
+
 	for _, pattern := range patterns {
 		typePatterns[pattern.Type] = append(typePatterns[pattern.Type], pattern)
 	}
-	
+
 	// Create workflows for pattern types with enough patterns
 	for patternType, patterns := range typePatterns {
 		if len(patterns) >= 3 {
 			typeName := strings.Title(patternType) // Capitalize
-			
+
 			workflow := TaskWorkflow{
 				Name:        fmt.Sprintf("%s patterns", typeName),
 				Description: fmt.Sprintf("Collection of %s command patterns", patternType),
@@ -348,16 +348,16 @@ func (ha *HistoryAnalyzer) identifyTaskWorkflows() []TaskWorkflow {
 				Frequency:   calculatePatternGroupFrequency(patterns),
 				LastUsed:    "recently", // This would be replaced with actual timestamp
 			}
-			
+
 			workflows = append(workflows, workflow)
 		}
 	}
-	
+
 	// Sort workflows by frequency
 	sort.Slice(workflows, func(i, j int) bool {
 		return workflows[i].Frequency > workflows[j].Frequency
 	})
-	
+
 	return workflows
 }
 
@@ -373,15 +373,15 @@ func calculatePatternGroupFrequency(patterns []CommandPattern) int {
 // getNextCommandSuggestions gets suggested next commands based on the current command
 func (ha *HistoryAnalyzer) getNextCommandSuggestions(currentCommand string) []CommandSuggestion {
 	var suggestions []CommandSuggestion
-	
+
 	// Skip if not enough history
 	if len(ha.history) < 10 {
 		return suggestions
 	}
-	
+
 	// Get command patterns
 	patterns := ha.findCommandPatterns()
-	
+
 	// Find sequence patterns where current command is the first command
 	for _, pattern := range patterns {
 		if pattern.Type == "sequence" && len(pattern.Commands) >= 2 {
@@ -399,12 +399,12 @@ func (ha *HistoryAnalyzer) getNextCommandSuggestions(currentCommand string) []Co
 			}
 		}
 	}
-	
+
 	// Sort suggestions by confidence
 	sort.Slice(suggestions, func(i, j int) bool {
 		return suggestions[i].Confidence > suggestions[j].Confidence
 	})
-	
+
 	return suggestions
 }
 
@@ -412,18 +412,18 @@ func (ha *HistoryAnalyzer) getNextCommandSuggestions(currentCommand string) []Co
 func (ha *HistoryAnalyzer) enhancedNaturalLanguageSearch(query string, maxResults int) []EnhancedHistoryEntry {
 	ha.historyLock.RLock()
 	defer ha.historyLock.RUnlock()
-	
+
 	// Extract keywords and any special operators from the query
 	keywords := strings.Fields(query)
-	
+
 	// Check for special search operators
 	dirFilter := ""
 	timeFilter := ""
 	categoryFilter := ""
 	exitCodeFilter := -1
-	
+
 	processedKeywords := []string{}
-	
+
 	for _, keyword := range keywords {
 		if strings.HasPrefix(keyword, "dir:") {
 			dirFilter = strings.TrimPrefix(keyword, "dir:")
@@ -440,29 +440,29 @@ func (ha *HistoryAnalyzer) enhancedNaturalLanguageSearch(query string, maxResult
 			processedKeywords = append(processedKeywords, keyword)
 		}
 	}
-	
+
 	// Score each entry based on keyword matches and filters
 	type ScoredEntry struct {
 		entry EnhancedHistoryEntry
 		score float64
 	}
-	
+
 	var scoredEntries []ScoredEntry
-	
+
 	for _, entry := range ha.history {
 		// Apply filters
 		if dirFilter != "" && !strings.Contains(entry.Context.Directory, dirFilter) {
 			continue
 		}
-		
+
 		if categoryFilter != "" && entry.Category != categoryFilter {
 			continue
 		}
-		
+
 		if exitCodeFilter != -1 && entry.Context.ExitCode != exitCodeFilter {
 			continue
 		}
-		
+
 		if timeFilter != "" {
 			// Parse time filter - this is a simplified version
 			hour := entry.Context.Timestamp.Hour()
@@ -485,10 +485,10 @@ func (ha *HistoryAnalyzer) enhancedNaturalLanguageSearch(query string, maxResult
 				}
 			}
 		}
-		
+
 		// Calculate match score
 		score := 0.0
-		
+
 		// Check command text
 		commandLower := strings.ToLower(entry.Command)
 		for _, keyword := range processedKeywords {
@@ -496,7 +496,7 @@ func (ha *HistoryAnalyzer) enhancedNaturalLanguageSearch(query string, maxResult
 				score += 1.0
 			}
 		}
-		
+
 		// Check tags
 		for _, tag := range entry.Tags {
 			for _, keyword := range processedKeywords {
@@ -505,15 +505,15 @@ func (ha *HistoryAnalyzer) enhancedNaturalLanguageSearch(query string, maxResult
 				}
 			}
 		}
-		
+
 		// Add bonus for frequent or recent commands
 		score += float64(entry.Frequency) * 0.05
-		
+
 		// Add bonus for important commands
 		if entry.IsImportant {
 			score += 0.5
 		}
-		
+
 		// Only include entries with a positive score
 		if score > 0 {
 			scoredEntries = append(scoredEntries, ScoredEntry{
@@ -522,17 +522,17 @@ func (ha *HistoryAnalyzer) enhancedNaturalLanguageSearch(query string, maxResult
 			})
 		}
 	}
-	
+
 	// Sort by score descending
 	sort.Slice(scoredEntries, func(i, j int) bool {
 		return scoredEntries[i].score > scoredEntries[j].score
 	})
-	
+
 	// Extract the top results
 	var result []EnhancedHistoryEntry
 	for i := 0; i < min(len(scoredEntries), maxResults); i++ {
 		result = append(result, scoredEntries[i].entry)
 	}
-	
+
 	return result
 }

@@ -10,6 +10,39 @@ import (
 	"time"
 )
 
+// Helper function to detect if terminal supports emojis
+func supportsEmojis() bool {
+	// Check for explicit environment variable to disable emojis
+	if os.Getenv("DELTA_NO_EMOJIS") == "true" {
+		return false
+	}
+
+	// Check common environment variables that indicate emoji support
+	term := os.Getenv("TERM")
+	termProgram := os.Getenv("TERM_PROGRAM")
+	colorterm := os.Getenv("COLORTERM")
+
+	// Explicitly disable emojis for basic terminals
+	if term == "dumb" || term == "vt100" || term == "linux" {
+		return false
+	}
+
+	// Modern terminals that support emojis
+	if strings.Contains(term, "xterm") ||
+		strings.Contains(term, "screen") ||
+		strings.Contains(term, "tmux") ||
+		termProgram == "vscode" ||
+		termProgram == "iTerm.app" ||
+		termProgram == "Apple_Terminal" ||
+		colorterm == "truecolor" ||
+		colorterm == "24bit" {
+		return true
+	}
+
+	// Default to false for unknown terminals
+	return false
+}
+
 // Helper function to list Delta environment variables
 func listDeltaEnvVars() map[string]string {
 	envVars := make(map[string]string)
@@ -145,59 +178,69 @@ func HandleConfigCommand(args []string) bool {
 
 // showConfigStatus displays the current status of the configuration system
 func showConfigStatus(cm *ConfigManager) {
-	fmt.Println("Configuration System Status")
-	fmt.Println("===========================")
-	fmt.Printf("Configuration Path: %s\n", cm.configPath)
-	fmt.Printf("Last Updated: %s\n", cm.lastSaved.Format(time.RFC1123))
+	emojiSupport := supportsEmojis()
+	var headerChar string
+	if emojiSupport {
+		headerChar = "⚙️"
+	} else {
+		headerChar = "=="
+	}
+
+	fmt.Printf("%s Configuration System Status %s\n", headerChar, headerChar)
+	if !emojiSupport {
+		fmt.Println("===========================")
+	}
+
+	var pathIcon, timeIcon, statusIcon string
+	if emojiSupport {
+		pathIcon = "📁"
+		timeIcon = "🕒"
+		statusIcon = "📋"
+	} else {
+		pathIcon = "Path:"
+		timeIcon = "Updated:"
+		statusIcon = "Status:"
+	}
+
+	fmt.Printf("%s Configuration Path: %s\n", pathIcon, cm.configPath)
+	fmt.Printf("%s Last Updated: %s\n", timeIcon, cm.lastSaved.Format(time.RFC1123))
 
 	// Show component status
-	fmt.Println("\nComponent Status:")
-	if cm.memoryConfig != nil {
-		fmt.Printf("Memory Config: %s\n", getComponentStatus(cm.memoryConfig.Enabled))
-	} else {
-		fmt.Println("Memory Config: Not available")
+	fmt.Printf("\n%s Component Status:\n", statusIcon)
+	components := []struct {
+		name    string
+		config  interface{}
+		enabled bool
+	}{
+		{"Memory", cm.memoryConfig, cm.memoryConfig != nil && cm.memoryConfig.Enabled},
+		{"AI", cm.aiConfig, cm.aiConfig != nil && cm.aiConfig.Enabled},
+		{"Vector", cm.vectorConfig, cm.vectorConfig != nil && cm.vectorConfig.Enabled},
+		{"Embedding", cm.embeddingConfig, cm.embeddingConfig != nil && cm.embeddingConfig.Enabled},
+		{"Inference", cm.learningConfig, cm.learningConfig != nil && cm.learningConfig.Enabled},
+		{"Tokenizer", cm.tokenConfig, cm.tokenConfig != nil && cm.tokenConfig.Enabled},
+		{"Agent", cm.agentConfig, cm.agentConfig != nil && cm.agentConfig.Enabled},
 	}
 
-	if cm.aiConfig != nil {
-		fmt.Printf("AI Config: %s\n", getComponentStatus(cm.aiConfig.Enabled))
-	} else {
-		fmt.Println("AI Config: Not available")
-	}
-
-	if cm.vectorConfig != nil {
-		fmt.Printf("Vector Config: %s\n", getComponentStatus(cm.vectorConfig.Enabled))
-	} else {
-		fmt.Println("Vector Config: Not available")
-	}
-
-	if cm.embeddingConfig != nil {
-		fmt.Printf("Embedding Config: %s\n", getComponentStatus(cm.embeddingConfig.Enabled))
-	} else {
-		fmt.Println("Embedding Config: Not available")
-	}
-
-	if cm.learningConfig != nil {
-		fmt.Printf("Inference Config: %s\n", getComponentStatus(cm.learningConfig.Enabled))
-	} else {
-		fmt.Println("Inference Config: Not available")
-	}
-
-	if cm.tokenConfig != nil {
-		fmt.Printf("Tokenizer Config: %s\n", getComponentStatus(cm.tokenConfig.Enabled))
-	} else {
-		fmt.Println("Tokenizer Config: Not available")
-	}
-
-	if cm.agentConfig != nil {
-		fmt.Printf("Agent Config: %s\n", getComponentStatus(cm.agentConfig.Enabled))
-	} else {
-		fmt.Println("Agent Config: Not available")
+	for _, comp := range components {
+		if comp.config != nil {
+			fmt.Printf("  %-12s %s\n", comp.name+":", getComponentStatus(comp.enabled))
+		} else {
+			unavailableStatus := "❓ Not available"
+			if !emojiSupport {
+				unavailableStatus = "? Not available"
+			}
+			fmt.Printf("  %-12s %s\n", comp.name+":", unavailableStatus)
+		}
 	}
 
 	// Show active environment variables
 	envVars := listDeltaEnvVars()
 	if len(envVars) > 0 {
-		fmt.Println("\nActive Environment Variables:")
+		envIcon := "🌍"
+		if !emojiSupport {
+			envIcon = "ENV"
+		}
+		fmt.Printf("\n%s Active Environment Variables:\n", envIcon)
 		count := 0
 		for k := range envVars {
 			count++
@@ -213,10 +256,17 @@ func showConfigStatus(cm *ConfigManager) {
 
 // getComponentStatus returns a string representation of a component's status
 func getComponentStatus(enabled bool) string {
-	if enabled {
-		return "Enabled"
+	if supportsEmojis() {
+		if enabled {
+			return "✅ Enabled"
+		}
+		return "❌ Disabled"
+	} else {
+		if enabled {
+			return "✓ Enabled"
+		}
+		return "✗ Disabled"
 	}
-	return "Disabled"
 }
 
 // listConfigurations lists all configuration components
@@ -350,7 +400,7 @@ func editConfiguration(cm *ConfigManager, args []string) {
 	}
 
 	component := args[0]
-	
+
 	// If no settings are provided, show the component configuration
 	if len(args) == 1 {
 		showComponentConfig(cm, component)
@@ -808,28 +858,28 @@ func resetConfiguration(cm *ConfigManager) {
 // listEnvironmentVariables displays all active Delta CLI environment variables
 func listEnvironmentVariables() {
 	vars := listDeltaEnvVars()
-	
+
 	if len(vars) == 0 {
 		fmt.Println("No Delta CLI environment variables are currently set.")
 		fmt.Println("Use environment variables like DELTA_MEMORY_ENABLED=true to configure Delta CLI.")
 		fmt.Println("Run ':config env help' for more information.")
 		return
 	}
-	
+
 	fmt.Println("Active Delta CLI Environment Variables:")
 	fmt.Println("=======================================")
-	
+
 	// Sort keys for consistent output
 	keys := make([]string, 0, len(vars))
 	for k := range vars {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	
+
 	for _, k := range keys {
 		fmt.Printf("%s=%s\n", k, vars[k])
 	}
-	
+
 	fmt.Println("\nNote: Environment variables take precedence over configuration file settings.")
 }
 
@@ -858,57 +908,57 @@ func showEnvironmentVariableHelp() {
 	fmt.Println("Environment variables use the format DELTA_<COMPONENT>_<SETTING>")
 	fmt.Println("")
 	fmt.Println("Available Environment Variables:")
-	
+
 	// The variables should be grouped by component for better readability
 	fmt.Println("\nMemory Configuration:")
 	fmt.Println("  DELTA_MEMORY_ENABLED               - Enable/disable memory system (true/false)")
 	fmt.Println("  DELTA_MEMORY_COLLECT_COMMANDS      - Enable/disable command collection (true/false)")
 	fmt.Println("  DELTA_MEMORY_MAX_ENTRIES           - Maximum number of memory entries (integer)")
 	fmt.Println("  DELTA_MEMORY_STORAGE_PATH          - Path to store memory data (string)")
-	
+
 	fmt.Println("\nAI Configuration:")
 	fmt.Println("  DELTA_AI_ENABLED                   - Enable/disable AI features (true/false)")
 	fmt.Println("  DELTA_AI_MODEL                     - AI model name (string)")
 	fmt.Println("  DELTA_AI_SERVER_URL                - AI server URL (string)")
-	
+
 	fmt.Println("\nVector Database Configuration:")
 	fmt.Println("  DELTA_VECTOR_ENABLED               - Enable/disable vector database (true/false)")
 	fmt.Println("  DELTA_VECTOR_DB_PATH               - Database file path (string)")
 	fmt.Println("  DELTA_VECTOR_IN_MEMORY_MODE        - Use in-memory mode (true/false)")
-	
+
 	fmt.Println("\nEmbedding Configuration:")
 	fmt.Println("  DELTA_EMBEDDING_ENABLED            - Enable/disable embedding system (true/false)")
 	fmt.Println("  DELTA_EMBEDDING_DIMENSIONS         - Embedding dimensions (integer)")
 	fmt.Println("  DELTA_EMBEDDING_CACHE_SIZE         - Embedding cache size (integer)")
-	
+
 	fmt.Println("\nInference Configuration:")
 	fmt.Println("  DELTA_INFERENCE_ENABLED            - Enable/disable inference system (true/false)")
 	fmt.Println("  DELTA_INFERENCE_USE_LOCAL          - Use local inference (true/false)")
 	fmt.Println("  DELTA_INFERENCE_MAX_TOKENS         - Maximum tokens for generation (integer)")
 	fmt.Println("  DELTA_INFERENCE_TEMPERATURE        - Sampling temperature (float 0-1)")
-	
+
 	fmt.Println("\nLearning Configuration:")
 	fmt.Println("  DELTA_LEARNING_COLLECT_FEEDBACK    - Collect feedback for learning (true/false)")
 	fmt.Println("  DELTA_LEARNING_USE_CUSTOM_MODEL    - Use custom model (true/false)")
 	fmt.Println("  DELTA_LEARNING_CUSTOM_MODEL_PATH   - Path to custom model (string)")
 	fmt.Println("  DELTA_LEARNING_TRAINING_THRESHOLD  - Training threshold (integer)")
-	
+
 	fmt.Println("\nTokenizer Configuration:")
 	fmt.Println("  DELTA_TOKEN_ENABLED                - Enable/disable tokenizer (true/false)")
 	fmt.Println("  DELTA_TOKEN_VOCAB_SIZE             - Vocabulary size (integer)")
 	fmt.Println("  DELTA_TOKEN_STORAGE_PATH           - Token storage path (string)")
-	
+
 	fmt.Println("\nAgent Configuration:")
 	fmt.Println("  DELTA_AGENT_ENABLED                - Enable/disable agent system (true/false)")
 	fmt.Println("  DELTA_AGENT_STORAGE_PATH           - Agent storage path (string)")
 	fmt.Println("  DELTA_AGENT_CACHE_PATH             - Agent cache path (string)")
 	fmt.Println("  DELTA_AGENT_USE_DOCKER             - Use Docker for agent builds (true/false)")
 	fmt.Println("  DELTA_AGENT_USE_AI                 - Use AI assistance for agents (true/false)")
-	
+
 	fmt.Println("\nCommands:")
 	fmt.Println("  :config env list                   - List all active environment variables")
 	fmt.Println("  :config env help                   - Show this help message")
-	
+
 	fmt.Println("\nExample Usage:")
 	fmt.Println("  export DELTA_MEMORY_ENABLED=true         # Enable memory system")
 	fmt.Println("  export DELTA_INFERENCE_TEMPERATURE=0.7   # Set inference temperature")

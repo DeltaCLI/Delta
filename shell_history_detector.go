@@ -26,7 +26,7 @@ func NewShellHistoryDetector() (*ShellHistoryDetector, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &ShellHistoryDetector{
 		homeDir: homeDir,
 	}, nil
@@ -35,7 +35,7 @@ func NewShellHistoryDetector() (*ShellHistoryDetector, error) {
 // DetectHistoryFiles scans for shell history files in the user's home directory
 func (d *ShellHistoryDetector) DetectHistoryFiles() ([]ShellHistoryFile, error) {
 	var historyFiles []ShellHistoryFile
-	
+
 	// Common history file patterns
 	candidates := []struct {
 		filename string
@@ -47,12 +47,12 @@ func (d *ShellHistoryDetector) DetectHistoryFiles() ([]ShellHistoryFile, error) 
 		{".history", "unknown", "simple"},
 		{".sh_history", "sh", "simple"},
 	}
-	
+
 	for _, candidate := range candidates {
 		filePath := filepath.Join(d.homeDir, candidate.filename)
 		if info, err := os.Stat(filePath); err == nil {
 			readable := d.isFileReadable(filePath)
-			
+
 			historyFile := ShellHistoryFile{
 				Path:     filePath,
 				Shell:    candidate.shell,
@@ -60,15 +60,15 @@ func (d *ShellHistoryDetector) DetectHistoryFiles() ([]ShellHistoryFile, error) 
 				Size:     info.Size(),
 				Readable: readable,
 			}
-			
+
 			historyFiles = append(historyFiles, historyFile)
 		}
 	}
-	
+
 	// Check for custom HISTFILE locations from shell configs
 	customFiles := d.detectCustomHistFiles()
 	historyFiles = append(historyFiles, customFiles...)
-	
+
 	return historyFiles, nil
 }
 
@@ -79,7 +79,7 @@ func (d *ShellHistoryDetector) isFileReadable(filePath string) bool {
 		return false
 	}
 	defer file.Close()
-	
+
 	// Try to read a small amount to verify readability
 	buffer := make([]byte, 64)
 	_, err = file.Read(buffer)
@@ -89,7 +89,7 @@ func (d *ShellHistoryDetector) isFileReadable(filePath string) bool {
 // detectCustomHistFiles looks for custom HISTFILE settings in shell configs
 func (d *ShellHistoryDetector) detectCustomHistFiles() []ShellHistoryFile {
 	var customFiles []ShellHistoryFile
-	
+
 	// Shell config files to check
 	configFiles := []string{
 		".bashrc",
@@ -97,7 +97,7 @@ func (d *ShellHistoryDetector) detectCustomHistFiles() []ShellHistoryFile {
 		".zshrc",
 		".profile",
 	}
-	
+
 	for _, configFile := range configFiles {
 		configPath := filepath.Join(d.homeDir, configFile)
 		if histFile := d.extractHistFileFromConfig(configPath); histFile != "" {
@@ -105,14 +105,14 @@ func (d *ShellHistoryDetector) detectCustomHistFiles() []ShellHistoryFile {
 			if !filepath.IsAbs(histFile) {
 				histFile = filepath.Join(d.homeDir, histFile)
 			}
-			
+
 			if info, err := os.Stat(histFile); err == nil {
 				readable := d.isFileReadable(histFile)
-				
+
 				// Determine format based on file extension or content
 				format := d.detectHistoryFormat(histFile)
 				shell := d.detectShellFromConfig(configFile)
-				
+
 				customFile := ShellHistoryFile{
 					Path:     histFile,
 					Shell:    shell,
@@ -120,12 +120,12 @@ func (d *ShellHistoryDetector) detectCustomHistFiles() []ShellHistoryFile {
 					Size:     info.Size(),
 					Readable: readable,
 				}
-				
+
 				customFiles = append(customFiles, customFile)
 			}
 		}
 	}
-	
+
 	return customFiles
 }
 
@@ -135,16 +135,16 @@ func (d *ShellHistoryDetector) extractHistFileFromConfig(configPath string) stri
 	if err != nil {
 		return ""
 	}
-	
+
 	lines := strings.Split(string(content), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// Look for HISTFILE=path patterns
 		if strings.HasPrefix(line, "HISTFILE=") {
 			histFile := strings.TrimPrefix(line, "HISTFILE=")
 			histFile = strings.Trim(histFile, "\"'")
-			
+
 			// Expand environment variables
 			if strings.Contains(histFile, "$HOME") {
 				histFile = strings.Replace(histFile, "$HOME", d.homeDir, -1)
@@ -152,15 +152,15 @@ func (d *ShellHistoryDetector) extractHistFileFromConfig(configPath string) stri
 			if strings.Contains(histFile, "~") {
 				histFile = strings.Replace(histFile, "~", d.homeDir, -1)
 			}
-			
+
 			return histFile
 		}
-		
+
 		// Look for export HISTFILE=path patterns
 		if strings.HasPrefix(line, "export HISTFILE=") {
 			histFile := strings.TrimPrefix(line, "export HISTFILE=")
 			histFile = strings.Trim(histFile, "\"'")
-			
+
 			// Expand environment variables
 			if strings.Contains(histFile, "$HOME") {
 				histFile = strings.Replace(histFile, "$HOME", d.homeDir, -1)
@@ -168,11 +168,11 @@ func (d *ShellHistoryDetector) extractHistFileFromConfig(configPath string) stri
 			if strings.Contains(histFile, "~") {
 				histFile = strings.Replace(histFile, "~", d.homeDir, -1)
 			}
-			
+
 			return histFile
 		}
 	}
-	
+
 	return ""
 }
 
@@ -185,24 +185,24 @@ func (d *ShellHistoryDetector) detectHistoryFormat(filePath string) string {
 	if strings.HasSuffix(filePath, ".bash_history") || strings.Contains(filePath, "bash") {
 		return "bash"
 	}
-	
+
 	// Check file content to determine format
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "simple"
 	}
 	defer file.Close()
-	
+
 	// Read first few lines to detect format
 	buffer := make([]byte, 512)
 	n, err := file.Read(buffer)
 	if err != nil {
 		return "simple"
 	}
-	
+
 	content := string(buffer[:n])
 	lines := strings.Split(content, "\n")
-	
+
 	// Look for zsh extended history format (starts with : timestamp:duration;command)
 	for _, line := range lines {
 		if strings.HasPrefix(line, ":") && strings.Contains(line, ";") {
@@ -212,7 +212,7 @@ func (d *ShellHistoryDetector) detectHistoryFormat(filePath string) string {
 			}
 		}
 	}
-	
+
 	return "bash"
 }
 
@@ -230,12 +230,12 @@ func (d *ShellHistoryDetector) detectShellFromConfig(configFile string) string {
 // GetHistoryStats returns summary statistics about detected history files
 func (d *ShellHistoryDetector) GetHistoryStats(files []ShellHistoryFile) map[string]interface{} {
 	stats := make(map[string]interface{})
-	
+
 	totalFiles := len(files)
 	readableFiles := 0
 	totalSize := int64(0)
 	shellCounts := make(map[string]int)
-	
+
 	for _, file := range files {
 		if file.Readable {
 			readableFiles++
@@ -243,11 +243,11 @@ func (d *ShellHistoryDetector) GetHistoryStats(files []ShellHistoryFile) map[str
 		totalSize += file.Size
 		shellCounts[file.Shell]++
 	}
-	
+
 	stats["total_files"] = totalFiles
 	stats["readable_files"] = readableFiles
 	stats["total_size_bytes"] = totalSize
 	stats["shells"] = shellCounts
-	
+
 	return stats
 }

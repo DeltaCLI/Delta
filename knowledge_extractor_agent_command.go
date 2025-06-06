@@ -280,7 +280,7 @@ func optimizeAgent(ke *KnowledgeExtractor, am *AgentManager, agentID string) {
 	// Optimize timeout values based on knowledge
 	if len(agent.Commands) > 0 {
 		fmt.Println("Optimizing command timeouts...")
-		
+
 		for i := range optimizedAgent.Commands {
 			cmd := optimizedAgent.Commands[i]
 			// Add 20% margin to historical execution time if we have knowledge about it
@@ -300,15 +300,15 @@ func optimizeAgent(ke *KnowledgeExtractor, am *AgentManager, agentID string) {
 		// In a real implementation, we would analyze historical failure patterns
 		if optimizedAgent.Commands[i].RetryCount == 0 {
 			optimizedAgent.Commands[i].RetryCount = 3
-			fmt.Printf("- Added retry count of %d for '%s'\n", 
-				optimizedAgent.Commands[i].RetryCount, 
+			fmt.Printf("- Added retry count of %d for '%s'\n",
+				optimizedAgent.Commands[i].RetryCount,
 				optimizedAgent.Commands[i].Command)
 		}
-		
+
 		if optimizedAgent.Commands[i].RetryDelay == 0 {
 			optimizedAgent.Commands[i].RetryDelay = 10
-			fmt.Printf("- Added retry delay of %d seconds for '%s'\n", 
-				optimizedAgent.Commands[i].RetryDelay, 
+			fmt.Printf("- Added retry delay of %d seconds for '%s'\n",
+				optimizedAgent.Commands[i].RetryDelay,
 				optimizedAgent.Commands[i].Command)
 		}
 	}
@@ -324,8 +324,8 @@ func optimizeAgent(ke *KnowledgeExtractor, am *AgentManager, agentID string) {
 			if strings.HasPrefix(cmd, "make") || strings.HasPrefix(cmd, "build") {
 				patterns := []string{"error:", "failed:", "undefined reference", "compilation terminated"}
 				optimizedAgent.Commands[i].ErrorPatterns = patterns
-				fmt.Printf("- Added %d error patterns for '%s'\n", 
-					len(patterns), 
+				fmt.Printf("- Added %d error patterns for '%s'\n",
+					len(patterns),
 					optimizedAgent.Commands[i].Command)
 			}
 		}
@@ -354,12 +354,12 @@ func optimizeAgent(ke *KnowledgeExtractor, am *AgentManager, agentID string) {
 		if optimizedAgent.Context == nil {
 			optimizedAgent.Context = make(map[string]string)
 		}
-		
+
 		if _, ok := optimizedAgent.Context["project_type"]; !ok {
 			optimizedAgent.Context["project_type"] = projectInfo.Type
 			fmt.Printf("- Added project type: %s\n", projectInfo.Type)
 		}
-		
+
 		if _, ok := optimizedAgent.Context["project_name"]; !ok {
 			optimizedAgent.Context["project_name"] = projectInfo.Name
 			fmt.Printf("- Added project name: %s\n", projectInfo.Name)
@@ -448,7 +448,7 @@ func createAgentFromKnowledge(ke *KnowledgeExtractor, am *AgentManager, name str
 	agent.TriggerPatterns = suggestTriggersForAgent(&agent)
 
 	// Generate AI prompt
-	agent.AIPrompt = fmt.Sprintf("You are a %s assistant for the %s agent. Your task is to help with %s tasks and provide guidance.", 
+	agent.AIPrompt = fmt.Sprintf("You are a %s assistant for the %s agent. Your task is to help with %s tasks and provide guidance.",
 		agentType, name, agentType)
 
 	// Create agent
@@ -496,14 +496,14 @@ func extractKnowledgeFromAgent(ke *KnowledgeExtractor, am *AgentManager, agentID
 	// Extract knowledge from execution history
 	successCount := 0
 	failureCount := 0
-	
+
 	for _, run := range history {
 		if run.Success {
 			successCount++
 		} else {
 			failureCount++
 		}
-		
+
 		// Add to knowledge based on run output and errors
 		// This is a placeholder - in a real implementation, we would parse the
 		// output and errors to extract meaningful patterns
@@ -542,21 +542,21 @@ func generateAgentContext(ke *KnowledgeExtractor, am *AgentManager, agentID stri
 	// Add user information
 	suggestedContext["user"] = ctx.User
 	suggestedContext["shell"] = ctx.Shell
-	
+
 	// Add project information
 	if projectInfo.Type != "" {
 		suggestedContext["project_type"] = projectInfo.Type
 		suggestedContext["project_name"] = projectInfo.Name
-		
+
 		if projectInfo.Version != "" {
 			suggestedContext["project_version"] = projectInfo.Version
 		}
-		
+
 		if projectInfo.BuildSystem != "" {
 			suggestedContext["build_system"] = projectInfo.BuildSystem
 		}
 	}
-	
+
 	// Add Git information if available
 	if ctx.GitBranch != "" {
 		suggestedContext["git_branch"] = ctx.GitBranch
@@ -707,7 +707,7 @@ func discoverAgentsFromKnowledge(ke *KnowledgeExtractor, am *AgentManager) {
 			dockerWorkflows += count
 		}
 	}
-	
+
 	if dockerWorkflows > 0 {
 		agentCount++
 		fmt.Printf("%d. Docker Agent\n", agentCount)
@@ -722,7 +722,7 @@ func discoverAgentsFromKnowledge(ke *KnowledgeExtractor, am *AgentManager) {
 		fmt.Printf("%d. %s Project Agent\n", agentCount, projectInfo.Name)
 		fmt.Printf("   Detected project type: %s\n", projectInfo.Type)
 		fmt.Printf("   Purpose: Manage project-specific tasks\n")
-		fmt.Printf("   Create with: :knowledge agent create %s-agent --type=project\n\n", 
+		fmt.Printf("   Create with: :knowledge agent create %s-agent --type=project\n\n",
 			strings.ToLower(projectInfo.Name))
 	}
 
@@ -733,7 +733,7 @@ func discoverAgentsFromKnowledge(ke *KnowledgeExtractor, am *AgentManager) {
 			deepFryPatterns++
 		}
 	}
-	
+
 	if deepFryPatterns > 0 {
 		agentCount++
 		fmt.Printf("%d. DeepFry Agent\n", agentCount)
@@ -931,10 +931,10 @@ func createDockerAgent(agent *Agent, workingDir string, projectInfo ProjectInfo)
 
 	// Create Docker configuration
 	agent.DockerConfig = &AgentDockerConfig{
-		Image:       imageName,
-		Tag:         "latest",
+		Image:        imageName,
+		Tag:          "latest",
 		BuildContext: workingDir,
-		UseCache:    true,
+		UseCache:     true,
 	}
 }
 
@@ -1033,11 +1033,11 @@ func createDeepFryAgent(agent *Agent, workingDir string) {
 
 	// Configure Docker
 	agent.DockerConfig = &AgentDockerConfig{
-		Image:      "deepfry-builder",
-		Tag:        "latest",
-		Volumes:    []string{workingDir + ":/src"}, // Keep as string concatenation for Docker volume format
-		UseCache:   true,
-		CacheFrom:  []string{"deepfry-builder:cache"},
+		Image:     "deepfry-builder",
+		Tag:       "latest",
+		Volumes:   []string{workingDir + ":/src"}, // Keep as string concatenation for Docker volume format
+		UseCache:  true,
+		CacheFrom: []string{"deepfry-builder:cache"},
 	}
 
 	// Set trigger patterns

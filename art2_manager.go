@@ -13,40 +13,40 @@ import (
 
 // ART2Config contains configuration for the ART-2 algorithm
 type ART2Config struct {
-	Enabled        bool    `json:"enabled"`          // Whether ART-2 learning is enabled
-	Alpha          float64 `json:"alpha"`            // Choice parameter (default: 0.5)
-	Beta           float64 `json:"beta"`             // Learning rate (default: 0.5)
-	Rho            float64 `json:"rho"`              // Vigilance parameter (default: 0.9)
-	Theta          float64 `json:"theta"`            // Activity threshold (default: 0.1)
-	MaxCategories  int     `json:"max_categories"`   // Maximum number of categories
-	VectorSize     int     `json:"vector_size"`      // Size of input vectors
-	DecayRate      float64 `json:"decay_rate"`       // Weight decay rate
-	MinActivation  float64 `json:"min_activation"`   // Minimum activation threshold
-	UpdateInterval int     `json:"update_interval"`  // Update interval in seconds
+	Enabled        bool    `json:"enabled"`         // Whether ART-2 learning is enabled
+	Alpha          float64 `json:"alpha"`           // Choice parameter (default: 0.5)
+	Beta           float64 `json:"beta"`            // Learning rate (default: 0.5)
+	Rho            float64 `json:"rho"`             // Vigilance parameter (default: 0.9)
+	Theta          float64 `json:"theta"`           // Activity threshold (default: 0.1)
+	MaxCategories  int     `json:"max_categories"`  // Maximum number of categories
+	VectorSize     int     `json:"vector_size"`     // Size of input vectors
+	DecayRate      float64 `json:"decay_rate"`      // Weight decay rate
+	MinActivation  float64 `json:"min_activation"`  // Minimum activation threshold
+	UpdateInterval int     `json:"update_interval"` // Update interval in seconds
 }
 
 // ART2Category represents a learned category in ART-2
 type ART2Category struct {
-	ID               int       `json:"id"`
-	Weights          []float64 `json:"weights"`          // Bottom-up weights
-	TopDownWeights   []float64 `json:"top_down_weights"` // Top-down weights
-	ActivationCount  int       `json:"activation_count"` // Number of times activated
-	LastActivation   time.Time `json:"last_activation"`  // Last time this category was activated
-	CommandPatterns  []string  `json:"command_patterns"` // Associated command patterns
-	ContextPatterns  []string  `json:"context_patterns"` // Associated context patterns
-	SuccessRate      float64   `json:"success_rate"`     // Success rate for predictions
-	CreatedAt        time.Time `json:"created_at"`       // When the category was created
+	ID              int       `json:"id"`
+	Weights         []float64 `json:"weights"`          // Bottom-up weights
+	TopDownWeights  []float64 `json:"top_down_weights"` // Top-down weights
+	ActivationCount int       `json:"activation_count"` // Number of times activated
+	LastActivation  time.Time `json:"last_activation"`  // Last time this category was activated
+	CommandPatterns []string  `json:"command_patterns"` // Associated command patterns
+	ContextPatterns []string  `json:"context_patterns"` // Associated context patterns
+	SuccessRate     float64   `json:"success_rate"`     // Success rate for predictions
+	CreatedAt       time.Time `json:"created_at"`       // When the category was created
 }
 
 // ART2Input represents preprocessed input for ART-2
 type ART2Input struct {
-	Vector          []float64 `json:"vector"`
-	Command         string    `json:"command"`
-	Context         string    `json:"context"`
-	Timestamp       time.Time `json:"timestamp"`
-	UserFeedback    int       `json:"user_feedback"`    // 1: positive, 0: neutral, -1: negative
-	PredictionMade  string    `json:"prediction_made"`  // What prediction was made
-	ActualOutcome   string    `json:"actual_outcome"`   // What actually happened
+	Vector         []float64 `json:"vector"`
+	Command        string    `json:"command"`
+	Context        string    `json:"context"`
+	Timestamp      time.Time `json:"timestamp"`
+	UserFeedback   int       `json:"user_feedback"`   // 1: positive, 0: neutral, -1: negative
+	PredictionMade string    `json:"prediction_made"` // What prediction was made
+	ActualOutcome  string    `json:"actual_outcome"`  // What actually happened
 }
 
 // ART2Layer represents the processing layers in ART-2
@@ -73,13 +73,13 @@ type ART2Manager struct {
 
 // ART2Stats tracks statistics for the ART-2 system
 type ART2Stats struct {
-	TotalInputs       int     `json:"total_inputs"`
-	CategoriesLearned int     `json:"categories_learned"`
-	CorrectPredictions int    `json:"correct_predictions"`
-	IncorrectPredictions int  `json:"incorrect_predictions"`
-	AccuracyRate      float64 `json:"accuracy_rate"`
-	LastTrainingTime  time.Time `json:"last_training_time"`
-	MemoryEfficiency  float64 `json:"memory_efficiency"`
+	TotalInputs          int       `json:"total_inputs"`
+	CategoriesLearned    int       `json:"categories_learned"`
+	CorrectPredictions   int       `json:"correct_predictions"`
+	IncorrectPredictions int       `json:"incorrect_predictions"`
+	AccuracyRate         float64   `json:"accuracy_rate"`
+	LastTrainingTime     time.Time `json:"last_training_time"`
+	MemoryEfficiency     float64   `json:"memory_efficiency"`
 }
 
 // NewART2Manager creates a new ART-2 manager
@@ -230,10 +230,10 @@ func (am *ART2Manager) findBestMatch(input ART2Input) (*ART2Category, bool) {
 	// Check vigilance criterion if we found a match
 	if bestCategoryIndex >= 0 {
 		category := am.categories[bestCategoryIndex]
-		
+
 		// Calculate top-down activation
 		topDownActivation := am.calculateTopDownActivation(input.Vector, category.TopDownWeights)
-		
+
 		// Calculate vigilance test
 		vigilanceTest := topDownActivation / am.calculateNorm(input.Vector)
 
@@ -301,15 +301,15 @@ func (am *ART2Manager) normalizeVector(vector []float64) {
 // createNewCategory creates a new category from input
 func (am *ART2Manager) createNewCategory(input ART2Input) *ART2Category {
 	category := &ART2Category{
-		ID:               len(am.categories),
-		Weights:          make([]float64, len(input.Vector)),
-		TopDownWeights:   make([]float64, len(input.Vector)),
-		ActivationCount:  1,
-		LastActivation:   time.Now(),
-		CommandPatterns:  []string{input.Command},
-		ContextPatterns:  []string{input.Context},
-		SuccessRate:      0.5, // Start neutral
-		CreatedAt:        time.Now(),
+		ID:              len(am.categories),
+		Weights:         make([]float64, len(input.Vector)),
+		TopDownWeights:  make([]float64, len(input.Vector)),
+		ActivationCount: 1,
+		LastActivation:  time.Now(),
+		CommandPatterns: []string{input.Command},
+		ContextPatterns: []string{input.Context},
+		SuccessRate:     0.5, // Start neutral
+		CreatedAt:       time.Now(),
 	}
 
 	// Initialize weights with the input pattern
@@ -324,11 +324,11 @@ func (am *ART2Manager) updateCategory(category *ART2Category, input ART2Input) {
 	// Update weights using ART-2 learning rule
 	for i := 0; i < len(category.Weights) && i < len(input.Vector); i++ {
 		// Bottom-up weights
-		category.Weights[i] = (1-am.config.Beta)*category.Weights[i] + 
+		category.Weights[i] = (1-am.config.Beta)*category.Weights[i] +
 			am.config.Beta*input.Vector[i]
 
 		// Top-down weights
-		category.TopDownWeights[i] = (1-am.config.Beta)*category.TopDownWeights[i] + 
+		category.TopDownWeights[i] = (1-am.config.Beta)*category.TopDownWeights[i] +
 			am.config.Beta*math.Min(input.Vector[i], category.TopDownWeights[i])
 	}
 
@@ -375,7 +375,7 @@ func (am *ART2Manager) learnFromFeedback(input ART2Input, category *ART2Category
 	// Apply feedback-modulated learning
 	adjustedBeta := am.config.Beta * feedbackFactor
 	for i := 0; i < len(category.Weights) && i < len(input.Vector); i++ {
-		category.Weights[i] = (1-adjustedBeta)*category.Weights[i] + 
+		category.Weights[i] = (1-adjustedBeta)*category.Weights[i] +
 			adjustedBeta*input.Vector[i]
 	}
 }
@@ -484,7 +484,7 @@ func (am *ART2Manager) generatePredictionFromCategory(category *ART2Category, co
 	}
 
 	if mostRelevantPattern != "" {
-		return fmt.Sprintf("Based on pattern analysis: %s (confidence: %.2f)", 
+		return fmt.Sprintf("Based on pattern analysis: %s (confidence: %.2f)",
 			mostRelevantPattern, category.SuccessRate)
 	}
 
@@ -525,7 +525,7 @@ func (am *ART2Manager) GetStats() ART2Stats {
 func (am *ART2Manager) GetCategories() []*ART2Category {
 	am.mutex.RLock()
 	defer am.mutex.RUnlock()
-	
+
 	// Return a copy to prevent external modification
 	categories := make([]*ART2Category, len(am.categories))
 	copy(categories, am.categories)

@@ -144,7 +144,7 @@ func HandleAgentCommand(args []string) bool {
 			// Show help
 			showAgentHelp()
 			return true
-			
+
 		case "errors":
 			// Handle error solution commands
 			handleErrorCommands(am, args[1:])
@@ -219,7 +219,7 @@ func listAgents(am *AgentManager) {
 	}
 
 	agents := am.ListAgents()
-	
+
 	if len(agents) == 0 {
 		fmt.Println("No agents found")
 		fmt.Println("Use ':agent create <name>' to create a new agent")
@@ -228,13 +228,13 @@ func listAgents(am *AgentManager) {
 
 	fmt.Println("Available Agents")
 	fmt.Println("===============")
-	
+
 	for _, agent := range agents {
 		status := "Enabled"
 		if !agent.Enabled {
 			status = "Disabled"
 		}
-		
+
 		fmt.Printf("%s (%s) - %s [%s]\n", agent.Name, agent.ID, agent.Description, status)
 		fmt.Printf("  Types: %s\n", strings.Join(agent.TaskTypes, ", "))
 		if agent.RunCount > 0 {
@@ -263,23 +263,23 @@ func showAgent(am *AgentManager, agentID string) {
 	fmt.Printf("Description: %s\n", agent.Description)
 	fmt.Printf("Status: %s\n", getBoolText(agent.Enabled, "Enabled", "Disabled"))
 	fmt.Printf("Task Types: %s\n", strings.Join(agent.TaskTypes, ", "))
-	
+
 	if len(agent.Tags) > 0 {
 		fmt.Printf("Tags: %s\n", strings.Join(agent.Tags, ", "))
 	}
-	
+
 	fmt.Printf("\nCreated: %s\n", agent.CreatedAt.Format(time.RFC1123))
 	fmt.Printf("Updated: %s\n", agent.UpdatedAt.Format(time.RFC1123))
-	
+
 	if !agent.LastRunAt.IsZero() {
 		fmt.Printf("Last Run: %s\n", agent.LastRunAt.Format(time.RFC1123))
 	}
-	
+
 	if agent.RunCount > 0 {
 		fmt.Printf("Run Count: %d\n", agent.RunCount)
 		fmt.Printf("Success Rate: %.1f%%\n", agent.SuccessRate*100)
 	}
-	
+
 	// Show commands
 	fmt.Println("\nCommands:")
 	for i, cmd := range agent.Commands {
@@ -297,7 +297,7 @@ func showAgent(am *AgentManager, agentID string) {
 		}
 		fmt.Println()
 	}
-	
+
 	// Show Docker config if present
 	if agent.DockerConfig != nil {
 		fmt.Println("Docker Configuration:")
@@ -314,7 +314,7 @@ func showAgent(am *AgentManager, agentID string) {
 		fmt.Printf("   Use Cache: %s\n", getBoolText(agent.DockerConfig.UseCache, "Yes", "No"))
 		fmt.Println()
 	}
-	
+
 	// Show trigger patterns
 	if len(agent.TriggerPatterns) > 0 {
 		fmt.Println("Trigger Patterns:")
@@ -323,7 +323,7 @@ func showAgent(am *AgentManager, agentID string) {
 		}
 		fmt.Println()
 	}
-	
+
 	// Show context
 	if len(agent.Context) > 0 {
 		fmt.Println("Context:")
@@ -332,13 +332,13 @@ func showAgent(am *AgentManager, agentID string) {
 		}
 		fmt.Println()
 	}
-	
+
 	// Show AI prompt
 	if agent.AIPrompt != "" {
 		fmt.Println("AI Prompt:")
 		fmt.Printf("   %s\n", agent.AIPrompt)
 	}
-	
+
 	// Show recent run history
 	history := am.GetRunHistory(agent.ID, 3)
 	if len(history) > 0 {
@@ -374,7 +374,7 @@ func runAgent(am *AgentManager, agentID string, options map[string]string) {
 	// Run agent
 	fmt.Println("Starting agent execution...")
 	ctx := context.Background()
-	
+
 	// Create timeout context if specified
 	timeout, ok := options["timeout"]
 	if ok {
@@ -385,37 +385,37 @@ func runAgent(am *AgentManager, agentID string, options map[string]string) {
 			defer cancel()
 		}
 	}
-	
+
 	// Create implementation
 	impl, err := createAgentImplementation(agent, am)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
 	}
-	
+
 	// Run agent in goroutine
 	go func() {
 		impl.Run(ctx)
 	}()
-	
+
 	// Create a placeholder status
 	status := AgentStatus{
 		ID:        agentID,
 		IsRunning: true,
 		StartTime: time.Now(),
 	}
-	
+
 	// Create result object
 	result := AgentRunResult{
-		AgentID:      agentID,
-		StartTime:    status.StartTime,
-		EndTime:      status.EndTime,
-		Success:      status.LastError == nil,
-		CommandsRun:  status.SuccessCount + status.ErrorCount,
-		Output:       status.LastOutput,
-		ExitCode:     0,
+		AgentID:     agentID,
+		StartTime:   status.StartTime,
+		EndTime:     status.EndTime,
+		Success:     status.LastError == nil,
+		CommandsRun: status.SuccessCount + status.ErrorCount,
+		Output:      status.LastOutput,
+		ExitCode:    0,
 	}
-	
+
 	if status.LastError != nil {
 		result.Errors = []string{status.LastError.Error()}
 		result.ExitCode = 1
@@ -426,13 +426,13 @@ func runAgent(am *AgentManager, agentID string, options map[string]string) {
 	fmt.Printf("Duration: %.1f seconds\n", result.EndTime.Sub(result.StartTime).Seconds())
 	fmt.Printf("Commands executed: %d\n", result.CommandsRun)
 	fmt.Printf("Exit code: %d\n", result.ExitCode)
-	
+
 	// Show output
 	if result.Output != "" {
 		fmt.Println("\nOutput:")
 		fmt.Println(result.Output)
 	}
-	
+
 	// Show errors
 	if len(result.Errors) > 0 {
 		fmt.Println("\nErrors:")
@@ -440,7 +440,7 @@ func runAgent(am *AgentManager, agentID string, options map[string]string) {
 			fmt.Printf("- %s\n", err)
 		}
 	}
-	
+
 	// Show artifacts
 	if len(result.ArtifactsPaths) > 0 {
 		fmt.Println("\nArtifacts:")
@@ -513,7 +513,7 @@ func applyAgentTemplate(agent *Agent, template string) {
 		agent.Context["task"] = "build"
 		agent.Tags = []string{"build", "automation"}
 		agent.AIPrompt = "You are a build assistant for the " + agent.Name + " agent. Your task is to build the project and fix any build errors."
-	
+
 	case "test":
 		agent.Description = "Automated test agent"
 		agent.TaskTypes = []string{"test", "verify"}
@@ -529,7 +529,7 @@ func applyAgentTemplate(agent *Agent, template string) {
 		agent.Context["task"] = "test"
 		agent.Tags = []string{"test", "automation"}
 		agent.AIPrompt = "You are a test assistant for the " + agent.Name + " agent. Your task is to run tests and analyze results."
-	
+
 	case "deploy":
 		agent.Description = "Automated deployment agent"
 		agent.TaskTypes = []string{"deploy", "release"}
@@ -545,7 +545,7 @@ func applyAgentTemplate(agent *Agent, template string) {
 		agent.Context["task"] = "deploy"
 		agent.Tags = []string{"deploy", "automation"}
 		agent.AIPrompt = "You are a deployment assistant for the " + agent.Name + " agent. Your task is to deploy the project and verify the deployment."
-	
+
 	case "docker":
 		agent.Description = "Docker-based build agent"
 		agent.TaskTypes = []string{"build", "docker"}
@@ -558,42 +558,42 @@ func applyAgentTemplate(agent *Agent, template string) {
 			},
 		}
 		agent.DockerConfig = &AgentDockerConfig{
-			Image:       strings.ToLower(agent.Name),
-			Tag:         "latest",
+			Image:        strings.ToLower(agent.Name),
+			Tag:          "latest",
 			BuildContext: ".",
-			UseCache:    true,
+			UseCache:     true,
 		}
 		agent.TriggerPatterns = []string{"build", "docker"}
 		agent.Context["task"] = "docker-build"
 		agent.Tags = []string{"docker", "build", "automation"}
 		agent.AIPrompt = "You are a Docker build assistant for the " + agent.Name + " agent. Your task is to build Docker images and fix any build errors."
-	
+
 	case "deepfry":
 		agent.Description = "DeepFry PocketPC Builder"
 		agent.TaskTypes = []string{"build", "error-fix", "uproot"}
 		agent.Commands = []AgentCommand{
 			{
-				Command:        "uproot",
-				WorkingDir:     "$DEEPFRY_HOME",
-				Timeout:        3600,
-				RetryCount:     3,
-				ErrorPatterns:  []string{"failed to uproot", "error:"},
+				Command:         "uproot",
+				WorkingDir:      "$DEEPFRY_HOME",
+				Timeout:         3600,
+				RetryCount:      3,
+				ErrorPatterns:   []string{"failed to uproot", "error:"},
 				SuccessPatterns: []string{"uproot completed successfully"},
 			},
 			{
-				Command:        "run all",
-				WorkingDir:     "$DEEPFRY_HOME",
-				Timeout:        7200,
-				RetryCount:     5,
-				ErrorPatterns:  []string{"build failed", "error:"},
+				Command:       "run all",
+				WorkingDir:    "$DEEPFRY_HOME",
+				Timeout:       7200,
+				RetryCount:    5,
+				ErrorPatterns: []string{"build failed", "error:"},
 			},
 		}
 		agent.DockerConfig = &AgentDockerConfig{
-			Image:       "deepfry-builder",
-			Tag:         "latest",
-			Volumes:     []string{"$DEEPFRY_HOME:/src"},
-			UseCache:    true,
-			CacheFrom:   []string{"deepfry-builder:cache"},
+			Image:     "deepfry-builder",
+			Tag:       "latest",
+			Volumes:   []string{"$DEEPFRY_HOME:/src"},
+			UseCache:  true,
+			CacheFrom: []string{"deepfry-builder:cache"},
 		}
 		agent.TriggerPatterns = []string{"deepfry build", "uproot failing", "pocketpc defconfig"}
 		agent.Context = map[string]string{
@@ -645,7 +645,7 @@ func deleteAgent(am *AgentManager, agentID string) {
 	fmt.Printf("Are you sure you want to delete agent '%s' (%s)? (y/n): ", agent.Name, agent.ID)
 	var confirm string
 	fmt.Scanln(&confirm)
-	
+
 	if strings.ToLower(confirm) != "y" {
 		fmt.Println("Deletion cancelled")
 		return
@@ -679,7 +679,7 @@ func learnAgent(am *AgentManager, commandSequence string) {
 	// For now, just show what would happen
 	fmt.Println("Agent learning is not yet implemented")
 	fmt.Printf("Would learn from command sequence: %s\n", commandSequence)
-	
+
 	// Generate a name for the agent
 	name := "Learned Agent"
 	if commandSequence != "" {
@@ -688,12 +688,12 @@ func learnAgent(am *AgentManager, commandSequence string) {
 			name = fmt.Sprintf("%s Agent", strings.Title(parts[0]))
 		}
 	}
-	
+
 	// Generate a unique ID for the agent
 	id := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
 	id = strings.ReplaceAll(id, "_", "-")
 	id = fmt.Sprintf("%s-%d", id, time.Now().Unix())
-	
+
 	fmt.Printf("Would create agent with name '%s' and ID '%s'\n", name, id)
 }
 
@@ -721,13 +721,13 @@ func handleDockerCommands(am *AgentManager, args []string) {
 		// List Docker builds
 		listDockerBuilds(am)
 		return
-		
+
 	case "cache":
 		if len(args) < 2 {
 			fmt.Println("Usage: :agent docker cache <stats|prune>")
 			return
 		}
-		
+
 		switch args[1] {
 		case "stats":
 			// Show Docker cache statistics
@@ -742,17 +742,17 @@ func handleDockerCommands(am *AgentManager, args []string) {
 			fmt.Println("Available commands: stats, prune")
 			return
 		}
-		
+
 	case "build":
 		if len(args) < 2 {
 			fmt.Println("Usage: :agent docker build <agent_id>")
 			return
 		}
-		
+
 		// Build Docker image for agent
 		buildDockerImage(am, args[1])
 		return
-		
+
 	default:
 		fmt.Printf("Unknown docker command: %s\n", cmd)
 		fmt.Println("Available commands: list, cache, build")
@@ -764,34 +764,34 @@ func handleDockerCommands(am *AgentManager, args []string) {
 func listDockerBuilds(am *AgentManager) {
 	// Get all agents with Docker configuration
 	agents := am.ListAgents()
-	
+
 	var dockerAgents []*Agent
 	for _, agent := range agents {
 		if agent.DockerConfig != nil {
 			dockerAgents = append(dockerAgents, agent)
 		}
 	}
-	
+
 	if len(dockerAgents) == 0 {
 		fmt.Println("No Docker-enabled agents found")
 		return
 	}
-	
+
 	fmt.Println("Docker-enabled Agents")
 	fmt.Println("====================")
-	
+
 	for _, agent := range dockerAgents {
 		fmt.Printf("%s (%s)\n", agent.Name, agent.ID)
 		fmt.Printf("  Image: %s:%s\n", agent.DockerConfig.Image, agent.DockerConfig.Tag)
-		
+
 		if agent.DockerConfig.BuildContext != "" {
 			fmt.Printf("  Build Context: %s\n", agent.DockerConfig.BuildContext)
 		}
-		
+
 		if agent.DockerConfig.Dockerfile != "" {
 			fmt.Printf("  Dockerfile: %s\n", agent.DockerConfig.Dockerfile)
 		}
-		
+
 		fmt.Printf("  Use Cache: %s\n", getBoolText(agent.DockerConfig.UseCache, "Yes", "No"))
 		fmt.Println()
 	}
@@ -800,10 +800,10 @@ func listDockerBuilds(am *AgentManager) {
 // showDockerCacheStats shows Docker cache statistics
 func showDockerCacheStats(am *AgentManager) {
 	stats := am.GetDockerCacheStats()
-	
+
 	fmt.Println("Docker Cache Statistics")
 	fmt.Println("======================")
-	
+
 	fmt.Printf("Cache Size: %.2f MB\n", stats["cache_size_mb"].(float64))
 	fmt.Printf("Cache Hits: %d\n", stats["cache_hits"].(int))
 	fmt.Printf("Cache Misses: %d\n", stats["cache_misses"].(int))
@@ -818,19 +818,19 @@ func pruneDockerCache(am *AgentManager) {
 	fmt.Print("Are you sure you want to prune the Docker cache? (y/n): ")
 	var confirm string
 	fmt.Scanln(&confirm)
-	
+
 	if strings.ToLower(confirm) != "y" {
 		fmt.Println("Pruning cancelled")
 		return
 	}
-	
+
 	// Prune cache
 	err := am.ClearDockerCache()
 	if err != nil {
 		fmt.Printf("Error pruning Docker cache: %v\n", err)
 		return
 	}
-	
+
 	fmt.Println("Docker cache pruned successfully")
 }
 
@@ -842,45 +842,45 @@ func buildDockerImage(am *AgentManager, agentID string) {
 		fmt.Printf("Error: %v\n", err)
 		return
 	}
-	
+
 	// Check if agent has Docker configuration
 	if agent.DockerConfig == nil {
 		fmt.Printf("Agent '%s' (%s) does not have Docker configuration\n", agent.Name, agent.ID)
 		return
 	}
-	
+
 	// Check Docker availability
 	err = checkDockerAvailability()
 	if err != nil {
 		fmt.Printf("Docker is not available: %v\n", err)
 		return
 	}
-	
+
 	// For now, just show what would happen
 	fmt.Println("Docker image building is not yet implemented")
 	fmt.Printf("Would build Docker image %s:%s for agent '%s' (%s)\n",
 		agent.DockerConfig.Image, agent.DockerConfig.Tag, agent.Name, agent.ID)
-	
+
 	// Show Docker configuration
 	fmt.Println("\nDocker Configuration:")
 	fmt.Printf("  Image: %s:%s\n", agent.DockerConfig.Image, agent.DockerConfig.Tag)
-	
+
 	if agent.DockerConfig.BuildContext != "" {
 		fmt.Printf("  Build Context: %s\n", agent.DockerConfig.BuildContext)
 	}
-	
+
 	if agent.DockerConfig.Dockerfile != "" {
 		fmt.Printf("  Dockerfile: %s\n", agent.DockerConfig.Dockerfile)
 	}
-	
+
 	if len(agent.DockerConfig.Volumes) > 0 {
 		fmt.Printf("  Volumes: %s\n", strings.Join(agent.DockerConfig.Volumes, ", "))
 	}
-	
+
 	if len(agent.DockerConfig.CacheFrom) > 0 {
 		fmt.Printf("  Cache From: %s\n", strings.Join(agent.DockerConfig.CacheFrom, ", "))
 	}
-	
+
 	fmt.Printf("  Use Cache: %s\n", getBoolText(agent.DockerConfig.UseCache, "Yes", "No"))
 }
 
@@ -891,24 +891,24 @@ func showAgentStats(am *AgentManager) {
 		fmt.Println("Run ':agent enable' to enable agent manager")
 		return
 	}
-	
+
 	stats := am.GetAgentStats()
-	
+
 	fmt.Println("Agent Statistics")
 	fmt.Println("===============")
-	
+
 	fmt.Printf("Total Agents: %d\n", stats["total_agents"].(int))
 	fmt.Printf("Enabled Agents: %d\n", stats["enabled_agents"].(int))
 	fmt.Printf("Total Runs: %d\n", stats["total_runs"].(int))
 	fmt.Printf("Successful Runs: %d\n", stats["successful_runs"].(int))
 	fmt.Printf("Success Rate: %.1f%%\n", stats["success_rate"].(float64))
 	fmt.Printf("Average Run Time: %.1f seconds\n", stats["avg_run_time"].(float64))
-	
+
 	// Show Docker cache statistics if Docker builds are enabled
 	if am.config.UseDockerBuilds {
 		fmt.Println("\nDocker Cache Statistics")
 		fmt.Println("----------------------")
-		
+
 		dockerStats := am.GetDockerCacheStats()
 		fmt.Printf("Cache Size: %.2f MB\n", dockerStats["cache_size_mb"].(float64))
 		fmt.Printf("Cache Hits: %d\n", dockerStats["cache_hits"].(int))
@@ -954,7 +954,7 @@ func showAgentHelp() {
 // parseAgentOptions parses agent command options
 func parseAgentOptions(args []string) map[string]string {
 	options := make(map[string]string)
-	
+
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "--") {
 			parts := strings.SplitN(arg[2:], "=", 2)
@@ -965,7 +965,7 @@ func parseAgentOptions(args []string) map[string]string {
 			}
 		}
 	}
-	
+
 	return options
 }
 
@@ -977,7 +977,6 @@ func getBoolText(value bool, trueText, falseText string) string {
 	return falseText
 }
 
-
 // checkDockerAvailability checks if Docker is available
 func checkDockerAvailability() error {
 	// Check if Docker is available
@@ -985,14 +984,14 @@ func checkDockerAvailability() error {
 	if err != nil {
 		return fmt.Errorf("Docker not found: %v", err)
 	}
-	
+
 	// Check Docker version
 	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
 	_, err = cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to get Docker version: %v", err)
 	}
-	
+
 	return nil
 }
 
@@ -1027,15 +1026,15 @@ func handleErrorCommands(am *AgentManager, args []string) {
 	case "list":
 		// List learned error solutions
 		solutions := errorLearningMgr.ListSolutions()
-		
+
 		if len(solutions) == 0 {
 			fmt.Println("No learned error solutions found")
 			return
 		}
-		
+
 		fmt.Println("Learned Error Solutions")
 		fmt.Println("======================")
-		
+
 		for _, solution := range solutions {
 			// Calculate success rate
 			total := solution.SuccessCount + solution.FailureCount
@@ -1043,7 +1042,7 @@ func handleErrorCommands(am *AgentManager, args []string) {
 			if total > 0 {
 				successRate = float64(solution.SuccessCount) / float64(total) * 100
 			}
-			
+
 			// Pattern information is not directly available in the SolutionEffectiveness struct
 			fmt.Printf("Solution: %s\n", solution.Solution)
 			if solution.Description != "" {
@@ -1071,16 +1070,16 @@ func handleErrorCommands(am *AgentManager, args []string) {
 			fmt.Println("Usage: :agent errors learn <error_pattern> <solution>")
 			return
 		}
-		
+
 		errorPattern := args[1]
 		solution := args[2]
-		
+
 		// Get optional description
 		description := ""
 		if len(args) > 3 {
 			description = args[3]
 		}
-		
+
 		// Add error solution
 		errorLearningMgr.AddErrorSolution(errorPattern, solution, description, "", true, "user")
 		fmt.Println("Error solution added successfully")
@@ -1092,29 +1091,29 @@ func handleErrorCommands(am *AgentManager, args []string) {
 			fmt.Println("Usage: :agent errors fix <error_message>")
 			return
 		}
-		
+
 		// Get error message
 		errorMsg := args[1]
-		
+
 		// Get context
 		context := ""
 		if len(args) > 2 {
 			context = args[2]
 		}
-		
+
 		// Try to fix the error
 		knownSolution, solution, err := errorLearningMgr.FixErrorAutomatically(errorMsg, context)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
-		
+
 		if knownSolution {
 			fmt.Println("Found a solution from learning history:")
 		} else {
 			fmt.Println("Generated a solution using AI:")
 		}
-		
+
 		fmt.Println(solution)
 		return
 
@@ -1122,16 +1121,16 @@ func handleErrorCommands(am *AgentManager, args []string) {
 		// Show error learning statistics
 		fmt.Println("Error Learning Statistics")
 		fmt.Println("========================")
-		
+
 		solutions := errorLearningMgr.ListSolutions()
-		
+
 		// Calculate statistics
 		totalSolutions := len(solutions)
 		aiGeneratedCount := 0
 		userDefinedCount := 0
 		systemCount := 0
 		successfulCount := 0
-		
+
 		for _, sol := range solutions {
 			switch sol.Source {
 			case "ai":
@@ -1141,18 +1140,18 @@ func handleErrorCommands(am *AgentManager, args []string) {
 			case "system":
 				systemCount++
 			}
-			
+
 			if sol.SuccessCount > 0 {
 				successfulCount++
 			}
 		}
-		
+
 		fmt.Printf("Total Solutions: %d\n", totalSolutions)
 		fmt.Printf("AI-Generated: %d\n", aiGeneratedCount)
 		fmt.Printf("User-Defined: %d\n", userDefinedCount)
 		fmt.Printf("System-Provided: %d\n", systemCount)
 		fmt.Printf("Successful Solutions: %d\n", successfulCount)
-		
+
 		if totalSolutions > 0 {
 			fmt.Printf("Success Rate: %.1f%%\n", float64(successfulCount)/float64(totalSolutions)*100)
 		}
@@ -1167,33 +1166,33 @@ func handleErrorCommands(am *AgentManager, args []string) {
 
 // DockerAgent implements the AgentInterface for Docker-based agents
 type DockerAgent struct {
-	Agent      *Agent
-	manager    *AgentManager
-	isRunning  bool
-	mutex      sync.RWMutex
+	Agent     *Agent
+	manager   *AgentManager
+	isRunning bool
+	mutex     sync.RWMutex
 }
 
 // Required interface methods for DockerAgent
-func (d *DockerAgent) Initialize() error { return nil }
+func (d *DockerAgent) Initialize() error             { return nil }
 func (d *DockerAgent) Run(ctx context.Context) error { return nil }
-func (d *DockerAgent) Stop() error { return nil }
-func (d *DockerAgent) GetStatus() AgentStatus { return AgentStatus{ID: d.Agent.ID} }
-func (d *DockerAgent) GetID() string { return d.Agent.ID }
+func (d *DockerAgent) Stop() error                   { return nil }
+func (d *DockerAgent) GetStatus() AgentStatus        { return AgentStatus{ID: d.Agent.ID} }
+func (d *DockerAgent) GetID() string                 { return d.Agent.ID }
 
 // GenericAgent implements the AgentInterface for non-Docker agents
 type GenericAgent struct {
-	config     *Agent
-	manager    *AgentManager
-	isRunning  bool
-	mutex      sync.RWMutex
+	config    *Agent
+	manager   *AgentManager
+	isRunning bool
+	mutex     sync.RWMutex
 }
 
 // Required interface methods for GenericAgent
-func (g *GenericAgent) Initialize() error { return nil }
+func (g *GenericAgent) Initialize() error             { return nil }
 func (g *GenericAgent) Run(ctx context.Context) error { return nil }
-func (g *GenericAgent) Stop() error { return nil }
-func (g *GenericAgent) GetStatus() AgentStatus { return AgentStatus{ID: g.config.ID} }
-func (g *GenericAgent) GetID() string { return g.config.ID }
+func (g *GenericAgent) Stop() error                   { return nil }
+func (g *GenericAgent) GetStatus() AgentStatus        { return AgentStatus{ID: g.config.ID} }
+func (g *GenericAgent) GetID() string                 { return g.config.ID }
 
 // createAgentImplementation creates a concrete agent implementation
 func createAgentImplementation(agent *Agent, manager *AgentManager) (AgentInterface, error) {
@@ -1201,18 +1200,18 @@ func createAgentImplementation(agent *Agent, manager *AgentManager) (AgentInterf
 	if agent.DockerConfig != nil && agent.DockerConfig.Enabled {
 		// Create Docker agent
 		return &DockerAgent{
-			Agent:      agent,
-			manager:    manager,
-			isRunning:  false,
-			mutex:      sync.RWMutex{},
+			Agent:     agent,
+			manager:   manager,
+			isRunning: false,
+			mutex:     sync.RWMutex{},
 		}, nil
 	}
-	
+
 	// Default to generic agent
 	return &GenericAgent{
-		config:     agent,
-		manager:    manager,
-		isRunning:  false,
-		mutex:      sync.RWMutex{},
+		config:    agent,
+		manager:   manager,
+		isRunning: false,
+		mutex:     sync.RWMutex{},
 	}, nil
 }

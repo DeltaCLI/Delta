@@ -17,7 +17,7 @@ func handleHistoryImportCommand(args []string) error {
 	}
 
 	parser := NewShellHistoryParser()
-	
+
 	// Initialize import tracker for deduplication
 	tracker, err := NewShellHistoryTracker()
 	if err != nil {
@@ -76,13 +76,13 @@ func handleHistoryImportCommand(args []string) error {
 		if !file.Readable {
 			status = "not readable"
 		}
-		
+
 		// Check if file has been imported before
 		imported, record, err := tracker.HasBeenImported(file.Path)
 		importStatus := ""
 		if err == nil {
 			if imported {
-				importStatus = fmt.Sprintf(" [previously imported %s]", 
+				importStatus = fmt.Sprintf(" [previously imported %s]",
 					record.LastImported.Format("2006-01-02"))
 			} else if record != nil {
 				importStatus = " [file updated since last import]"
@@ -90,7 +90,7 @@ func handleHistoryImportCommand(args []string) error {
 				importStatus = " [never imported]"
 			}
 		}
-		
+
 		fmt.Printf("%d. %s (%s, %s, %.1f KB, %s)%s\n",
 			i+1, file.Path, file.Shell, file.Format,
 			float64(file.Size)/1024, status, importStatus)
@@ -297,14 +297,14 @@ func printHistoryStats(stats map[string]interface{}) {
 // saveHistoryTrainingData saves parsed history entries as training data
 func saveHistoryTrainingData(entries []HistoryEntry, file ShellHistoryFile) error {
 	parser := NewShellHistoryParser()
-	
+
 	// Convert to training data format
 	context := fmt.Sprintf("shell_history_%s", file.Shell)
 	trainingData := parser.ConvertToTrainingData(entries, context)
 
 	// Save to Delta's training data system
 	// This would integrate with the existing training data infrastructure
-	return saveTrainingDataToFile(trainingData, fmt.Sprintf("shell_history_%s_%d.json", 
+	return saveTrainingDataToFile(trainingData, fmt.Sprintf("shell_history_%s_%d.json",
 		file.Shell, time.Now().Unix()))
 }
 

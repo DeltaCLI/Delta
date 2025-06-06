@@ -117,17 +117,17 @@ func showEvaluationStatus(evaluator *ModelEvaluator) {
 		evalPath := evaluations[i]
 		filename := filepath.Base(evalPath)
 		parts := strings.Split(filename, "_eval_")
-		
+
 		if len(parts) >= 2 {
 			modelName := parts[0]
 			dateStr := strings.TrimSuffix(parts[1], ".json")
-			
+
 			// Try to parse date
 			date, err := time.Parse("20060102_150405", dateStr)
 			if err == nil {
 				dateStr = date.Format("2006-01-02 15:04:05")
 			}
-			
+
 			fmt.Printf("  %d. Model: %s, Date: %s\n", i+1, modelName, dateStr)
 		} else {
 			fmt.Printf("  %d. %s\n", i+1, filename)
@@ -204,14 +204,14 @@ func runModelEvaluation(evaluator *ModelEvaluator, args []string) {
 			fmt.Printf("Error getting home directory: %v\n", err)
 			return
 		}
-		
+
 		modelsDir := filepath.Join(homeDir, ".config", "delta", "memory", "models")
 		files, err := os.ReadDir(modelsDir)
 		if err != nil {
 			fmt.Printf("Error reading models directory: %v\n", err)
 			return
 		}
-		
+
 		// Find most recent model file
 		var newest os.FileInfo
 		var newestPath string
@@ -221,14 +221,14 @@ func runModelEvaluation(evaluator *ModelEvaluator, args []string) {
 				if err != nil {
 					continue
 				}
-				
+
 				if newest == nil || info.ModTime().After(newest.ModTime()) {
 					newest = info
 					newestPath = filepath.Join(modelsDir, file.Name())
 				}
 			}
 		}
-		
+
 		if newestPath != "" {
 			config.ModelPath = newestPath
 		} else {
@@ -277,9 +277,9 @@ func runModelEvaluation(evaluator *ModelEvaluator, args []string) {
 	}
 
 	fmt.Printf("\nExamples Evaluated: %d\n", len(result.ExampleResults))
-	fmt.Printf("Correct: %d (%.1f%%)\n", len(result.ExampleResults)-incorrectCount, 
+	fmt.Printf("Correct: %d (%.1f%%)\n", len(result.ExampleResults)-incorrectCount,
 		100.0*float64(len(result.ExampleResults)-incorrectCount)/float64(len(result.ExampleResults)))
-	fmt.Printf("Incorrect: %d (%.1f%%)\n", incorrectCount, 
+	fmt.Printf("Incorrect: %d (%.1f%%)\n", incorrectCount,
 		100.0*float64(incorrectCount)/float64(len(result.ExampleResults)))
 
 	// Show error analysis if available
@@ -322,21 +322,21 @@ func listEvaluations(evaluator *ModelEvaluator) {
 	for i, evalPath := range evaluations {
 		filename := filepath.Base(evalPath)
 		info, err := os.Stat(evalPath)
-		
+
 		if err == nil {
 			// Extract model name and date
 			parts := strings.Split(filename, "_eval_")
 			if len(parts) >= 2 {
 				modelName := parts[0]
 				dateStr := strings.TrimSuffix(parts[1], ".json")
-				
+
 				// Try to parse date
 				date, err := time.Parse("20060102_150405", dateStr)
 				dateFormatted := dateStr
 				if err == nil {
 					dateFormatted = date.Format("2006-01-02 15:04:05")
 				}
-				
+
 				fmt.Printf("%d. Model: %s\n", i+1, modelName)
 				fmt.Printf("   Date: %s\n", dateFormatted)
 				fmt.Printf("   Size: %.2f KB\n", float64(info.Size())/1024.0)
@@ -347,13 +347,13 @@ func listEvaluations(evaluator *ModelEvaluator) {
 				fmt.Printf("   Size: %.2f KB\n", float64(info.Size())/1024.0)
 				fmt.Printf("   Path: %s\n", evalPath)
 			}
-			
+
 			if i < len(evaluations)-1 {
 				fmt.Println()
 			}
 		}
 	}
-	
+
 	fmt.Println("\nUse ':evaluation show <id>' to see details of an evaluation")
 	fmt.Println("For example: :evaluation show 1")
 }
@@ -505,7 +505,7 @@ func showEvaluationHelp() {
 	fmt.Println("  :evaluation show <id>      - Show evaluation details")
 	fmt.Println("  :evaluation compare <id1> <id2> [id3 ...] - Compare evaluations")
 	fmt.Println("  :evaluation help           - Show this help message")
-	
+
 	fmt.Println("\nRun Options:")
 	fmt.Println("  --model <path>      - Path to the model to evaluate")
 	fmt.Println("  --test-data <path>  - Path to test data (uses latest if not specified)")
@@ -513,7 +513,7 @@ func showEvaluationHelp() {
 	fmt.Println("  --batch-size <n>    - Batch size for evaluation")
 	fmt.Println("  --threshold <n>     - Threshold for positive class prediction")
 	fmt.Println("  --output <dir>      - Directory for evaluation results")
-	
+
 	fmt.Println("\nEvaluation IDs:")
 	fmt.Println("  IDs are assigned by order, with 1 being the most recent")
 	fmt.Println("  You can also use 'latest' to refer to the most recent evaluation")

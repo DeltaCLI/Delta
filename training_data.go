@@ -23,31 +23,31 @@ const (
 
 // TrainingDataOptions defines options for data extraction
 type TrainingDataOptions struct {
-	Format          TrainingDataFormat  // Output format
-	StartDate       time.Time           // Start date for data range
-	EndDate         time.Time           // End date for data range
-	OutputDir       string              // Directory for output files
-	IncludeMetadata bool                // Whether to include metadata
-	MaxExamples     int                 // Maximum number of examples (-1 for all)
-	FilterTypes     []string            // Filter by feedback types
-	SplitRatio      float64             // Train/validation split ratio (0.0-1.0)
-	BalanceClasses  bool                // Whether to balance positive/negative examples
-	AugmentData     bool                // Whether to augment data with synthetic examples
+	Format          TrainingDataFormat // Output format
+	StartDate       time.Time          // Start date for data range
+	EndDate         time.Time          // End date for data range
+	OutputDir       string             // Directory for output files
+	IncludeMetadata bool               // Whether to include metadata
+	MaxExamples     int                // Maximum number of examples (-1 for all)
+	FilterTypes     []string           // Filter by feedback types
+	SplitRatio      float64            // Train/validation split ratio (0.0-1.0)
+	BalanceClasses  bool               // Whether to balance positive/negative examples
+	AugmentData     bool               // Whether to augment data with synthetic examples
 }
 
 // TrainingExample defines a single training example with metadata
 type TrainingExtendedExample struct {
-	Command     string             `json:"command"`
-	Context     string             `json:"context,omitempty"`
-	Prediction  string             `json:"prediction"`
-	Label       int                `json:"label"`
-	Weight      float64            `json:"weight"`
-	Source      string             `json:"source"`
-	Timestamp   time.Time          `json:"timestamp"`
-	FeedbackType string            `json:"feedback_type,omitempty"`
-	Environment map[string]string  `json:"environment,omitempty"`
-	Directory   string             `json:"directory,omitempty"`
-	CommandHistory []string        `json:"command_history,omitempty"`
+	Command        string            `json:"command"`
+	Context        string            `json:"context,omitempty"`
+	Prediction     string            `json:"prediction"`
+	Label          int               `json:"label"`
+	Weight         float64           `json:"weight"`
+	Source         string            `json:"source"`
+	Timestamp      time.Time         `json:"timestamp"`
+	FeedbackType   string            `json:"feedback_type,omitempty"`
+	Environment    map[string]string `json:"environment,omitempty"`
+	Directory      string            `json:"directory,omitempty"`
+	CommandHistory []string          `json:"command_history,omitempty"`
 }
 
 // TrainingDataService handles training data extraction and processing
@@ -195,7 +195,7 @@ func (s *TrainingDataService) ExtractTrainingData(options TrainingDataOptions) (
 	if options.IncludeMetadata {
 		// Get command history from memory manager
 		allCommands := make(map[string][]CommandEntry)
-		
+
 		// Get last 30 days of commands
 		thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
 		for d := thirtyDaysAgo; d.Before(time.Now()); d = d.AddDate(0, 0, 1) {
@@ -247,12 +247,12 @@ func (s *TrainingDataService) ExtractTrainingData(options TrainingDataOptions) (
 						if cmd.Command == ex.Command {
 							// Set timestamp from command entry
 							enhanced.Timestamp = cmd.Timestamp
-							
+
 							// Get environment if available
 							if len(cmd.Environment) > 0 {
 								enhanced.Environment = cmd.Environment
 							}
-							
+
 							// Get command history (up to 5 previous commands)
 							history := make([]string, 0)
 							start := i - 5
@@ -263,13 +263,13 @@ func (s *TrainingDataService) ExtractTrainingData(options TrainingDataOptions) (
 								history = append(history, cmds[j].Command)
 							}
 							enhanced.CommandHistory = history
-							
+
 							break
 						}
 					}
 				}
 			}
-			
+
 			enhancedExamples = append(enhancedExamples, enhanced)
 		}
 	} else {
@@ -324,24 +324,24 @@ func (s *TrainingDataService) ExtractTrainingData(options TrainingDataOptions) (
 }
 
 // writeJSONOutput writes training data to JSON files
-func (s *TrainingDataService) writeJSONOutput(outputDir string, 
+func (s *TrainingDataService) writeJSONOutput(outputDir string,
 	trainExamples, valExamples []TrainingExtendedExample) (string, error) {
-	
+
 	// Create timestamp for filenames
 	timestamp := time.Now().Format("20060102_150405")
-	
+
 	// Write training data
 	trainPath := filepath.Join(outputDir, fmt.Sprintf("train_data_%s.json", timestamp))
 	trainData, err := json.MarshalIndent(trainExamples, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal training data: %v", err)
 	}
-	
+
 	err = os.WriteFile(trainPath, trainData, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write training data: %v", err)
 	}
-	
+
 	// Write validation data if available
 	if valExamples != nil {
 		valPath := filepath.Join(outputDir, fmt.Sprintf("val_data_%s.json", timestamp))
@@ -349,43 +349,43 @@ func (s *TrainingDataService) writeJSONOutput(outputDir string,
 		if err != nil {
 			return "", fmt.Errorf("failed to marshal validation data: %v", err)
 		}
-		
+
 		err = os.WriteFile(valPath, valData, 0644)
 		if err != nil {
 			return "", fmt.Errorf("failed to write validation data: %v", err)
 		}
 	}
-	
+
 	// Write metadata
 	metaPath := filepath.Join(outputDir, fmt.Sprintf("metadata_%s.json", timestamp))
 	metadata := map[string]interface{}{
-		"timestamp":          time.Now().Format(time.RFC3339),
-		"total_examples":     len(trainExamples) + len(valExamples),
-		"training_examples":  len(trainExamples),
+		"timestamp":           time.Now().Format(time.RFC3339),
+		"total_examples":      len(trainExamples) + len(valExamples),
+		"training_examples":   len(trainExamples),
 		"validation_examples": len(valExamples),
-		"format":             "json",
+		"format":              "json",
 	}
-	
+
 	metaData, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal metadata: %v", err)
 	}
-	
+
 	err = os.WriteFile(metaPath, metaData, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write metadata: %v", err)
 	}
-	
+
 	return outputDir, nil
 }
 
 // writeCSVOutput writes training data to CSV files
-func (s *TrainingDataService) writeCSVOutput(outputDir string, 
+func (s *TrainingDataService) writeCSVOutput(outputDir string,
 	trainExamples, valExamples []TrainingExtendedExample) (string, error) {
-	
+
 	// Create timestamp for filenames
 	timestamp := time.Now().Format("20060102_150405")
-	
+
 	// Write training data
 	trainPath := filepath.Join(outputDir, fmt.Sprintf("train_data_%s.csv", timestamp))
 	trainFile, err := os.Create(trainPath)
@@ -393,21 +393,21 @@ func (s *TrainingDataService) writeCSVOutput(outputDir string,
 		return "", fmt.Errorf("failed to create training data file: %v", err)
 	}
 	defer trainFile.Close()
-	
+
 	// Write header
 	trainFile.WriteString("command,prediction,label,weight,source\n")
-	
+
 	// Write each example
 	for _, ex := range trainExamples {
 		// Escape commas and quotes
 		command := strings.ReplaceAll(ex.Command, "\"", "\"\"")
 		prediction := strings.ReplaceAll(ex.Prediction, "\"", "\"\"")
-		
-		line := fmt.Sprintf("\"%s\",\"%s\",%d,%.2f,%s\n", 
+
+		line := fmt.Sprintf("\"%s\",\"%s\",%d,%.2f,%s\n",
 			command, prediction, ex.Label, ex.Weight, ex.Source)
 		trainFile.WriteString(line)
 	}
-	
+
 	// Write validation data if available
 	if valExamples != nil {
 		valPath := filepath.Join(outputDir, fmt.Sprintf("val_data_%s.csv", timestamp))
@@ -416,49 +416,49 @@ func (s *TrainingDataService) writeCSVOutput(outputDir string,
 			return "", fmt.Errorf("failed to create validation data file: %v", err)
 		}
 		defer valFile.Close()
-		
+
 		// Write header
 		valFile.WriteString("command,prediction,label,weight,source\n")
-		
+
 		// Write each example
 		for _, ex := range valExamples {
 			// Escape commas and quotes
 			command := strings.ReplaceAll(ex.Command, "\"", "\"\"")
 			prediction := strings.ReplaceAll(ex.Prediction, "\"", "\"\"")
-			
-			line := fmt.Sprintf("\"%s\",\"%s\",%d,%.2f,%s\n", 
+
+			line := fmt.Sprintf("\"%s\",\"%s\",%d,%.2f,%s\n",
 				command, prediction, ex.Label, ex.Weight, ex.Source)
 			valFile.WriteString(line)
 		}
 	}
-	
+
 	// Write metadata
 	metaPath := filepath.Join(outputDir, fmt.Sprintf("metadata_%s.json", timestamp))
 	metadata := map[string]interface{}{
-		"timestamp":          time.Now().Format(time.RFC3339),
-		"total_examples":     len(trainExamples) + len(valExamples),
-		"training_examples":  len(trainExamples),
+		"timestamp":           time.Now().Format(time.RFC3339),
+		"total_examples":      len(trainExamples) + len(valExamples),
+		"training_examples":   len(trainExamples),
 		"validation_examples": len(valExamples),
-		"format":             "csv",
+		"format":              "csv",
 	}
-	
+
 	metaData, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal metadata: %v", err)
 	}
-	
+
 	err = os.WriteFile(metaPath, metaData, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write metadata: %v", err)
 	}
-	
+
 	return outputDir, nil
 }
 
 // writeTFRecordOutput writes training data to TFRecord files
 // This is a placeholder implementation that returns an error since
 // TFRecord format requires TensorFlow-specific libraries
-func (s *TrainingDataService) writeTFRecordOutput(outputDir string, 
+func (s *TrainingDataService) writeTFRecordOutput(outputDir string,
 	trainExamples, valExamples []TrainingExtendedExample) (string, error) {
 	return "", fmt.Errorf("TFRecord format not implemented yet")
 }
@@ -469,7 +469,7 @@ func (s *TrainingDataService) balanceExamples(examples []TrainingExample) []Trai
 	positiveCount := 0
 	negativeCount := 0
 	neutralCount := 0
-	
+
 	for _, ex := range examples {
 		switch ex.Label {
 		case 1:
@@ -480,30 +480,30 @@ func (s *TrainingDataService) balanceExamples(examples []TrainingExample) []Trai
 			neutralCount++
 		}
 	}
-	
+
 	// If already balanced, return as is
 	if positiveCount == negativeCount || (positiveCount == 0 || negativeCount == 0) {
 		return examples
 	}
-	
+
 	// Determine target count (smaller of positive and negative)
 	targetCount := positiveCount
 	if negativeCount < positiveCount {
 		targetCount = negativeCount
 	}
-	
+
 	// Create balanced set
 	balanced := make([]TrainingExample, 0)
 	posAdded := 0
 	negAdded := 0
-	
+
 	// Add all neutrals
 	for _, ex := range examples {
 		if ex.Label == 0 {
 			balanced = append(balanced, ex)
 		}
 	}
-	
+
 	// Add positive and negative examples up to target count
 	for _, ex := range examples {
 		if ex.Label == 1 && posAdded < targetCount {
@@ -514,7 +514,7 @@ func (s *TrainingDataService) balanceExamples(examples []TrainingExample) []Trai
 			negAdded++
 		}
 	}
-	
+
 	return balanced
 }
 
@@ -523,7 +523,7 @@ func (s *TrainingDataService) augmentData(examples []TrainingExample) []Training
 	if len(examples) == 0 {
 		return examples
 	}
-	
+
 	// Create a map of commands to predictions for positive examples
 	positiveMap := make(map[string][]string)
 	for _, ex := range examples {
@@ -534,22 +534,22 @@ func (s *TrainingDataService) augmentData(examples []TrainingExample) []Training
 			positiveMap[ex.Command] = append(positiveMap[ex.Command], ex.Prediction)
 		}
 	}
-	
+
 	// Create synthetic examples if possible
 	synthetic := make([]TrainingExample, 0)
-	
+
 	// Try to combine patterns
 	for i, ex1 := range examples {
 		if i < len(examples)-1 {
 			for j := i + 1; j < len(examples); j++ {
 				ex2 := examples[j]
-				
+
 				// Only combine examples with the same label
 				if ex1.Label == ex2.Label && ex1.Label != 0 {
 					// Check if commands are similar but not identical
 					if len(ex1.Command) > 3 && len(ex2.Command) > 3 {
 						similar := false
-						
+
 						// Check for common command patterns
 						if strings.Contains(ex1.Command, "git") && strings.Contains(ex2.Command, "git") {
 							similar = true
@@ -558,7 +558,7 @@ func (s *TrainingDataService) augmentData(examples []TrainingExample) []Training
 						} else if strings.Contains(ex1.Command, "make") && strings.Contains(ex2.Command, "make") {
 							similar = true
 						}
-						
+
 						if similar {
 							// Create new synthetic example
 							synthetic = append(synthetic, TrainingExample{
@@ -575,7 +575,7 @@ func (s *TrainingDataService) augmentData(examples []TrainingExample) []Training
 			}
 		}
 	}
-	
+
 	// Add synthetic examples to original set
 	return append(examples, synthetic...)
 }
@@ -594,9 +594,9 @@ func (s *TrainingDataService) GetTrainingDataStats() map[string]interface{} {
 	positiveCount := 0
 	negativeCount := 0
 	neutralCount := 0
-	
+
 	sourceCounts := make(map[string]int)
-	
+
 	for _, ex := range examples {
 		// Count by label
 		switch ex.Label {
@@ -607,33 +607,33 @@ func (s *TrainingDataService) GetTrainingDataStats() map[string]interface{} {
 		default:
 			neutralCount++
 		}
-		
+
 		// Count by source
 		sourceCounts[ex.Source]++
 	}
-	
+
 	// Get stats from inference manager
 	infStats := s.inferenceManager.GetInferenceStats()
-	
+
 	// Get memory manager stats
 	memStats, err := s.memoryManager.GetStats()
 	totalCommands := 0
 	if err == nil {
 		totalCommands = memStats.TotalEntries
 	}
-	
+
 	// Return stats
 	return map[string]interface{}{
-		"total_examples":        len(examples),
-		"positive_examples":     positiveCount,
-		"negative_examples":     negativeCount,
-		"neutral_examples":      neutralCount,
-		"feedback_count":        infStats["feedback_count"].(int),
-		"source_distribution":   sourceCounts,
-		"total_commands":        totalCommands,
-		"accumulated_examples":  infStats["accumulated_examples"].(int),
-		"training_threshold":    100, // Minimum examples needed for training
-		"is_training_ready":     s.inferenceManager.ShouldTrain(),
+		"total_examples":       len(examples),
+		"positive_examples":    positiveCount,
+		"negative_examples":    negativeCount,
+		"neutral_examples":     neutralCount,
+		"feedback_count":       infStats["feedback_count"].(int),
+		"source_distribution":  sourceCounts,
+		"total_commands":       totalCommands,
+		"accumulated_examples": infStats["accumulated_examples"].(int),
+		"training_threshold":   100, // Minimum examples needed for training
+		"is_training_ready":    s.inferenceManager.ShouldTrain(),
 	}
 }
 

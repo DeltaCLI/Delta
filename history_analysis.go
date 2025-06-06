@@ -24,30 +24,30 @@ type CommandContext struct {
 
 // EnhancedHistoryEntry represents a single command with additional context and metadata
 type EnhancedHistoryEntry struct {
-	Command     string         `json:"command"`     // The actual command text
-	Context     CommandContext `json:"context"`     // Command execution context
-	Category    string         `json:"category"`    // Command category (file, network, process, etc.)
-	Tags        []string       `json:"tags"`        // Additional tags for the command
-	Frequency   int            `json:"frequency"`   // How many times this exact command has been used
-	LastUsed    time.Time      `json:"last_used"`   // When this command was last used
+	Command     string         `json:"command"`      // The actual command text
+	Context     CommandContext `json:"context"`      // Command execution context
+	Category    string         `json:"category"`     // Command category (file, network, process, etc.)
+	Tags        []string       `json:"tags"`         // Additional tags for the command
+	Frequency   int            `json:"frequency"`    // How many times this exact command has been used
+	LastUsed    time.Time      `json:"last_used"`    // When this command was last used
 	IsImportant bool           `json:"is_important"` // Whether this is a significant command
 }
 
 // CommandSequence represents a sequence of commands that are frequently used together
 type CommandSequence struct {
-	Commands    []string `json:"commands"`    // Sequence of commands
-	Frequency   int      `json:"frequency"`   // How many times this sequence has been observed
-	LastUsed    time.Time `json:"last_used"`  // When was this sequence last used
-	MeaningfulName string `json:"name"`       // User-defined or auto-generated name for the sequence
+	Commands       []string  `json:"commands"`  // Sequence of commands
+	Frequency      int       `json:"frequency"` // How many times this sequence has been observed
+	LastUsed       time.Time `json:"last_used"` // When was this sequence last used
+	MeaningfulName string    `json:"name"`      // User-defined or auto-generated name for the sequence
 }
 
 // CommandSuggestion represents a suggested command based on context
 type CommandSuggestion struct {
-	Command     string  `json:"command"`     // The suggested command
-	Confidence  float64 `json:"confidence"`  // Confidence score for the suggestion (0.0-1.0)
-	Reason      string  `json:"reason"`      // Why this command is being suggested
-	IsSequence  bool    `json:"is_sequence"` // Whether this is part of a sequence
-	SequenceName string `json:"sequence_name"` // Name of the sequence if applicable
+	Command      string  `json:"command"`       // The suggested command
+	Confidence   float64 `json:"confidence"`    // Confidence score for the suggestion (0.0-1.0)
+	Reason       string  `json:"reason"`        // Why this command is being suggested
+	IsSequence   bool    `json:"is_sequence"`   // Whether this is part of a sequence
+	SequenceName string  `json:"sequence_name"` // Name of the sequence if applicable
 }
 
 // HistoryAnalysisConfig holds configuration for the history analysis system
@@ -70,20 +70,20 @@ type HistoryAnalysisConfig struct {
 
 // HistoryAnalyzer analyzes command history and provides intelligent suggestions
 type HistoryAnalyzer struct {
-	config               HistoryAnalysisConfig
-	configPath           string
-	historyPath          string
-	history              []EnhancedHistoryEntry
-	commandFrequency     map[string]int
-	directoryCommands    map[string]map[string]int // Directory -> Command -> Count
-	timePatterns         map[int]map[string]int    // Hour -> Command -> Count
-	commandCategories    map[string]string         // Command prefix -> Category
-	commandSequences     []CommandSequence
-	recentCommands       []string // Last N commands for sequence detection
-	commandRegexes       map[string]*regexp.Regexp
-	lastModified         time.Time
-	historyLock          sync.RWMutex
-	isInitialized        bool
+	config            HistoryAnalysisConfig
+	configPath        string
+	historyPath       string
+	history           []EnhancedHistoryEntry
+	commandFrequency  map[string]int
+	directoryCommands map[string]map[string]int // Directory -> Command -> Count
+	timePatterns      map[int]map[string]int    // Hour -> Command -> Count
+	commandCategories map[string]string         // Command prefix -> Category
+	commandSequences  []CommandSequence
+	recentCommands    []string // Last N commands for sequence detection
+	commandRegexes    map[string]*regexp.Regexp
+	lastModified      time.Time
+	historyLock       sync.RWMutex
+	isInitialized     bool
 }
 
 // NewHistoryAnalyzer creates a new history analyzer
@@ -541,9 +541,9 @@ func (ha *HistoryAnalyzer) detectSequences() {
 			// Create new sequence
 			name := "seq_" + strings.ReplaceAll(strings.Join(sequence, "_"), " ", "")
 			ha.commandSequences = append(ha.commandSequences, CommandSequence{
-				Commands:      sequence,
-				Frequency:     1,
-				LastUsed:      time.Now(),
+				Commands:       sequence,
+				Frequency:      1,
+				LastUsed:       time.Now(),
 				MeaningfulName: name,
 			})
 		}
@@ -638,7 +638,7 @@ func (ha *HistoryAnalyzer) GetSuggestions(currentDirectory string) []CommandSugg
 			}
 			confidence := float64(count) * timeWeight
 			existing := pq.Find(cmd)
-			
+
 			if existing != nil {
 				existing.confidence += confidence
 				existing.reason = "frequently used in this directory and at this time"
@@ -661,7 +661,7 @@ func (ha *HistoryAnalyzer) GetSuggestions(currentDirectory string) []CommandSugg
 		}
 		confidence := float64(count) * frequencyWeight
 		existing := pq.Find(cmd)
-		
+
 		if existing != nil {
 			existing.confidence += confidence
 		} else {
@@ -676,7 +676,7 @@ func (ha *HistoryAnalyzer) GetSuggestions(currentDirectory string) []CommandSugg
 	// Check for command sequences where the last command was used
 	if len(ha.recentCommands) > 0 && ha.config.TrackCommandSequences {
 		lastCmd := ha.recentCommands[len(ha.recentCommands)-1]
-		
+
 		for _, seq := range ha.commandSequences {
 			if len(seq.Commands) >= 2 && seq.Commands[0] == lastCmd {
 				nextCmd := seq.Commands[1]
@@ -685,7 +685,7 @@ func (ha *HistoryAnalyzer) GetSuggestions(currentDirectory string) []CommandSugg
 					continue
 				}
 				confidence := float64(seq.Frequency) * 0.5 // Sequence confidence is higher
-				
+
 				existing := pq.Find(nextCmd)
 				if existing != nil {
 					existing.confidence += confidence
@@ -709,7 +709,7 @@ func (ha *HistoryAnalyzer) GetSuggestions(currentDirectory string) []CommandSugg
 	var result []CommandSuggestion
 	for pq.Len() > 0 && len(result) < ha.config.MaxSuggestions {
 		item := heap.Pop(&pq).(*CommandSuggestionItem)
-		
+
 		// Only include items above the confidence threshold
 		if item.confidence >= ha.config.MinConfidenceThreshold {
 			result = append(result, CommandSuggestion{
@@ -773,25 +773,25 @@ func (ha *HistoryAnalyzer) SearchHistory(query string, maxResults int) []Enhance
 func (ha *HistoryAnalyzer) naturalLanguageSearch(query string, maxResults int) []EnhancedHistoryEntry {
 	// Extract keywords from the query
 	keywords := strings.Fields(query)
-	
+
 	// Score each entry based on keyword matches
 	type ScoredEntry struct {
 		entry EnhancedHistoryEntry
 		score float64
 	}
-	
+
 	var scoredEntries []ScoredEntry
-	
+
 	for _, entry := range ha.history {
 		score := 0.0
-		
+
 		// Check command text
 		for _, keyword := range keywords {
 			if strings.Contains(strings.ToLower(entry.Command), strings.ToLower(keyword)) {
 				score += 1.0
 			}
 		}
-		
+
 		// Check tags
 		for _, tag := range entry.Tags {
 			for _, keyword := range keywords {
@@ -800,14 +800,14 @@ func (ha *HistoryAnalyzer) naturalLanguageSearch(query string, maxResults int) [
 				}
 			}
 		}
-		
+
 		// Check directory
 		for _, keyword := range keywords {
 			if strings.Contains(strings.ToLower(entry.Context.Directory), strings.ToLower(keyword)) {
 				score += 0.3
 			}
 		}
-		
+
 		// Only include entries with a positive score
 		if score > 0 {
 			scoredEntries = append(scoredEntries, ScoredEntry{
@@ -816,18 +816,18 @@ func (ha *HistoryAnalyzer) naturalLanguageSearch(query string, maxResults int) [
 			})
 		}
 	}
-	
+
 	// Sort by score descending
 	sort.Slice(scoredEntries, func(i, j int) bool {
 		return scoredEntries[i].score > scoredEntries[j].score
 	})
-	
+
 	// Extract the top results
 	var result []EnhancedHistoryEntry
 	for i := 0; i < historyMin(len(scoredEntries), maxResults); i++ {
 		result = append(result, scoredEntries[i].entry)
 	}
-	
+
 	return result
 }
 
@@ -841,7 +841,7 @@ func (ha *HistoryAnalyzer) GetCommandStats(command string) map[string]interface{
 	defer ha.historyLock.RUnlock()
 
 	stats := make(map[string]interface{})
-	
+
 	// Find the command in history
 	var entry *EnhancedHistoryEntry
 	for i := range ha.history {
@@ -850,19 +850,19 @@ func (ha *HistoryAnalyzer) GetCommandStats(command string) map[string]interface{
 			break
 		}
 	}
-	
+
 	if entry == nil {
 		stats["found"] = false
 		return stats
 	}
-	
+
 	stats["found"] = true
 	stats["frequency"] = entry.Frequency
 	stats["category"] = entry.Category
 	stats["tags"] = entry.Tags
 	stats["last_used"] = entry.LastUsed
 	stats["is_important"] = entry.IsImportant
-	
+
 	// Get directory distribution
 	dirStats := make(map[string]int)
 	total := 0
@@ -873,7 +873,7 @@ func (ha *HistoryAnalyzer) GetCommandStats(command string) map[string]interface{
 		}
 	}
 	stats["directory_stats"] = dirStats
-	
+
 	// Get time distribution
 	timeStats := make(map[int]int)
 	for hour, cmds := range ha.timePatterns {
@@ -882,12 +882,12 @@ func (ha *HistoryAnalyzer) GetCommandStats(command string) map[string]interface{
 		}
 	}
 	stats["time_stats"] = timeStats
-	
+
 	// Find related commands (commands often used before or after this one)
 	// This is a placeholder for future implementation
 	relatedCommands := []string{}
 	stats["related_commands"] = relatedCommands
-	
+
 	return stats
 }
 
@@ -901,7 +901,7 @@ func (ha *HistoryAnalyzer) GetHistoryStats() map[string]interface{} {
 	defer ha.historyLock.RUnlock()
 
 	stats := make(map[string]interface{})
-	
+
 	// Basic stats
 	stats["total_entries"] = len(ha.history)
 	stats["unique_commands"] = len(ha.commandFrequency)
@@ -909,35 +909,35 @@ func (ha *HistoryAnalyzer) GetHistoryStats() map[string]interface{} {
 	for _, freq := range ha.commandFrequency {
 		stats["total_command_executions"] = stats["total_command_executions"].(int) + freq
 	}
-	
+
 	// Most used commands
 	type CommandCount struct {
 		Command string
 		Count   int
 	}
-	
+
 	var topCommands []CommandCount
 	for cmd, count := range ha.commandFrequency {
 		topCommands = append(topCommands, CommandCount{cmd, count})
 	}
-	
+
 	sort.Slice(topCommands, func(i, j int) bool {
 		return topCommands[i].Count > topCommands[j].Count
 	})
-	
+
 	if len(topCommands) > 10 {
 		topCommands = topCommands[:10]
 	}
-	
+
 	stats["top_commands"] = topCommands
-	
+
 	// Category distribution
 	categoryStats := make(map[string]int)
 	for _, entry := range ha.history {
 		categoryStats[entry.Category] += entry.Frequency
 	}
 	stats["category_stats"] = categoryStats
-	
+
 	// Directory distribution
 	dirStats := make(map[string]int)
 	for dir, cmds := range ha.directoryCommands {
@@ -948,7 +948,7 @@ func (ha *HistoryAnalyzer) GetHistoryStats() map[string]interface{} {
 		dirStats[dir] = dirCount
 	}
 	stats["directory_stats"] = dirStats
-	
+
 	// Time distribution
 	timeStats := make(map[int]int)
 	for hour, cmds := range ha.timePatterns {
@@ -959,10 +959,10 @@ func (ha *HistoryAnalyzer) GetHistoryStats() map[string]interface{} {
 		timeStats[hour] = hourCount
 	}
 	stats["time_stats"] = timeStats
-	
+
 	// Sequence stats
 	stats["command_sequences"] = len(ha.commandSequences)
-	
+
 	return stats
 }
 
@@ -977,7 +977,7 @@ func (ha *HistoryAnalyzer) IsEnabled() bool {
 func (ha *HistoryAnalyzer) EnableHistoryAnalysis() {
 	ha.historyLock.Lock()
 	defer ha.historyLock.Unlock()
-	
+
 	ha.config.Enabled = true
 	ha.saveConfig()
 }
@@ -986,7 +986,7 @@ func (ha *HistoryAnalyzer) EnableHistoryAnalysis() {
 func (ha *HistoryAnalyzer) DisableHistoryAnalysis() {
 	ha.historyLock.Lock()
 	defer ha.historyLock.Unlock()
-	
+
 	ha.config.Enabled = false
 	ha.saveConfig()
 }
@@ -995,7 +995,7 @@ func (ha *HistoryAnalyzer) DisableHistoryAnalysis() {
 func (ha *HistoryAnalyzer) MarkCommandImportant(command string, isImportant bool) {
 	ha.historyLock.Lock()
 	defer ha.historyLock.Unlock()
-	
+
 	for i := range ha.history {
 		if ha.history[i].Command == command {
 			ha.history[i].IsImportant = isImportant
@@ -1016,7 +1016,7 @@ func GetHistoryAnalyzer() *HistoryAnalyzer {
 			fmt.Printf("Error initializing history analyzer: %v\n", err)
 			return nil
 		}
-		
+
 		// Initialize the history analyzer
 		globalHistoryAnalyzer.Initialize()
 	}

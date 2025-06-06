@@ -34,18 +34,18 @@ func HandleI18nCommand(args []string) bool {
 // showI18nStatus displays the current internationalization status
 func showI18nStatus() {
 	i18n := GetI18nManager()
-	
+
 	fmt.Println(T("interface.i18n.status.title"))
 	fmt.Printf("- %s: %s\n", T("interface.i18n.status.current_locale"), i18n.GetCurrentLocale())
-	
+
 	availableLocales := i18n.GetAvailableLocales()
 	fmt.Printf("- %s: %s\n", T("interface.i18n.status.available_locales"), strings.Join(availableLocales, ", "))
-	
+
 	stats := i18n.GetTranslationStats()
 	if loadedLocales, ok := stats["loaded_locales"].(int); ok {
 		fmt.Printf("- %s: %d\n", T("interface.i18n.status.loaded_locales"), loadedLocales)
 	}
-	
+
 	if totalKeys, ok := stats["total_keys"].(int); ok {
 		fmt.Printf("- %s: %d\n", T("interface.i18n.status.total_keys"), totalKeys)
 	}
@@ -61,7 +61,7 @@ func handleLocaleCommand(args []string) bool {
 	}
 
 	newLocale := args[0]
-	
+
 	// Validate locale exists
 	availableLocales := GetAvailableLocales()
 	localeExists := false
@@ -71,27 +71,27 @@ func handleLocaleCommand(args []string) bool {
 			break
 		}
 	}
-	
+
 	if !localeExists {
 		fmt.Printf(T("interface.i18n.locale.not_found", TranslationParams{"locale": newLocale}))
 		fmt.Printf("%s: %s\n", T("interface.i18n.locale.available"), strings.Join(availableLocales, ", "))
 		return true
 	}
-	
+
 	// Set the new locale
 	if err := SetLocale(newLocale); err != nil {
 		fmt.Printf(T("interface.i18n.locale.error", TranslationParams{"error": err.Error()}))
 		return true
 	}
-	
+
 	fmt.Printf(T("interface.i18n.locale.changed", TranslationParams{"locale": newLocale}))
-	
+
 	// Update configuration if available
 	if cm := GetConfigManager(); cm != nil {
 		// This would be implemented when config integration is done
 		// cm.UpdateI18nLocale(newLocale)
 	}
-	
+
 	return true
 }
 
@@ -99,25 +99,25 @@ func handleLocaleCommand(args []string) bool {
 func handleListLocalesCommand() bool {
 	availableLocales := GetAvailableLocales()
 	currentLocale := GetCurrentLocale()
-	
+
 	fmt.Println(T("interface.i18n.list.title"))
-	
+
 	for _, locale := range availableLocales {
 		marker := "  "
 		if locale == currentLocale {
 			marker = "* "
 		}
-		
+
 		// Try to get the language name from the locale's meta information
 		i18n := GetI18nManager()
 		languageName := locale
 		if translation := i18n.getTranslation(locale, "commands.meta.language"); translation != "" {
 			languageName = fmt.Sprintf("%s (%s)", translation, locale)
 		}
-		
+
 		fmt.Printf("%s%s\n", marker, languageName)
 	}
-	
+
 	fmt.Printf("\n%s\n", T("interface.i18n.list.current_marker"))
 	return true
 }
@@ -125,14 +125,14 @@ func handleListLocalesCommand() bool {
 // handleReloadTranslationsCommand reloads all translation files
 func handleReloadTranslationsCommand() bool {
 	i18n := GetI18nManager()
-	
+
 	fmt.Println(T("interface.i18n.reload.starting"))
-	
+
 	if err := i18n.ReloadTranslations(); err != nil {
 		fmt.Printf(T("interface.i18n.reload.error", TranslationParams{"error": err.Error()}))
 		return true
 	}
-	
+
 	fmt.Println(T("interface.i18n.reload.success"))
 	return true
 }
@@ -141,25 +141,25 @@ func handleReloadTranslationsCommand() bool {
 func handleI18nStatsCommand() bool {
 	i18n := GetI18nManager()
 	stats := i18n.GetTranslationStats()
-	
+
 	fmt.Println(T("interface.i18n.stats.title"))
-	
+
 	if currentLocale, ok := stats["current_locale"].(string); ok {
 		fmt.Printf("- %s: %s\n", T("interface.i18n.stats.current_locale"), currentLocale)
 	}
-	
+
 	if fallbackLocale, ok := stats["fallback_locale"].(string); ok {
 		fmt.Printf("- %s: %s\n", T("interface.i18n.stats.fallback_locale"), fallbackLocale)
 	}
-	
+
 	if loadedLocales, ok := stats["loaded_locales"].(int); ok {
 		fmt.Printf("- %s: %d\n", T("interface.i18n.stats.loaded_locales"), loadedLocales)
 	}
-	
+
 	if totalKeys, ok := stats["total_keys"].(int); ok {
 		fmt.Printf("- %s: %d\n", T("interface.i18n.stats.total_keys"), totalKeys)
 	}
-	
+
 	// Show per-locale statistics
 	fmt.Printf("\n%s:\n", T("interface.i18n.stats.per_locale"))
 	for key, value := range stats {
@@ -170,7 +170,7 @@ func handleI18nStatsCommand() bool {
 			}
 		}
 	}
-	
+
 	return true
 }
 
@@ -185,13 +185,13 @@ func handleI18nHelpCommand() bool {
 	fmt.Println(T("interface.i18n.help.reload"))
 	fmt.Println(T("interface.i18n.help.stats"))
 	fmt.Println(T("interface.i18n.help.help"))
-	
+
 	fmt.Printf("\n%s:\n", T("interface.i18n.help.examples"))
 	fmt.Println(T("interface.i18n.help.example_status"))
 	fmt.Println(T("interface.i18n.help.example_list"))
 	fmt.Println(T("interface.i18n.help.example_set_chinese"))
 	fmt.Println(T("interface.i18n.help.example_set_english"))
-	
+
 	return true
 }
 
@@ -205,7 +205,7 @@ func suggestLocale() string {
 				return locale
 			}
 		}
-		
+
 		// Try language code only (e.g., "zh" from "zh-CN")
 		if parts := strings.Split(locale, "-"); len(parts) > 1 {
 			lang := parts[0]
@@ -216,24 +216,24 @@ func suggestLocale() string {
 			}
 		}
 	}
-	
+
 	return "en" // Default to English
 }
 
 // initializeI18nSystem sets up the i18n system during Delta startup
 func initializeI18nSystem() {
 	i18n := GetI18nManager()
-	
+
 	// Try to initialize with system locale
 	if err := i18n.Initialize(); err != nil {
 		// Fall back to English if initialization fails
 		i18n.SetLocale("en")
 	}
-	
+
 	// Suggest locale if not English and user hasn't explicitly set one
 	currentLocale := i18n.GetCurrentLocale()
 	suggestedLocale := suggestLocale()
-	
+
 	if currentLocale == "en" && suggestedLocale != "en" {
 		// Silently try the suggested locale, but don't error if it fails
 		i18n.SetLocale(suggestedLocale)

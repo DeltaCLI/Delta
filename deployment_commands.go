@@ -118,14 +118,14 @@ func showDeploymentStatus(deploymentService *ModelDeploymentService) {
 		fmt.Printf("  Deployed On: %s\n", metadata.DeploymentTime.Format(time.RFC1123))
 		fmt.Printf("  Validation Score: %.4f\n", metadata.ValidationScore)
 		fmt.Printf("  Model Format: %s\n", metadata.ModelFormat)
-		
+
 		if metadata.Optimized {
-			fmt.Printf("  Optimized: Yes (%.2f%% size reduction)\n", 
+			fmt.Printf("  Optimized: Yes (%.2f%% size reduction)\n",
 				100.0*(1.0-float64(metadata.OptimizedSize)/float64(metadata.ModelSize)))
 		} else {
 			fmt.Println("  Optimized: No")
 		}
-		
+
 		fmt.Printf("  Quantized: %v\n", metadata.Quantized)
 	}
 
@@ -163,7 +163,7 @@ func deployModel(deploymentService *ModelDeploymentService, args []string) {
 	// Parse model path or ID
 	if len(args) > 0 && !strings.HasPrefix(args[0], "--") {
 		modelPathOrId := args[0]
-		
+
 		// Check if it's a numeric ID
 		if isNumeric(modelPathOrId) {
 			// Get model by ID
@@ -172,7 +172,7 @@ func deployModel(deploymentService *ModelDeploymentService, args []string) {
 				fmt.Printf("Error listing models: %v\n", err)
 				return
 			}
-			
+
 			id := parseId(modelPathOrId)
 			if id > 0 && id <= len(models) {
 				config.ModelPath = models[id-1].Path
@@ -188,7 +188,7 @@ func deployModel(deploymentService *ModelDeploymentService, args []string) {
 				fmt.Printf("Error listing models: %v\n", err)
 				return
 			}
-			
+
 			if len(models) > 0 {
 				config.ModelPath = models[0].Path
 			} else {
@@ -206,7 +206,7 @@ func deployModel(deploymentService *ModelDeploymentService, args []string) {
 		if !strings.HasPrefix(args[i], "--") {
 			continue
 		}
-		
+
 		option := args[i]
 		switch option {
 		case "--no-optimize":
@@ -256,14 +256,14 @@ func deployModel(deploymentService *ModelDeploymentService, args []string) {
 			fmt.Printf("Error getting home directory: %v\n", err)
 			return
 		}
-		
+
 		modelsDir := filepath.Join(homeDir, ".config", "delta", "memory", "models")
 		files, err := os.ReadDir(modelsDir)
 		if err != nil {
 			fmt.Printf("Error reading models directory: %v\n", err)
 			return
 		}
-		
+
 		// Find most recent model file
 		var newest os.FileInfo
 		var newestPath string
@@ -273,14 +273,14 @@ func deployModel(deploymentService *ModelDeploymentService, args []string) {
 				if err != nil {
 					continue
 				}
-				
+
 				if newest == nil || info.ModTime().After(newest.ModTime()) {
 					newest = info
 					newestPath = filepath.Join(modelsDir, file.Name())
 				}
 			}
 		}
-		
+
 		if newestPath != "" {
 			config.ModelPath = newestPath
 		} else {
@@ -300,7 +300,7 @@ func deployModel(deploymentService *ModelDeploymentService, args []string) {
 	fmt.Printf("Validation: %v\n", config.ValidateModel)
 	fmt.Printf("Backup existing: %v\n", config.BackupExisting)
 	fmt.Printf("Create symlink: %v\n", config.CreateSymlink)
-	
+
 	// Confirm deployment
 	fmt.Print("\nProceed with deployment? (y/n): ")
 	var confirm string
@@ -326,30 +326,30 @@ func deployModel(deploymentService *ModelDeploymentService, args []string) {
 		fmt.Printf("Error: %s\n", result.Error)
 		return
 	}
-	
+
 	fmt.Printf("Source: %s\n", result.SourcePath)
 	fmt.Printf("Deployed To: %s\n", result.DeployedPath)
 	fmt.Printf("Format: %s\n", result.ModelFormat)
 	fmt.Printf("Size: %.2f MB\n", float64(result.ModelSize)/(1024*1024))
-	
+
 	if result.Optimized {
-		fmt.Printf("Optimized: Yes (%.2f%% size reduction)\n", 
+		fmt.Printf("Optimized: Yes (%.2f%% size reduction)\n",
 			100.0*(1.0-float64(result.OptimizedSize)/float64(result.ModelSize)))
 	} else {
 		fmt.Println("Optimized: No")
 	}
-	
+
 	fmt.Printf("Quantized: %v\n", result.Quantized)
 	fmt.Printf("Validation Score: %.4f\n", result.ValidationScore)
-	
+
 	if result.BackupPath != "" {
 		fmt.Printf("Backup Created: %s\n", result.BackupPath)
 	}
-	
+
 	if result.SymlinkPath != "" {
 		fmt.Printf("Symlink Created: %s\n", result.SymlinkPath)
 	}
-	
+
 	fmt.Println("\nModel has been successfully deployed and is now active")
 }
 
@@ -377,11 +377,11 @@ func listAvailableModels(deploymentService *ModelDeploymentService) {
 		fmt.Printf("   Format: %s\n", model.Format)
 		fmt.Printf("   Size: %.2f MB\n", float64(model.Size)/(1024*1024))
 		fmt.Printf("   Modified: %s\n", model.ModTime.Format(time.RFC1123))
-		
+
 		if model.ValidationScore > 0 {
 			fmt.Printf("   Validation Score: %.4f\n", model.ValidationScore)
 		}
-		
+
 		status := ""
 		if model.IsDeployed {
 			status += "✓ Currently Deployed"
@@ -395,12 +395,12 @@ func listAvailableModels(deploymentService *ModelDeploymentService) {
 		if status != "" {
 			fmt.Printf("   Status: %s\n", status)
 		}
-		
+
 		if i < len(models)-1 {
 			fmt.Println()
 		}
 	}
-	
+
 	fmt.Println("\nUse ':deployment deploy <id>' to deploy a model")
 	fmt.Println("Use ':deployment info <id>' for detailed model information")
 }
@@ -429,22 +429,22 @@ func showDeploymentHistory(deploymentService *ModelDeploymentService) {
 		fmt.Printf("   Deployed To: %s\n", filepath.Base(deployment.DeployedPath))
 		fmt.Printf("   Format: %s\n", deployment.ModelFormat)
 		fmt.Printf("   Size: %.2f MB\n", float64(deployment.ModelSize)/(1024*1024))
-		
+
 		if deployment.Optimized {
-			fmt.Printf("   Optimized: Yes (%.2f%% size reduction)\n", 
+			fmt.Printf("   Optimized: Yes (%.2f%% size reduction)\n",
 				100.0*(1.0-float64(deployment.OptimizedSize)/float64(deployment.ModelSize)))
 		} else {
 			fmt.Println("   Optimized: No")
 		}
-		
+
 		fmt.Printf("   Quantized: %v\n", deployment.Quantized)
 		fmt.Printf("   Validation Score: %.4f\n", deployment.ValidationScore)
 		fmt.Printf("   Success: %v\n", deployment.Success)
-		
+
 		if !deployment.Success {
 			fmt.Printf("   Error: %s\n", deployment.Error)
 		}
-		
+
 		if i < len(deployments)-1 {
 			fmt.Println()
 		}
@@ -454,7 +454,7 @@ func showDeploymentHistory(deploymentService *ModelDeploymentService) {
 // switchToModel switches to a different model
 func switchToModel(deploymentService *ModelDeploymentService, modelIdOrPath string) {
 	var modelPath string
-	
+
 	// Check if it's a numeric ID
 	if isNumeric(modelIdOrPath) {
 		// Get model by ID
@@ -463,7 +463,7 @@ func switchToModel(deploymentService *ModelDeploymentService, modelIdOrPath stri
 			fmt.Printf("Error listing models: %v\n", err)
 			return
 		}
-		
+
 		id := parseId(modelIdOrPath)
 		if id > 0 && id <= len(models) {
 			modelPath = models[id-1].Path
@@ -479,7 +479,7 @@ func switchToModel(deploymentService *ModelDeploymentService, modelIdOrPath stri
 			fmt.Printf("Error listing models: %v\n", err)
 			return
 		}
-		
+
 		if len(models) > 0 {
 			modelPath = models[0].Path
 		} else {
@@ -510,7 +510,7 @@ func switchToModel(deploymentService *ModelDeploymentService, modelIdOrPath stri
 // showModelInfo displays detailed information about a model
 func showModelInfo(deploymentService *ModelDeploymentService, modelIdOrPath string) {
 	var modelPath string
-	
+
 	// Check if it's a numeric ID
 	if isNumeric(modelIdOrPath) {
 		// Get model by ID
@@ -519,7 +519,7 @@ func showModelInfo(deploymentService *ModelDeploymentService, modelIdOrPath stri
 			fmt.Printf("Error listing models: %v\n", err)
 			return
 		}
-		
+
 		id := parseId(modelIdOrPath)
 		if id > 0 && id <= len(models) {
 			modelPath = models[id-1].Path
@@ -535,7 +535,7 @@ func showModelInfo(deploymentService *ModelDeploymentService, modelIdOrPath stri
 			fmt.Printf("Error listing models: %v\n", err)
 			return
 		}
-		
+
 		if len(models) > 0 {
 			modelPath = models[0].Path
 		} else {
@@ -588,20 +588,20 @@ func showModelInfo(deploymentService *ModelDeploymentService, modelIdOrPath stri
 		fmt.Printf("  Deployed On: %s\n", metadata.DeploymentTime.Format(time.RFC1123))
 		fmt.Printf("  Validation Score: %.4f\n", metadata.ValidationScore)
 		fmt.Printf("  Deployed Path: %s\n", metadata.DeployedPath)
-		
+
 		if metadata.Optimized {
-			fmt.Printf("  Optimized: Yes (%.2f%% size reduction)\n", 
+			fmt.Printf("  Optimized: Yes (%.2f%% size reduction)\n",
 				100.0*(1.0-float64(metadata.OptimizedSize)/float64(metadata.ModelSize)))
 		} else {
 			fmt.Println("  Optimized: No")
 		}
-		
+
 		fmt.Printf("  Quantized: %v\n", metadata.Quantized)
-		
+
 		if metadata.BackupPath != "" {
 			fmt.Printf("  Backup Path: %s\n", metadata.BackupPath)
 		}
-		
+
 		if metadata.SymlinkPath != "" {
 			fmt.Printf("  Symlink Path: %s\n", metadata.SymlinkPath)
 		}
@@ -611,7 +611,7 @@ func showModelInfo(deploymentService *ModelDeploymentService, modelIdOrPath stri
 // optimizeModel optimizes a model
 func optimizeModel(deploymentService *ModelDeploymentService, modelIdOrPath string, options []string) {
 	var modelPath string
-	
+
 	// Check if it's a numeric ID
 	if isNumeric(modelIdOrPath) {
 		// Get model by ID
@@ -620,7 +620,7 @@ func optimizeModel(deploymentService *ModelDeploymentService, modelIdOrPath stri
 			fmt.Printf("Error listing models: %v\n", err)
 			return
 		}
-		
+
 		id := parseId(modelIdOrPath)
 		if id > 0 && id <= len(models) {
 			modelPath = models[id-1].Path
@@ -636,7 +636,7 @@ func optimizeModel(deploymentService *ModelDeploymentService, modelIdOrPath stri
 			fmt.Printf("Error listing models: %v\n", err)
 			return
 		}
-		
+
 		if len(models) > 0 {
 			modelPath = models[0].Path
 		} else {
@@ -691,7 +691,7 @@ func optimizeModel(deploymentService *ModelDeploymentService, modelIdOrPath stri
 	// Set output path for optimized model
 	modelName := filepath.Base(modelPath)
 	timestamp := time.Now().Format("20060102_150405")
-	optimizedName := fmt.Sprintf("%s_optimized_%s%s", 
+	optimizedName := fmt.Sprintf("%s_optimized_%s%s",
 		strings.TrimSuffix(modelName, filepath.Ext(modelName)),
 		timestamp,
 		filepath.Ext(modelName))
@@ -705,7 +705,7 @@ func optimizeModel(deploymentService *ModelDeploymentService, modelIdOrPath stri
 	fmt.Printf("Quantization: %v\n", config.Quantize)
 	fmt.Printf("Validation: %v\n", config.ValidateModel)
 	fmt.Printf("Output: %s\n", config.TargetPath)
-	
+
 	// Confirm optimization
 	fmt.Print("\nProceed with optimization? (y/n): ")
 	var confirm string
@@ -731,20 +731,20 @@ func optimizeModel(deploymentService *ModelDeploymentService, modelIdOrPath stri
 		fmt.Printf("Error: %s\n", result.Error)
 		return
 	}
-	
+
 	fmt.Printf("Source: %s\n", result.SourcePath)
 	fmt.Printf("Optimized Model: %s\n", result.DeployedPath)
 	fmt.Printf("Original Size: %.2f MB\n", float64(result.ModelSize)/(1024*1024))
 	fmt.Printf("Optimized Size: %.2f MB\n", float64(result.OptimizedSize)/(1024*1024))
-	fmt.Printf("Size Reduction: %.2f%%\n", 
+	fmt.Printf("Size Reduction: %.2f%%\n",
 		100.0*(1.0-float64(result.OptimizedSize)/float64(result.ModelSize)))
-	
+
 	if result.Quantized {
 		fmt.Println("Quantization: Applied")
 	}
-	
+
 	fmt.Printf("Validation Score: %.4f\n", result.ValidationScore)
-	
+
 	fmt.Println("\nModel has been successfully optimized")
 	fmt.Println("Use ':deployment switch <id>' to switch to this model")
 }
@@ -761,7 +761,7 @@ func showDeploymentHelp() {
 	fmt.Println("  :deployment info <id>     - Show model information")
 	fmt.Println("  :deployment optimize <id> [options] - Optimize a model")
 	fmt.Println("  :deployment help          - Show this help message")
-	
+
 	fmt.Println("\nDeploy Options:")
 	fmt.Println("  --no-optimize        - Skip optimization")
 	fmt.Println("  --quantize           - Apply quantization")
@@ -771,7 +771,7 @@ func showDeploymentHelp() {
 	fmt.Println("  --optimization-level <n> - Set optimization level (0-3)")
 	fmt.Println("  --format <format>    - Specify model format (onnx, pytorch, binary)")
 	fmt.Println("  --target <path>      - Specify target path for deployed model")
-	
+
 	fmt.Println("\nModel IDs:")
 	fmt.Println("  IDs are assigned by order in the list command, with 1 being the newest")
 	fmt.Println("  You can also use 'latest' to refer to the most recent model")
