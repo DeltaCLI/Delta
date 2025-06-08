@@ -61,7 +61,7 @@ func (um *UpdateManager) Initialize() error {
 				CheckInterval:        "daily",
 				BackupBeforeUpdate:   true,
 				AllowPrerelease:      false,
-				GitHubRepository:     "your-org/deltacli",
+				GitHubRepository:     "deltacli/delta",
 				DownloadDirectory:    getDefaultDownloadDir(),
 				NotificationLevel:    "prompt",
 			}

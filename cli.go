@@ -944,6 +944,17 @@ func handleInitCommand() bool {
 		fmt.Printf("ART-2 preprocessor initialized with %d vocabulary terms\n", stats["vocabulary_size"].(int))
 	}
 
+	// Initialize Update Manager
+	um := GetUpdateManager()
+	if um != nil {
+		err := um.Initialize()
+		if err == nil {
+			fmt.Println("Update system initialized")
+		} else {
+			fmt.Printf("Warning: Failed to initialize update system: %v\n", err)
+		}
+	}
+
 	// Initialize history file
 	homeDir, err := os.UserHomeDir()
 	if err != nil {

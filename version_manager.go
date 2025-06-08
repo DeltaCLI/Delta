@@ -126,11 +126,20 @@ func MatchesChannel(version string, channel string) bool {
 
 // GetVersionFromTag extracts version from a git tag
 func GetVersionFromTag(tag string) string {
-	// Remove common prefixes
-	tag = strings.TrimPrefix(tag, "v")
-	tag = strings.TrimPrefix(tag, "version-")
-	tag = strings.TrimPrefix(tag, "release-")
+	if tag == "" {
+		return ""
+	}
 	
+	// Common tag prefixes to remove
+	prefixes := []string{"release-", "version-", "v"}
+	
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(tag, prefix) {
+			return tag[len(prefix):]
+		}
+	}
+	
+	// If no prefix found, return as-is (might be just "1.2.3")
 	return tag
 }
 

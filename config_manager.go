@@ -272,6 +272,13 @@ func (cm *ConfigManager) collectConfigs() error {
 		}
 	}
 
+	// Update Manager
+	um := GetUpdateManager()
+	if um != nil {
+		config := um.GetConfig()
+		cm.updateConfig = &config
+	}
+
 	// Memory Manager
 	mm := GetMemoryManager()
 	if mm != nil {
@@ -325,6 +332,7 @@ func (cm *ConfigManager) saveConfig() error {
 		ConfigVersion:   "1.0",
 		LastUpdated:     time.Now(),
 		I18nConfig:      cm.i18nConfig,
+		UpdateConfig:    cm.updateConfig,
 		MemoryConfig:    cm.memoryConfig,
 		AIConfig:        cm.aiConfig,
 		VectorConfig:    cm.vectorConfig,
@@ -667,6 +675,12 @@ func (cm *ConfigManager) updateComponentConfigs() {
 	if i18n != nil && cm.i18nConfig != nil {
 		i18n.SetLocale(cm.i18nConfig.Locale)
 		i18n.fallbackLocale = cm.i18nConfig.FallbackLocale
+	}
+
+	// Update Manager
+	um := GetUpdateManager()
+	if um != nil && cm.updateConfig != nil {
+		um.UpdateConfig(*cm.updateConfig)
 	}
 
 	// Memory Manager
