@@ -45,7 +45,7 @@ GO_SOURCES = version.go \
 	knowledge_extractor.go knowledge_commands.go knowledge_extractor_agent_command.go \
 	agent_types.go agent_manager.go agent_commands.go \
 	config_manager.go config_commands.go \
-	version_manager.go update_manager.go update_commands.go github_client.go update_checker.go \
+	version_manager.go update_manager.go update_commands.go github_client.go update_checker.go update_downloader.go update_installer.go \
 	spellcheck.go spellcheck_commands.go \
 	history_analysis.go history_commands.go \
 	pattern_update.go pattern_commands.go pattern_recognition.go \
