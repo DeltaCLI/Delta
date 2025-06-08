@@ -5,13 +5,13 @@ import (
 	"runtime"
 )
 
-// Version information - updated by build process
+// Version information - injected at build time via ldflags
 var (
-	Version   = "v0.4.0-alpha"
-	GitCommit = "unknown"
-	BuildDate = "unknown"
+	Version   = "dev"      // Overridden by -ldflags "-X main.Version=..."
+	GitCommit = "unknown"  // Overridden by -ldflags "-X main.GitCommit=..."
+	BuildDate = "unknown"  // Overridden by -ldflags "-X main.BuildDate=..."
 	GoVersion = runtime.Version()
-	IsDirty   = "false" // Set to "true" for development builds
+	IsDirty   = "true"     // Overridden by -ldflags "-X main.IsDirty=..." (default to dev build)
 )
 
 // GetVersionInfo returns formatted version information

@@ -4,6 +4,18 @@ BINARY_NAME = delta
 # Define the Go compiler flags
 GOFLAGS := -v
 
+# Version information (can be overridden)
+VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.4.0-alpha")
+GIT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S_UTC')
+IS_DIRTY ?= $(shell git diff --quiet 2>/dev/null; if [ $$? -eq 1 ]; then echo "true"; else echo "false"; fi)
+
+# Define ldflags for version injection
+LDFLAGS := -X main.Version=$(VERSION) \
+           -X main.GitCommit=$(GIT_COMMIT) \
+           -X main.BuildDate=$(BUILD_DATE) \
+           -X main.IsDirty=$(IS_DIRTY)
+
 # Define the directory for compiled binaries (optional)
 BUILD_DIR = build
 
@@ -68,8 +80,9 @@ vec0.so:
 
 build:
 	@echo "Building $(BINARY_NAME) for $(TARGET)"
+	@echo "Version: $(VERSION), Commit: $(GIT_COMMIT), Date: $(BUILD_DATE), Dirty: $(IS_DIRTY)"
 	@mkdir -p $(dir $(OUTPUT_BINARY))
-	CGO_ENABLED=1 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build $(GOFLAGS) -o $(OUTPUT_BINARY) $(GO_SOURCES)
+	CGO_ENABLED=1 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(OUTPUT_BINARY) $(GO_SOURCES)
 	@echo "Successfully built $(BINARY_NAME) for $(TARGET)"
 
 # Cross-compilation targets
@@ -83,9 +96,9 @@ $(PLATFORMS):
 	$(eval BINARY_EXT := $(if $(filter $(OS),windows),.exe,))
 	$(eval OUTPUT := $(BUILD_DIR)/$@/$(BINARY_NAME)$(BINARY_EXT))
 	@if [ "$(OS)" = "linux" ]; then \
-		CGO_ENABLED=1 GOOS=$(OS) GOARCH=$(ARCH) go build $(GOFLAGS) -o $(OUTPUT) $(GO_SOURCES); \
+		CGO_ENABLED=1 GOOS=$(OS) GOARCH=$(ARCH) go build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(OUTPUT) $(GO_SOURCES); \
 	else \
-		CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build $(GOFLAGS) -o $(OUTPUT) $(GO_SOURCES); \
+		CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(OUTPUT) $(GO_SOURCES); \
 	fi
 	@echo "Successfully built $(BINARY_NAME) for $@"
 
@@ -103,4 +116,13 @@ install: build
 	@sudo cp $(OUTPUT_BINARY) /usr/local/bin/$(BINARY_NAME)
 	@chmod +x /usr/local/bin/$(BINARY_NAME)
 
-.PHONY: all deps clean run install build build-all $(PLATFORMS)
+# Show version information that will be injected
+version-info:
+	@echo "Version Information:"
+	@echo "  VERSION: $(VERSION)"
+	@echo "  GIT_COMMIT: $(GIT_COMMIT)"
+	@echo "  BUILD_DATE: $(BUILD_DATE)"
+	@echo "  IS_DIRTY: $(IS_DIRTY)"
+	@echo "  LDFLAGS: $(LDFLAGS)"
+
+.PHONY: all deps clean run install build build-all version-info $(PLATFORMS)
