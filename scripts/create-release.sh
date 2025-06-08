@@ -60,6 +60,26 @@ if ! git tag -l | grep -q "^$VERSION_TAG$"; then
     exit 1
 fi
 
+# Check if repository is clean (no uncommitted changes)
+if ! git diff --quiet 2>/dev/null; then
+    log_error "Repository has uncommitted changes. Commit or stash changes before creating release."
+    log_info "Use 'git status' to see uncommitted changes"
+    exit 1
+fi
+
+# Check if there are untracked files that might affect the build
+if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+    log_warning "Repository has untracked files. This may not affect the build, but consider committing important files."
+    log_info "Untracked files:"
+    git status --porcelain
+    read -p "Continue with release? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log_info "Release cancelled"
+        exit 1
+    fi
+fi
+
 # Clean and create release directory
 log_info "Setting up release directory..."
 mkdir -p "$RELEASE_BASE_DIR"
@@ -72,9 +92,9 @@ log_info "Building binaries..."
 # Clean build first
 make clean
 
-# Build all supported platforms
-log_info "Building for all platforms..."
-make build-all
+# Build all supported platforms with explicit version (let IS_DIRTY auto-detect)
+log_info "Building for all platforms with version $VERSION_TAG..."
+make build-all VERSION="$VERSION_TAG"
 
 # Check that all binaries were built successfully and organize by platform folders
 PLATFORMS="linux/amd64 darwin/amd64 darwin/arm64 windows/amd64"
