@@ -11,6 +11,7 @@ var (
 	GitCommit = "unknown"
 	BuildDate = "unknown"
 	GoVersion = runtime.Version()
+	IsDirty   = "false" // Set to "true" for development builds
 )
 
 // GetVersionInfo returns formatted version information
@@ -31,4 +32,20 @@ License: MIT`, Version, GitCommit, BuildDate, GoVersion, runtime.GOOS, runtime.G
 // GetVersionShort returns just the version string
 func GetVersionShort() string {
 	return Version
+}
+
+// IsDevelopmentBuild returns true if this is a development build
+func IsDevelopmentBuild() bool {
+	return IsDirty == "true" || GitCommit == "unknown" || BuildDate == "unknown"
+}
+
+// GetDevelopmentStatus returns information about the build status
+func GetDevelopmentStatus() map[string]interface{} {
+	return map[string]interface{}{
+		"is_development": IsDevelopmentBuild(),
+		"is_dirty":       IsDirty == "true",
+		"git_commit":     GitCommit,
+		"build_date":     BuildDate,
+		"version":        Version,
+	}
 }

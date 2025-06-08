@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 )
 
 // HandleUpdateCommand processes update-related commands
@@ -26,6 +27,8 @@ func HandleUpdateCommand(args []string) bool {
 	switch args[0] {
 	case "status":
 		showUpdateStatus(um)
+	case "check":
+		performUpdateCheck(um)
 	case "config":
 		if len(args) == 1 {
 			showUpdateConfig(um)
@@ -34,6 +37,10 @@ func HandleUpdateCommand(args []string) bool {
 		}
 	case "version":
 		showVersionInfo(um)
+	case "info":
+		showUpdateInfo(um)
+	case "rate-limit":
+		showRateLimitStatus(um)
 	case "help":
 		showUpdateHelp()
 	default:
@@ -196,9 +203,12 @@ func showUpdateHelp() {
 	fmt.Println("===============")
 	fmt.Println("  :update                     - Show update status")
 	fmt.Println("  :update status              - Show detailed status")
+	fmt.Println("  :update check               - Check for updates manually")
 	fmt.Println("  :update config              - Show configuration")
 	fmt.Println("  :update config <key> <val>  - Set configuration value")
 	fmt.Println("  :update version             - Show version information")
+	fmt.Println("  :update info                - Show comprehensive update info")
+	fmt.Println("  :update rate-limit          - Show GitHub API rate limit status")
 	fmt.Println("  :update help                - Show this help")
 	fmt.Println()
 	fmt.Println("Configuration Settings:")
@@ -233,4 +243,142 @@ func getLastCheckText(lastCheck string) string {
 		return "Never"
 	}
 	return lastCheck
+}
+
+// performUpdateCheck manually triggers an update check
+func performUpdateCheck(um *UpdateManager) {
+	fmt.Println("Checking for updates...")
+	
+	updateInfo, err := um.CheckForUpdates()
+	if err != nil {
+		fmt.Printf("Error checking for updates: %v\n", err)
+		return
+	}
+	
+	if updateInfo.HasUpdate {
+		fmt.Printf("✅ Update Available!\n")
+		fmt.Printf("   Current Version: %s\n", updateInfo.CurrentVersion)
+		fmt.Printf("   Latest Version:  %s\n", updateInfo.LatestVersion)
+		
+		if updateInfo.IsPrerelease {
+			fmt.Printf("   Type: Prerelease\n")
+		}
+		
+		fmt.Printf("   Published: %s\n", updateInfo.PublishedAt.Format("2006-01-02 15:04"))
+		
+		if updateInfo.AssetSize > 0 {
+			fmt.Printf("   Download Size: %s\n", formatFileSize(updateInfo.AssetSize))
+		}
+		
+		if updateInfo.ReleaseNotes != "" {
+			fmt.Printf("   Release Notes:\n")
+			notes := updateInfo.ReleaseNotes
+			if len(notes) > 200 {
+				notes = notes[:197] + "..."
+			}
+			fmt.Printf("   %s\n", notes)
+		}
+		
+		fmt.Printf("\n   Use ':update config' to manage update settings\n")
+	} else {
+		fmt.Printf("✅ You're up to date!\n")
+		fmt.Printf("   Current Version: %s\n", updateInfo.CurrentVersion)
+		fmt.Printf("   Latest Version:  %s\n", updateInfo.LatestVersion)
+		fmt.Printf("   Channel: %s\n", um.GetChannel())
+		
+		// Show development build info if applicable
+		if IsDevelopmentBuild() {
+			fmt.Printf("   Build Type: Development\n")
+			devStatus := GetDevelopmentStatus()
+			if gitCommit, ok := devStatus["git_commit"].(string); ok && gitCommit != "unknown" {
+				fmt.Printf("   Git Commit: %s\n", gitCommit)
+			}
+		}
+	}
+}
+
+// showUpdateInfo displays comprehensive update information
+func showUpdateInfo(um *UpdateManager) {
+	fmt.Println("Update System Information:")
+	fmt.Printf("  Current Version: %s\n", um.GetCurrentVersion())
+	fmt.Printf("  Enabled: %t\n", um.IsEnabled())
+	fmt.Printf("  Channel: %s\n", um.GetChannel())
+	
+	// Show development build status
+	if IsDevelopmentBuild() {
+		fmt.Printf("  Build Type: Development\n")
+		devStatus := GetDevelopmentStatus()
+		if gitCommit, ok := devStatus["git_commit"].(string); ok && gitCommit != "unknown" {
+			fmt.Printf("  Git Commit: %s\n", gitCommit)
+		}
+		if buildDate, ok := devStatus["build_date"].(string); ok && buildDate != "unknown" {
+			fmt.Printf("  Build Date: %s\n", buildDate)
+		}
+	} else {
+		fmt.Printf("  Build Type: Release\n")
+	}
+	
+	// Try to get available update info
+	updateInfo, err := um.GetAvailableUpdate()
+	if err != nil {
+		fmt.Printf("  Update Check: Failed (%v)\n", err)
+	} else {
+		if updateInfo.HasUpdate {
+			fmt.Printf("  Update Available: Yes (%s)\n", updateInfo.LatestVersion)
+			fmt.Printf("  Update Type: %s\n", getUpdateType(updateInfo))
+		} else {
+			fmt.Printf("  Update Available: No\n")
+		}
+	}
+	
+	// Show rate limit status
+	if rateLimitStatus := um.GetRateLimitStatus(); rateLimitStatus != nil {
+		fmt.Printf("  API Rate Limit: %d/%d remaining\n", 
+			rateLimitStatus["remaining"], rateLimitStatus["limit"])
+	}
+}
+
+// showRateLimitStatus displays GitHub API rate limit information
+func showRateLimitStatus(um *UpdateManager) {
+	rateLimitStatus := um.GetRateLimitStatus()
+	if rateLimitStatus == nil {
+		fmt.Println("Rate limit information not available")
+		return
+	}
+	
+	fmt.Println("GitHub API Rate Limit Status:")
+	fmt.Printf("  Limit: %d requests per hour\n", rateLimitStatus["limit"])
+	fmt.Printf("  Remaining: %d requests\n", rateLimitStatus["remaining"])
+	
+	if resetTime, ok := rateLimitStatus["reset_time"].(time.Time); ok {
+		fmt.Printf("  Reset Time: %s\n", resetTime.Format("2006-01-02 15:04:05"))
+		
+		if waitTime, ok := rateLimitStatus["wait_time"].(time.Duration); ok && waitTime > 0 {
+			fmt.Printf("  Time Until Reset: %s\n", waitTime.Truncate(time.Second))
+		}
+	}
+}
+
+// Helper functions for new commands
+func getUpdateType(updateInfo *UpdateInfo) string {
+	if updateInfo.IsPrerelease {
+		return "Prerelease"
+	}
+	return "Stable"
+}
+
+func formatFileSize(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	
+	units := []string{"B", "KB", "MB", "GB", "TB"}
+	return fmt.Sprintf("%.1f %s", float64(bytes)/float64(div), units[exp])
 }

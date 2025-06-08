@@ -950,6 +950,8 @@ func handleInitCommand() bool {
 		err := um.Initialize()
 		if err == nil {
 			fmt.Println("Update system initialized")
+			// Perform startup update check if configured
+			um.PerformStartupCheck()
 		} else {
 			fmt.Printf("Warning: Failed to initialize update system: %v\n", err)
 		}

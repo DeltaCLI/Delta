@@ -240,6 +240,90 @@ func getDefaultDownloadDir() string {
 	return filepath.Join(homeDir, ".config", "delta", "updates")
 }
 
+// CheckForUpdates performs an update check using the update checker
+func (um *UpdateManager) CheckForUpdates() (*UpdateInfo, error) {
+	if !um.IsEnabled() {
+		return nil, fmt.Errorf("update system is disabled")
+	}
+
+	checker := GetUpdateChecker()
+	if checker == nil {
+		return nil, fmt.Errorf("update checker not available")
+	}
+
+	return checker.CheckForUpdates()
+}
+
+// CheckForUpdatesAsync performs an asynchronous update check
+func (um *UpdateManager) CheckForUpdatesAsync(callback func(*UpdateInfo, error)) {
+	if !um.IsEnabled() {
+		if callback != nil {
+			callback(nil, fmt.Errorf("update system is disabled"))
+		}
+		return
+	}
+
+	checker := GetUpdateChecker()
+	if checker == nil {
+		if callback != nil {
+			callback(nil, fmt.Errorf("update checker not available"))
+		}
+		return
+	}
+
+	checker.CheckForUpdatesAsync(callback)
+}
+
+// GetAvailableUpdate returns information about the latest available update
+func (um *UpdateManager) GetAvailableUpdate() (*UpdateInfo, error) {
+	if !um.IsEnabled() {
+		return nil, fmt.Errorf("update system is disabled")
+	}
+
+	checker := GetUpdateChecker()
+	if checker == nil {
+		return nil, fmt.Errorf("update checker not available")
+	}
+
+	return checker.GetAvailableUpdate()
+}
+
+// ShouldPerformStartupCheck returns whether updates should be checked on startup
+func (um *UpdateManager) ShouldPerformStartupCheck() bool {
+	return um.config.Enabled && um.config.CheckOnStartup
+}
+
+// PerformStartupCheck performs an update check if configured for startup
+func (um *UpdateManager) PerformStartupCheck() {
+	if !um.ShouldPerformStartupCheck() {
+		return
+	}
+
+	checker := GetUpdateChecker()
+	if checker != nil {
+		checker.PerformStartupCheck()
+	}
+}
+
+// SetGitHubToken sets the GitHub API token for authenticated requests
+func (um *UpdateManager) SetGitHubToken(token string) error {
+	checker := GetUpdateChecker()
+	if checker != nil {
+		checker.SetGitHubToken(token)
+		return nil
+	}
+	return fmt.Errorf("update checker not available")
+}
+
+// GetRateLimitStatus returns GitHub API rate limit information
+func (um *UpdateManager) GetRateLimitStatus() map[string]interface{} {
+	checker := GetUpdateChecker()
+	if checker != nil {
+		return checker.GetRateLimitStatus()
+	}
+	return nil
+}
+
 // String returns a string representation of the UpdateManager status
 func (um *UpdateManager) String() string {
 	um.mutex.RLock()
