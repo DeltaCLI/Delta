@@ -120,6 +120,15 @@ func showEnhancedHelp() {
 	fmt.Println("  :config edit <comp>    - View or modify component configuration")
 	fmt.Println("  :config reset          - Reset all configurations to default values")
 
+	// Update System Commands
+	fmt.Println("")
+	fmt.Println("  Update System:")
+	fmt.Println("  :update                - Show update status")
+	fmt.Println("  :update status         - Show detailed update status")
+	fmt.Println("  :update config         - Show update configuration")
+	fmt.Println("  :update config <k> <v> - Set update configuration value")
+	fmt.Println("  :update version        - Show version information")
+
 	// Spell Checker Commands
 	fmt.Println("")
 	fmt.Println("  Spell Checker:")

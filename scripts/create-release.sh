@@ -107,7 +107,7 @@ done
 log_info "Including documentation files..."
 cp README.md "$RELEASE_DIR/" 2>/dev/null || log_warning "README.md not found"
 cp LICENSE.md "$RELEASE_DIR/" 2>/dev/null || log_warning "LICENSE.md not found"
-cp RELEASE_NOTES_${VERSION_TAG}.md "$RELEASE_DIR/" 2>/dev/null || log_warning "Release notes not found"
+cp RELEASE_NOTES/RELEASE_NOTES_${VERSION_TAG}.md "$RELEASE_DIR/" 2>/dev/null || log_warning "Release notes not found"
 
 # Copy user guide if it exists
 if [ -f "UserGuide.md" ]; then
@@ -127,31 +127,57 @@ PLATFORMS="linux/amd64 darwin/amd64 darwin/arm64 windows/amd64"
 for platform in $PLATFORMS; do
     os=$(echo $platform | cut -d'/' -f1)
     arch=$(echo $platform | cut -d'/' -f2)
+    platform_dir="$os-$arch"
+    archive_base="delta-${VERSION_TAG}-$os-$arch"
     
     if [ "$os" = "windows" ]; then
-        binary_name="delta-$os-$arch.exe"
-        archive_base="delta-${VERSION_TAG}-$os-$arch"
+        binary_name="delta.exe"
     else
-        binary_name="delta-$os-$arch"
-        archive_base="delta-${VERSION_TAG}-$os-$arch"
+        binary_name="delta"
     fi
     
-    # Create tar.gz (universal)
-    tar -czf "${archive_base}.tar.gz" $binary_name *.md 2>/dev/null || tar -czf "${archive_base}.tar.gz" $binary_name
+    # Create a temporary directory for the archive contents
+    temp_archive_dir="temp_$platform_dir"
+    mkdir -p "$temp_archive_dir"
+    
+    # Copy binary from platform directory
+    cp "$platform_dir/$binary_name" "$temp_archive_dir/"
+    
+    # Copy documentation files
+    cp *.md "$temp_archive_dir/" 2>/dev/null || true
+    
+    # Create tar.gz archive
+    tar -czf "${archive_base}.tar.gz" -C "$temp_archive_dir" .
     log_success "Created ${archive_base}.tar.gz"
     
-    # Create zip (universal)
-    zip -q "${archive_base}.zip" $binary_name *.md 2>/dev/null || zip -q "${archive_base}.zip" $binary_name
+    # Create zip archive
+    cd "$temp_archive_dir" && zip -q "../${archive_base}.zip" * && cd ..
     log_success "Created ${archive_base}.zip"
+    
+    # Clean up temporary directory
+    rm -rf "$temp_archive_dir"
 done
 
 # Generate checksums
 log_info "Generating checksums..."
 
 # Create SHA256 checksums for all files
-sha256sum *.tar.gz > checksums.sha256
-sha256sum *.zip >> checksums.sha256
-sha256sum delta-* | grep -v checksums >> checksums.sha256
+sha256sum *.tar.gz > checksums.sha256 2>/dev/null || touch checksums.sha256
+sha256sum *.zip >> checksums.sha256 2>/dev/null || true
+
+# Add checksums for individual binaries in platform directories
+for platform_dir in linux-amd64 darwin-amd64 darwin-arm64 windows-amd64; do
+    if [ -d "$platform_dir" ]; then
+        if [ "$platform_dir" = "windows-amd64" ]; then
+            binary_name="delta.exe"
+        else
+            binary_name="delta"
+        fi
+        if [ -f "$platform_dir/$binary_name" ]; then
+            sha256sum "$platform_dir/$binary_name" >> checksums.sha256
+        fi
+    fi
+done
 
 log_success "Generated SHA256 checksums"
 
@@ -183,10 +209,10 @@ Archives (binary + documentation):
 - delta-${VERSION_TAG}-windows-amd64.tar.gz / .zip
 
 Raw binaries:
-- delta-linux-amd64 (Linux AMD64 binary)
-- delta-darwin-amd64 (macOS Intel binary)  
-- delta-darwin-arm64 (macOS Apple Silicon binary)
-- delta-windows-amd64.exe (Windows AMD64 binary)
+- linux-amd64/delta (Linux AMD64 binary)
+- darwin-amd64/delta (macOS Intel binary)  
+- darwin-arm64/delta (macOS Apple Silicon binary)
+- windows-amd64/delta.exe (Windows AMD64 binary)
 
 Documentation:
 - README.md (Project documentation and installation instructions)
@@ -199,10 +225,10 @@ Installation:
 1. Download the appropriate archive for your platform
 2. Extract: tar -xzf delta-${VERSION_TAG}-<platform>.tar.gz
 3. Read the README.md for detailed installation instructions
-4. Make executable (Unix/macOS): chmod +x delta-<platform>
+4. Make executable (Unix/macOS): chmod +x delta
 5. Move to PATH: 
-   - Unix/macOS: sudo mv delta-<platform> /usr/local/bin/delta
-   - Windows: Move delta-windows-amd64.exe to a directory in your PATH
+   - Unix/macOS: sudo mv delta /usr/local/bin/delta
+   - Windows: Move delta.exe to a directory in your PATH
 6. Verify installation: delta --version
 
 Verification:
@@ -231,10 +257,10 @@ Release Directory: $RELEASE_DIR
 
 Build Summary:
 - Platforms: Linux AMD64, macOS Intel, macOS Apple Silicon, Windows AMD64
-- Linux Binary Size: $(stat -c%s "$RELEASE_DIR/delta-linux-amd64" | numfmt --to=iec)
-- macOS Intel Binary Size: $(stat -c%s "$RELEASE_DIR/delta-darwin-amd64" | numfmt --to=iec)
-- macOS ARM64 Binary Size: $(stat -c%s "$RELEASE_DIR/delta-darwin-arm64" | numfmt --to=iec)
-- Windows Binary Size: $(stat -c%s "$RELEASE_DIR/delta-windows-amd64.exe" | numfmt --to=iec)
+- Linux Binary Size: $(stat -c%s "$RELEASE_DIR/linux-amd64/delta" 2>/dev/null | numfmt --to=iec || echo "N/A")
+- macOS Intel Binary Size: $(stat -c%s "$RELEASE_DIR/darwin-amd64/delta" 2>/dev/null | numfmt --to=iec || echo "N/A")
+- macOS ARM64 Binary Size: $(stat -c%s "$RELEASE_DIR/darwin-arm64/delta" 2>/dev/null | numfmt --to=iec || echo "N/A")
+- Windows Binary Size: $(stat -c%s "$RELEASE_DIR/windows-amd64/delta.exe" 2>/dev/null | numfmt --to=iec || echo "N/A")
 
 SHA256 Checksums:
 $(cat "$RELEASE_DIR/checksums.sha256")
@@ -280,16 +306,19 @@ if [ "$2" = "--upload" ]; then
         log_info "Creating GitHub release..."
         gh release create "$VERSION_TAG" \
             --title "$VERSION_TAG: Multilingual Delta - Internationalization Alpha Release" \
-            --notes-file "RELEASE_NOTES_${VERSION_TAG}.md" \
+            --notes-file "RELEASE_NOTES/RELEASE_NOTES_${VERSION_TAG}.md" \
             --prerelease \
-            "$RELEASE_DIR"/*
+            "$RELEASE_DIR"/*.tar.gz \
+            "$RELEASE_DIR"/*.zip \
+            "$RELEASE_DIR"/checksums.sha256 \
+            "$RELEASE_DIR"/release-info.txt
         
         log_success "Release uploaded to GitHub!"
         gh release view "$VERSION_TAG" --web
     else
         log_warning "GitHub CLI (gh) not found. Skipping upload."
         log_info "To upload manually, run:"
-        log_info "gh release create $VERSION_TAG --title '$VERSION_TAG: Release' --notes-file RELEASE_NOTES_${VERSION_TAG}.md --prerelease $RELEASE_DIR/*"
+        log_info "gh release create $VERSION_TAG --title '$VERSION_TAG: Release' --notes-file RELEASE_NOTES/RELEASE_NOTES_${VERSION_TAG}.md --prerelease $RELEASE_DIR/*"
     fi
 fi
 

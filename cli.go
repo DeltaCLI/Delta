@@ -732,6 +732,8 @@ func handleInternalCommand(command string) bool {
 		return HandleHistoryCommand(args)
 	case "docs":
 		return cmds.HandleDocsCommand(args)
+	case "update":
+		return HandleUpdateCommand(args)
 	case "feedback":
 		// Shorthand for inference feedback
 		if im := GetInferenceManager(); im != nil {
@@ -1401,6 +1403,7 @@ func runInteractiveShell() {
 		"history":         {"import", "show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
 		"hist":            {"import", "show", "status", "stats", "enable", "disable", "search", "find", "suggest", "config", "mark", "patterns", "info", "help"},
 		"docs":            {"build", "dev", "open", "status", "help"},
+		"update":          {"status", "config", "version", "help"},
 		"init":            {},
 	}
 
@@ -1614,7 +1617,83 @@ func runInteractiveShell() {
 	}
 }
 
+// initializeManagers initializes essential managers for command execution
+func initializeManagers() {
+	// Initialize i18n system first (required for translations)
+	initializeI18nSystem()
+	
+	// Initialize config manager base
+	cm := GetConfigManager()
+	if cm != nil {
+		cm.InitializeBase()
+	}
+	
+	// Initialize AI features (silent initialization for non-interactive)
+	ai := GetAIManager()
+	if ai != nil {
+		ai.Initialize()
+	}
+	
+	// Initialize inference system for learning capabilities
+	infMgr := GetInferenceManager()
+	if infMgr != nil && infMgr.IsEnabled() {
+		infMgr.Initialize()
+	}
+	
+	// Initialize agent manager
+	am := GetAgentManager()
+	if am != nil && am.IsEnabled() {
+		am.Initialize()
+	}
+	
+	// Initialize spell checker
+	sc := GetSpellChecker()
+	if sc != nil {
+		sc.Initialize()
+	}
+	
+	// Initialize history analyzer
+	ha := GetHistoryAnalyzer()
+	if ha != nil {
+		ha.Initialize()
+	}
+	
+	// Initialize ART-2 machine learning system
+	art2Mgr := GetART2Manager()
+	if art2Mgr != nil {
+		art2Mgr.Initialize()
+	}
+}
+
+// executeDirectCommand executes a single command and exits with appropriate code
+func executeDirectCommand(command string) {
+	// Initialize managers for command execution
+	initializeManagers()
+	
+	// Check if it's an internal command (starts with :)
+	if strings.HasPrefix(command, ":") {
+		// Handle internal command
+		if handleInternalCommand(command) {
+			os.Exit(0) // Success exit code for internal commands
+		} else {
+			os.Exit(1) // Error exit code for failed internal commands
+		}
+	} else {
+		// Set up signal handling for external commands
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		
+		// Execute external command
+		exitCode, _ := runCommand(command, sigChan)
+		
+		// Exit with the command's exit code
+		os.Exit(exitCode)
+	}
+}
+
 func main() {
+	var cmdToRun string
+	
 	var rootCmd = &cobra.Command{
 		Use:   "delta",
 		Short: "Delta CLI - AI-powered shell enhancement",
@@ -1625,9 +1704,19 @@ with AI-powered suggestions, encrypted command history, and seamless shell compa
 💡 AI-Powered Shell Enhancement with Local Privacy`,
 		Version: GetVersionInfo(),
 		Run: func(cmd *cobra.Command, args []string) {
+			// If a command was provided via flag, execute it directly
+			if cmdToRun != "" {
+				executeDirectCommand(cmdToRun)
+				return
+			}
+			// Otherwise, run interactive shell
 			runInteractiveShell()
 		},
 	}
+
+	// Add command execution flags
+	rootCmd.Flags().StringVarP(&cmdToRun, "command", "c", "", "Execute a single command and exit")
+	rootCmd.Flags().StringVar(&cmdToRun, "cmd", "", "Execute a single command and exit (alternative)")
 
 	rootCmd.SetVersionTemplate(GetVersionInfo() + "\n")
 

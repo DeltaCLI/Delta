@@ -45,6 +45,7 @@ GO_SOURCES = version.go \
 	knowledge_extractor.go knowledge_commands.go knowledge_extractor_agent_command.go \
 	agent_types.go agent_manager.go agent_commands.go \
 	config_manager.go config_commands.go \
+	version_manager.go update_manager.go update_commands.go \
 	spellcheck.go spellcheck_commands.go \
 	history_analysis.go history_commands.go \
 	pattern_update.go pattern_commands.go pattern_recognition.go \
@@ -55,11 +56,15 @@ all: deps build
 deps: vec0.so
 
 vec0.so:
-	@echo "Downloading SQLite vector extension $(SQLITE_VEC_VERSION)..."
-	@curl -L -o sqlite-vec.tar.gz $(SQLITE_VEC_URL)
-	@tar -xzf sqlite-vec.tar.gz
-	@rm -f sqlite-vec.tar.gz
-	@echo "SQLite vector extension downloaded successfully"
+	@if [ ! -f vec0.so ]; then \
+		echo "Downloading SQLite vector extension $(SQLITE_VEC_VERSION)..."; \
+		curl -L -o sqlite-vec.tar.gz $(SQLITE_VEC_URL); \
+		tar -xzf sqlite-vec.tar.gz; \
+		rm -f sqlite-vec.tar.gz; \
+		echo "SQLite vector extension downloaded successfully"; \
+	else \
+		echo "SQLite vector extension already exists locally"; \
+	fi
 
 build:
 	@echo "Building $(BINARY_NAME) for $(TARGET)"

@@ -41,13 +41,30 @@ When making changes, follow these steps:
 For larger changes, consider adding Go tests using the standard testing package.
 
 ## Testing Delta Commands
-IMPORTANT: Delta uses an interactive shell interface, not command-line arguments. To test delta functionality:
+Delta supports both interactive shell interface and direct command execution via command-line flags.
+
+### Interactive Mode (Default)
+The standard way to use Delta is through its interactive shell:
 - Use `echo "command" | ./delta` to send commands to delta
 - Example: `echo "vector status" | ./delta`
 - Example: `echo "help" | ./delta`
 - Example: `echo "ai test prompt" | ./delta`
-- DO NOT use `./delta command` syntax - this won't work
 - For multi-line input or complex testing, create a test file and use `./delta < testfile.txt`
+
+### Direct Command Execution
+Delta now supports direct command execution similar to `zsh -c` or `bash -c`:
+- Use `./delta -c "command"` or `./delta --command "command"` to execute commands directly
+- Use `./delta --cmd "command"` as an alternative syntax
+- Examples:
+  - `./delta -c "ls -la"` - Execute external shell command
+  - `./delta -c ":update status"` - Execute Delta internal command
+  - `./delta --cmd "echo 'Hello World'"` - Alternative flag syntax
+  - `./delta -c ":help"` - Show Delta help without entering interactive mode
+
+### Command Types
+- **External Commands**: Regular shell commands like `ls`, `git`, `make` etc.
+- **Internal Commands**: Delta-specific commands prefixed with `:` like `:update`, `:help`, `:ai`
+- **Exit Codes**: Properly propagated from executed commands for scripting compatibility
 
 ## Interactive Application Support
 When working with subprocess execution:
@@ -148,6 +165,118 @@ When adding support for new languages:
 - Language preferences are persisted in the user configuration
 - Set via environment variables: `DELTA_LOCALE`, `DELTA_FALLBACK_LOCALE`, `DELTA_AUTO_DETECT_LANGUAGE`
 - Commands: `:i18n locale <code>` to change language, `:i18n list` to see available languages
+
+## Release Process
+
+### Creating a New Release
+
+1. **Update Version Information**:
+   - Update version number in relevant files
+   - Create release notes file: `RELEASE_NOTES_v<version>.md`
+
+2. **Commit Changes**:
+   ```bash
+   git add .
+   git commit -m "feat: prepare v<version> release"
+   ```
+
+3. **Create Git Tag**:
+   ```bash
+   git tag -a v<version> -m "Release v<version>: Description"
+   git push origin main
+   git push origin v<version>
+   ```
+
+4. **Run Release Script**:
+   ```bash
+   # Create release without uploading
+   ./scripts/create-release.sh v<version>
+   
+   # Create release and upload to GitHub
+   ./scripts/create-release.sh v<version> --upload
+   ```
+
+### Release Script Requirements
+
+- **Prerequisites**: 
+  - Git tag must exist before running the script
+  - GitHub CLI (`gh`) installed for upload functionality
+  - All platforms must build successfully with `make build-all`
+
+- **Generated Artifacts**:
+  - Cross-platform binaries (Linux, macOS Intel/ARM, Windows)
+  - Compressed archives (.tar.gz and .zip for each platform)
+  - SHA256 checksums file
+  - Release documentation and info files
+
+- **Directory Structure**:
+  ```
+  releases/
+  ├── v<version>_<timestamp>/
+  │   ├── linux-amd64/delta
+  │   ├── darwin-amd64/delta
+  │   ├── darwin-arm64/delta
+  │   ├── windows-amd64/delta.exe
+  │   ├── delta-v<version>-<platform>.tar.gz
+  │   ├── delta-v<version>-<platform>.zip
+  │   ├── checksums.sha256
+  │   ├── release-info.txt
+  │   └── *.md (documentation files)
+  └── release-report-v<version>-<timestamp>.txt
+  ```
+
+### Makefile Targets
+
+Ensure these targets work properly:
+- `make clean` - Clean build artifacts
+- `make build` - Build for current platform
+- `make build-all` - Build for all supported platforms (linux/amd64, darwin/amd64, darwin/arm64, windows/amd64)
+
+## Auto-Update System Development
+
+### Roadmap Overview
+The auto-update system is planned for implementation across 5 phases:
+
+1. **Phase 1 (v0.3.0-alpha)**: Foundation Infrastructure - Configuration, version management, CLI commands
+2. **Phase 2 (v0.3.1-alpha)**: GitHub Integration - Update detection and notifications  
+3. **Phase 3 (v0.4.0-alpha)**: Download & Installation - Secure updates with rollback
+4. **Phase 4 (v0.4.1-alpha)**: Advanced Features - Scheduling, history, validation
+5. **Phase 5 (v0.5.0-alpha)**: Enterprise Features - Channel management, policies, metrics
+
+### Current Status
+- **Planning**: Complete with detailed roadmap and implementation guide
+- **Documentation**: Comprehensive plans in `docs/planning/AUTO_UPDATE_ROADMAP.md`
+- **Next Step**: Begin Phase 1 implementation
+
+### Key Features (Planned)
+- **Automatic Update Checking**: Check GitHub releases on startup (configurable)
+- **Secure Downloads**: SHA256 verification and secure installation
+- **Channel Management**: Stable, alpha, and beta release channels
+- **Backup & Rollback**: Safe updates with automatic rollback on failure
+- **Enterprise Ready**: Policies, metrics, and centralized management
+- **User Friendly**: Intuitive CLI commands and minimal disruption
+
+### Configuration Options (Planned)
+```bash
+# Environment variables for update control
+DELTA_UPDATE_ENABLED=true
+DELTA_UPDATE_CHECK_ON_STARTUP=true  
+DELTA_UPDATE_AUTO_INSTALL=false
+DELTA_UPDATE_CHANNEL=stable
+DELTA_UPDATE_NOTIFICATION_LEVEL=prompt
+```
+
+### Implementation Priority
+1. **HIGH**: Phase 1 foundation (required for all future phases)
+2. **HIGH**: Phase 2 GitHub integration (core user value)
+3. **MEDIUM**: Phase 3 download/install (complete update experience)
+4. **MEDIUM**: Phase 4 advanced features (enhanced UX)
+5. **LOW**: Phase 5 enterprise features (organizational needs)
+
+### References
+- **Roadmap**: `docs/planning/AUTO_UPDATE_ROADMAP.md`
+- **Implementation Guide**: `docs/planning/AUTO_UPDATE_IMPLEMENTATION_PLAN.md`
+- **Phase 1 Milestone**: `docs/milestones/AUTO_UPDATE_PHASE1_MILESTONE.md`
 
 ## Special User Commands
 - If the user says "continue", analyze TASKS.md, docs/planning/PLAN.md, or milestone files to determine the next course of action

@@ -18,6 +18,7 @@ type ConfigManager struct {
 	isInitialized   bool
 	lastSaved       time.Time
 	i18nConfig      *I18nConfig
+	updateConfig    *UpdateConfig
 	memoryConfig    *MemoryConfig
 	aiConfig        *AIPredictionConfig
 	vectorConfig    *VectorDBConfig
@@ -35,11 +36,29 @@ type I18nConfig struct {
 	AutoDetectLanguage bool   `json:"auto_detect_language"`
 }
 
+// UpdateConfig contains auto-update system settings
+type UpdateConfig struct {
+	Enabled              bool   `json:"enabled"`
+	CheckOnStartup       bool   `json:"check_on_startup"`
+	AutoInstall          bool   `json:"auto_install"`
+	Channel              string `json:"channel"`
+	CheckInterval        string `json:"check_interval"`
+	BackupBeforeUpdate   bool   `json:"backup_before_update"`
+	AllowPrerelease      bool   `json:"allow_prerelease"`
+	GitHubRepository     string `json:"github_repository"`
+	DownloadDirectory    string `json:"download_directory"`
+	LastCheck            string `json:"last_check"`
+	LastVersion          string `json:"last_version"`
+	SkipVersion          string `json:"skip_version"`
+	NotificationLevel    string `json:"notification_level"`
+}
+
 // SystemConfig contains all component configurations
 type SystemConfig struct {
 	ConfigVersion   string              `json:"config_version"`
 	LastUpdated     time.Time           `json:"last_updated"`
 	I18nConfig      *I18nConfig         `json:"i18n_config,omitempty"`
+	UpdateConfig    *UpdateConfig       `json:"update_config,omitempty"`
 	MemoryConfig    *MemoryConfig       `json:"memory_config,omitempty"`
 	AIConfig        *AIPredictionConfig `json:"ai_config,omitempty"`
 	VectorConfig    *VectorDBConfig     `json:"vector_config,omitempty"`
@@ -113,6 +132,20 @@ func (cm *ConfigManager) applyEnvironmentVariables() {
 		cm.i18nConfig.Locale = getEnvString("DELTA_LOCALE", cm.i18nConfig.Locale)
 		cm.i18nConfig.FallbackLocale = getEnvString("DELTA_FALLBACK_LOCALE", cm.i18nConfig.FallbackLocale)
 		cm.i18nConfig.AutoDetectLanguage = getEnvBool("DELTA_AUTO_DETECT_LANGUAGE", cm.i18nConfig.AutoDetectLanguage)
+	}
+
+	// Update config overrides
+	if cm.updateConfig != nil {
+		cm.updateConfig.Enabled = getEnvBool("DELTA_UPDATE_ENABLED", cm.updateConfig.Enabled)
+		cm.updateConfig.CheckOnStartup = getEnvBool("DELTA_UPDATE_CHECK_ON_STARTUP", cm.updateConfig.CheckOnStartup)
+		cm.updateConfig.AutoInstall = getEnvBool("DELTA_UPDATE_AUTO_INSTALL", cm.updateConfig.AutoInstall)
+		cm.updateConfig.Channel = getEnvString("DELTA_UPDATE_CHANNEL", cm.updateConfig.Channel)
+		cm.updateConfig.CheckInterval = getEnvString("DELTA_UPDATE_CHECK_INTERVAL", cm.updateConfig.CheckInterval)
+		cm.updateConfig.BackupBeforeUpdate = getEnvBool("DELTA_UPDATE_BACKUP_BEFORE_UPDATE", cm.updateConfig.BackupBeforeUpdate)
+		cm.updateConfig.AllowPrerelease = getEnvBool("DELTA_UPDATE_ALLOW_PRERELEASE", cm.updateConfig.AllowPrerelease)
+		cm.updateConfig.GitHubRepository = getEnvString("DELTA_UPDATE_GITHUB_REPOSITORY", cm.updateConfig.GitHubRepository)
+		cm.updateConfig.DownloadDirectory = getEnvString("DELTA_UPDATE_DOWNLOAD_DIRECTORY", cm.updateConfig.DownloadDirectory)
+		cm.updateConfig.NotificationLevel = getEnvString("DELTA_UPDATE_NOTIFICATION_LEVEL", cm.updateConfig.NotificationLevel)
 	}
 
 	// Memory config overrides
@@ -206,6 +239,7 @@ func (cm *ConfigManager) loadConfig() error {
 
 	// Set component configurations
 	cm.i18nConfig = config.I18nConfig
+	cm.updateConfig = config.UpdateConfig
 	cm.memoryConfig = config.MemoryConfig
 	cm.aiConfig = config.AIConfig
 	cm.vectorConfig = config.VectorConfig
@@ -385,6 +419,13 @@ func (cm *ConfigManager) GetAgentConfig() *AgentManagerConfig {
 	return cm.agentConfig
 }
 
+// GetUpdateConfig returns the update configuration
+func (cm *ConfigManager) GetUpdateConfig() *UpdateConfig {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+	return cm.updateConfig
+}
+
 // UpdateI18nConfig updates the i18n configuration
 func (cm *ConfigManager) UpdateI18nConfig(config *I18nConfig) error {
 	cm.mutex.Lock()
@@ -463,6 +504,15 @@ func (cm *ConfigManager) UpdateAgentConfig(config *AgentManagerConfig) error {
 	defer cm.mutex.Unlock()
 
 	cm.agentConfig = config
+	return cm.saveConfig()
+}
+
+// UpdateUpdateConfig updates the update configuration
+func (cm *ConfigManager) UpdateUpdateConfig(config *UpdateConfig) error {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
+	cm.updateConfig = config
 	return cm.saveConfig()
 }
 
