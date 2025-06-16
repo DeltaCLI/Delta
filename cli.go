@@ -987,8 +987,30 @@ func GetAIManager() *AIPredictionManager {
 	// Initialize AI manager if needed
 	if globalAIManager == nil {
 		var err error
-		globalAIManager, err = NewAIPredictionManager("http://localhost:11434", "phi4:latest")
-		if err == nil {
+		
+		// Check if we have a persisted configuration
+		cm := GetConfigManager()
+		if cm != nil && cm.GetAIConfig() != nil {
+			aiConfig := cm.GetAIConfig()
+			globalAIManager, err = NewAIPredictionManager(aiConfig.ServerURL, aiConfig.ModelName)
+			if err == nil && globalAIManager != nil {
+				// Apply the persisted configuration
+				globalAIManager.config = *aiConfig
+				globalAIManager.predictionEnabled = aiConfig.Enabled
+				if aiConfig.MaxHistory > 0 {
+					globalAIManager.maxHistorySize = aiConfig.MaxHistory
+				}
+				if aiConfig.ContextPrompt != "" {
+					globalAIManager.contextPrompt = aiConfig.ContextPrompt
+				}
+			}
+		} else {
+			// Use defaults if no config exists
+			globalAIManager, err = NewAIPredictionManager("http://localhost:11434", "phi4:latest")
+		}
+		
+		// Initialize the AI manager
+		if err == nil && globalAIManager != nil {
 			globalAIManager.Initialize()
 		}
 	}
@@ -1010,13 +1032,27 @@ func handleAICommand(args []string) bool {
 	}
 
 	switch args[0] {
-	case "on":
+	case "on", "enable":
 		ai.EnablePredictions()
+		// Persist the configuration
+		cm := GetConfigManager()
+		if cm != nil {
+			cm.UpdateAIConfig(&ai.config)
+		}
+		// Try to initialize if not already initialized
+		if !ai.isInitialized {
+			ai.Initialize()
+		}
 		fmt.Println("AI assistant enabled")
 		return true
 
-	case "off":
+	case "off", "disable":
 		ai.DisablePredictions()
+		// Persist the configuration
+		cm := GetConfigManager()
+		if cm != nil {
+			cm.UpdateAIConfig(&ai.config)
+		}
 		fmt.Println("AI assistant disabled")
 		return true
 
@@ -1170,8 +1206,8 @@ func handleAICommand(args []string) bool {
 		fmt.Println("AI Assistant Commands")
 		fmt.Println("====================")
 		fmt.Println("  :ai              - Show AI status")
-		fmt.Println("  :ai on           - Enable AI assistant")
-		fmt.Println("  :ai off          - Disable AI assistant")
+		fmt.Println("  :ai on           - Enable AI assistant (alias: :ai enable)")
+		fmt.Println("  :ai off          - Disable AI assistant (alias: :ai disable)")
 		fmt.Println("  :ai model        - Show current model")
 		fmt.Println("  :ai model <name> - Switch to specified Ollama model")
 		fmt.Println("  :ai model custom <path> - Use custom trained model")

@@ -18,6 +18,7 @@ type I18nManager struct {
 	loadedFiles    map[string]bool
 	mutex          sync.RWMutex
 	basePath       string
+	localesFound   bool // Track if locale files were found
 }
 
 // TranslationParams holds parameters for string interpolation
@@ -35,18 +36,210 @@ func GetI18nManager() *I18nManager {
 	return globalI18nManager
 }
 
+// getBuiltInEnglishTranslations returns essential built-in English translations
+func getBuiltInEnglishTranslations() map[string]interface{} {
+	return map[string]interface{}{
+		"interface": map[string]interface{}{
+			"welcome": map[string]interface{}{
+				"message": "Welcome to Delta CLI - Your Context-Aware Shell Enhancement",
+				"features_enabled": "[∆ {{feature}}: {{details}}]",
+			},
+			"goodbye": map[string]interface{}{
+				"message": "\nThank you for using Delta CLI. Goodbye!",
+			},
+			"ai": map[string]interface{}{
+				"features_enabled": "AI features enabled with {{model}}",
+			},
+			"commands": map[string]interface{}{
+				"unknown": "Unknown command: {{command}}",
+				"available": "Type :help for available commands",
+			},
+			"error": map[string]interface{}{
+				"command_failed": "Command failed: {{error}}",
+			},
+		},
+		"commands": map[string]interface{}{
+			"help": map[string]interface{}{
+				"title": "Available Commands",
+				"description": "Delta CLI Help - Type any command to execute it",
+			},
+		},
+	}
+}
+
+// findI18nBasePath attempts to find the i18n directory in various locations
+func findI18nBasePath() string {
+	// Method 1: Check user config directory first (installed locales)
+	homeDir, err := os.UserHomeDir()
+	if err == nil {
+		userI18nPath := filepath.Join(homeDir, ".config", "delta", "i18n", "locales")
+		if _, err := os.Stat(userI18nPath); err == nil {
+			return userI18nPath
+		}
+	}
+	
+	// Method 2: Check relative to executable location
+	execPath, err := os.Executable()
+	if err == nil {
+		// Resolve any symlinks
+		execPath, _ = filepath.EvalSymlinks(execPath)
+		execDir := filepath.Dir(execPath)
+		
+		// Check if i18n directory exists relative to executable
+		i18nPath := filepath.Join(execDir, "i18n", "locales")
+		if _, err := os.Stat(i18nPath); err == nil {
+			return i18nPath
+		}
+	}
+	
+	// Method 3: Check current working directory (for development)
+	cwd, err := os.Getwd()
+	if err == nil {
+		i18nPath := filepath.Join(cwd, "i18n", "locales")
+		if _, err := os.Stat(i18nPath); err == nil {
+			return i18nPath
+		}
+	}
+	
+	// Method 4: Check environment variable
+	if deltaHome := os.Getenv("DELTA_HOME"); deltaHome != "" {
+		i18nPath := filepath.Join(deltaHome, "i18n", "locales")
+		if _, err := os.Stat(i18nPath); err == nil {
+			return i18nPath
+		}
+	}
+	
+	// Fallback to relative path
+	return "i18n/locales"
+}
+
+// installI18nFiles copies i18n files from source to user config directory
+func installI18nFiles() error {
+	// Find source i18n directory
+	sourcePaths := []string{
+		"i18n/locales", // Development
+	}
+	
+	// Add executable relative paths
+	if execPath, err := os.Executable(); err == nil {
+		execPath, _ = filepath.EvalSymlinks(execPath)
+		execDir := filepath.Dir(execPath)
+		sourcePaths = append(sourcePaths, filepath.Join(execDir, "i18n", "locales"))
+	}
+	
+	// Find a valid source directory
+	var sourceDir string
+	for _, path := range sourcePaths {
+		if _, err := os.Stat(path); err == nil {
+			sourceDir = path
+			break
+		}
+	}
+	
+	if sourceDir == "" {
+		return fmt.Errorf("could not find i18n source files")
+	}
+	
+	// Create destination directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("could not determine home directory: %v", err)
+	}
+	
+	destDir := filepath.Join(homeDir, ".config", "delta", "i18n", "locales")
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return fmt.Errorf("could not create i18n directory: %v", err)
+	}
+	
+	// Copy locale directories
+	entries, err := ioutil.ReadDir(sourceDir)
+	if err != nil {
+		return fmt.Errorf("could not read source directory: %v", err)
+	}
+	
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		
+		localeSource := filepath.Join(sourceDir, entry.Name())
+		localeDest := filepath.Join(destDir, entry.Name())
+		
+		// Create locale directory
+		if err := os.MkdirAll(localeDest, 0755); err != nil {
+			continue
+		}
+		
+		// Copy JSON files
+		files, err := ioutil.ReadDir(localeSource)
+		if err != nil {
+			continue
+		}
+		
+		for _, file := range files {
+			if !strings.HasSuffix(file.Name(), ".json") {
+				continue
+			}
+			
+			srcFile := filepath.Join(localeSource, file.Name())
+			dstFile := filepath.Join(localeDest, file.Name())
+			
+			content, err := ioutil.ReadFile(srcFile)
+			if err != nil {
+				continue
+			}
+			
+			if err := ioutil.WriteFile(dstFile, content, 0644); err != nil {
+				continue
+			}
+		}
+	}
+	
+	return nil
+}
+
 // NewI18nManager creates a new internationalization manager
 func NewI18nManager() *I18nManager {
+	basePath := findI18nBasePath()
+	localesFound := true
+	
+	// Check if we actually found locale files
+	if _, err := os.Stat(basePath); os.IsNotExist(err) {
+		localesFound = false
+		// Try to install files to user config
+		if err := installI18nFiles(); err == nil {
+			// Update base path to installed location
+			if homeDir, err := os.UserHomeDir(); err == nil {
+				installedPath := filepath.Join(homeDir, ".config", "delta", "i18n", "locales")
+				if _, err := os.Stat(installedPath); err == nil {
+					basePath = installedPath
+					localesFound = true
+				}
+			}
+		}
+	}
+	
 	manager := &I18nManager{
 		currentLocale:  "en",
 		fallbackLocale: "en",
 		translations:   make(map[string]map[string]interface{}),
 		loadedFiles:    make(map[string]bool),
-		basePath:       "i18n/locales",
+		basePath:       basePath,
+		localesFound:   localesFound,
 	}
+	
+	// Load built-in English translations as fallback
+	manager.translations["en"] = getBuiltInEnglishTranslations()
+	manager.loadedFiles["en"] = true
 
-	// Try to load default locale
+	// Try to load default locale from files (will merge with built-ins)
 	manager.LoadLocale("en")
+	
+	// Show notice if locale files weren't found
+	if !localesFound {
+		fmt.Println("[∆ Notice: Translation files not found. Using built-in English translations.]")
+		fmt.Println("[∆ Run ':i18n install' to install all language files.]")
+	}
 
 	return manager
 }
@@ -102,6 +295,11 @@ func (i *I18nManager) LoadLocale(locale string) error {
 
 	i.loadedFiles[locale] = true
 	return nil
+}
+
+// IsLocalesInstalled returns whether locale files are properly installed
+func (i *I18nManager) IsLocalesInstalled() bool {
+	return i.localesFound
 }
 
 // SetLocale changes the current locale

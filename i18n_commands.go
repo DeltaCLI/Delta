@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -22,6 +24,8 @@ func HandleI18nCommand(args []string) bool {
 		return handleReloadTranslationsCommand()
 	case "stats":
 		return handleI18nStatsCommand()
+	case "install":
+		return handleI18nInstallCommand()
 	case "help":
 		return handleI18nHelpCommand()
 	default:
@@ -174,8 +178,34 @@ func handleI18nStatsCommand() bool {
 	return true
 }
 
+// handleI18nInstallCommand installs i18n files to user config directory
+func handleI18nInstallCommand() bool {
+	fmt.Println("Installing i18n files to user configuration directory...")
+	
+	if err := installI18nFiles(); err != nil {
+		fmt.Printf("Error installing i18n files: %v\n", err)
+		return true
+	}
+	
+	// Get the installed path
+	homeDir, _ := os.UserHomeDir()
+	installedPath := filepath.Join(homeDir, ".config", "delta", "i18n", "locales")
+	
+	fmt.Printf("Successfully installed i18n files to: %s\n", installedPath)
+	
+	// Reload translations
+	i18n := GetI18nManager()
+	i18n.basePath = installedPath
+	i18n.ReloadTranslations()
+	
+	fmt.Println("Translations reloaded successfully.")
+	return true
+}
+
 // handleI18nHelpCommand shows help for i18n commands
 func handleI18nHelpCommand() bool {
+	i18n := GetI18nManager()
+	
 	fmt.Println(T("interface.i18n.help.title"))
 	fmt.Println(T("interface.i18n.help.separator"))
 	fmt.Println(T("interface.i18n.help.status"))
@@ -184,6 +214,12 @@ func handleI18nHelpCommand() bool {
 	fmt.Println(T("interface.i18n.help.list"))
 	fmt.Println(T("interface.i18n.help.reload"))
 	fmt.Println(T("interface.i18n.help.stats"))
+	
+	// Only show install command if locales are not installed
+	if !i18n.IsLocalesInstalled() {
+		fmt.Println("  :i18n install            - Install/update i18n files to user config")
+	}
+	
 	fmt.Println(T("interface.i18n.help.help"))
 
 	fmt.Printf("\n%s:\n", T("interface.i18n.help.examples"))
