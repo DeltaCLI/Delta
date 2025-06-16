@@ -234,12 +234,6 @@ func NewI18nManager() *I18nManager {
 
 	// Try to load default locale from files (will merge with built-ins)
 	manager.LoadLocale("en")
-	
-	// Show notice if locale files weren't found
-	if !localesFound {
-		fmt.Println("[∆ Notice: Translation files not found. Using built-in English translations.]")
-		fmt.Println("[∆ Run ':i18n install' to install all language files.]")
-	}
 
 	return manager
 }

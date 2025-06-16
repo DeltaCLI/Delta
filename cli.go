@@ -1404,6 +1404,9 @@ func runInteractiveShell() {
 			fmt.Println("\033[33m[∆ ART-2 learning enabled: Adaptive pattern recognition active]\033[0m")
 		}
 	}
+	
+	// Check i18n installation status and show notice if needed
+	checkI18nStartup()
 
 	// Set up cleanup for AI resources on exit
 	defer func() {

@@ -275,3 +275,22 @@ func initializeI18nSystem() {
 		i18n.SetLocale(suggestedLocale)
 	}
 }
+
+// checkI18nStartup checks if locales are installed and shows a notice if not
+func checkI18nStartup() {
+	i18n := GetI18nManager()
+	
+	// Only show notice if locales are not installed
+	if !i18n.IsLocalesInstalled() {
+		fmt.Println()
+		fmt.Println("\033[33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
+		fmt.Println("\033[33m[∆ NOTICE]\033[0m Translation files not found. Using built-in English translations.")
+		fmt.Println()
+		fmt.Println("To install all available languages and enable full internationalization support:")
+		fmt.Println("\033[36m  :i18n install\033[0m")
+		fmt.Println()
+		fmt.Println("This will install translation files to: ~/.config/delta/i18n/locales")
+		fmt.Println("\033[33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
+		fmt.Println()
+	}
+}
