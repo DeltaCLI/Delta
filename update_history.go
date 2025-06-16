@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"sync"
 	"time"
@@ -493,11 +494,11 @@ func (uh *UpdateHistory) recalculateMetrics() {
 
 // Helper functions for system information
 func GetCurrentOS() string {
-	return "linux" // TODO: Use runtime.GOOS or similar
+	return runtime.GOOS
 }
 
 func GetCurrentArchitecture() string {
-	return "amd64" // TODO: Use runtime.GOARCH or similar  
+	return runtime.GOARCH
 }
 
 func GetCurrentPlatform() string {
