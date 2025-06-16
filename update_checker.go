@@ -215,6 +215,17 @@ func (uc *UpdateChecker) NotifyUpdateAvailable(updateInfo *UpdateInfo) {
 
 	config := uc.updateManager.GetConfig()
 
+	// Check if this version is skipped
+	if config.SkipVersion == updateInfo.LatestVersion {
+		return // Don't notify about skipped versions
+	}
+
+	// Check if this version is postponed
+	ui := NewUpdateUI()
+	if ui.IsPostponementActive(updateInfo) {
+		return // Don't notify during active postponement
+	}
+
 	switch config.NotificationLevel {
 	case "silent":
 		// No notification
@@ -222,7 +233,7 @@ func (uc *UpdateChecker) NotifyUpdateAvailable(updateInfo *UpdateInfo) {
 	case "notify":
 		uc.showUpdateNotification(updateInfo)
 	case "prompt":
-		uc.showUpdatePrompt(updateInfo)
+		uc.showInteractiveUpdatePrompt(updateInfo)
 	default:
 		uc.showUpdateNotification(updateInfo)
 	}
@@ -241,7 +252,37 @@ func (uc *UpdateChecker) showUpdateNotification(updateInfo *UpdateInfo) {
 	fmt.Printf("   Use ':update' to manage updates\n\n")
 }
 
-// showUpdatePrompt displays an interactive update prompt
+// showInteractiveUpdatePrompt displays an interactive update prompt with choices
+func (uc *UpdateChecker) showInteractiveUpdatePrompt(updateInfo *UpdateInfo) {
+	ui := NewUpdateUI()
+	
+	// Configure prompt options based on update config
+	config := uc.updateManager.GetConfig()
+	options := &UpdatePromptOptions{
+		ShowChangelog:   true,
+		AllowPostpone:   true,
+		AllowSkip:       true,
+		AutoConfirm:     config.AutoInstall,
+		PostponeOptions: []string{"1 hour", "4 hours", "1 day", "1 week"},
+		DefaultChoice:   UpdateChoiceCancel,
+	}
+	
+	choice := ui.PromptForUpdate(updateInfo, options)
+	
+	switch choice {
+	case UpdateChoiceInstall:
+		uc.handleInteractiveInstall(updateInfo)
+	case UpdateChoiceSkip:
+		uc.handleSkipVersion(updateInfo)
+	case UpdateChoicePostpone:
+		// Postponement is handled in the UI
+		fmt.Println("Update postponed.")
+	case UpdateChoiceCancel:
+		fmt.Println("Update cancelled.")
+	}
+}
+
+// showUpdatePrompt displays a basic update prompt (for backward compatibility)
 func (uc *UpdateChecker) showUpdatePrompt(updateInfo *UpdateInfo) {
 	fmt.Printf("\n🔔 Update Available!\n")
 	fmt.Printf("   Current Version: %s\n", updateInfo.CurrentVersion)
@@ -385,4 +426,70 @@ func validateUpdateInfo(updateInfo *UpdateInfo) error {
 	}
 	
 	return nil
+}
+
+// handleInteractiveInstall processes the install choice from interactive prompt
+func (uc *UpdateChecker) handleInteractiveInstall(updateInfo *UpdateInfo) {
+	um := uc.updateManager
+	if um == nil {
+		fmt.Printf("❌ Update manager not available\n")
+		return
+	}
+
+	fmt.Printf("Installing update %s...\n", updateInfo.LatestVersion)
+	
+	installResult, err := um.DownloadAndInstallUpdate(updateInfo.LatestVersion)
+	if err != nil {
+		fmt.Printf("❌ Update failed: %v\n", err)
+		if installResult != nil && installResult.BackupPath != "" {
+			fmt.Printf("Backup available at: %s\n", installResult.BackupPath)
+			fmt.Printf("Use ':update rollback' to restore if needed\n")
+		}
+		return
+	}
+
+	fmt.Printf("✅ Update completed successfully!\n")
+	fmt.Printf("   Old Version: %s\n", installResult.OldVersion)
+	fmt.Printf("   New Version: %s\n", installResult.NewVersion)
+	fmt.Printf("   Installation Time: %s\n", installResult.InstallTime.Truncate(time.Millisecond))
+	fmt.Printf("\n🔄 Please restart Delta CLI to use the new version\n")
+}
+
+// handleSkipVersion processes the skip choice from interactive prompt
+func (uc *UpdateChecker) handleSkipVersion(updateInfo *UpdateInfo) {
+	config := uc.updateManager.GetConfig()
+	config.SkipVersion = updateInfo.LatestVersion
+	
+	err := uc.updateManager.UpdateConfig(config)
+	if err != nil {
+		fmt.Printf("❌ Failed to skip version: %v\n", err)
+		return
+	}
+	
+	fmt.Printf("✅ Version %s will be skipped. You won't be notified about this version again.\n", updateInfo.LatestVersion)
+	fmt.Printf("Use ':update config skip_version \"\"' to re-enable notifications for this version.\n")
+}
+
+// CheckPostponementReminders checks if any postponed updates should be reminded
+func (uc *UpdateChecker) CheckPostponementReminders() {
+	config := uc.updateManager.GetConfig()
+	
+	if config.PostponedVersion == "" || config.PostponedUntil == "" {
+		return
+	}
+	
+	postponedUntil, err := time.Parse(time.RFC3339, config.PostponedUntil)
+	if err != nil {
+		return
+	}
+	
+	// If postponement has expired, show reminder
+	if time.Now().After(postponedUntil) {
+		updateInfo, err := uc.GetAvailableUpdate()
+		if err == nil && updateInfo != nil && updateInfo.LatestVersion == config.PostponedVersion {
+			ui := NewUpdateUI()
+			ui.ShowPostponementReminder(updateInfo)
+			ui.ClearPostponement() // Clear expired postponement
+		}
+	}
 }

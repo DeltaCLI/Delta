@@ -51,6 +51,8 @@ type UpdateConfig struct {
 	LastVersion          string `json:"last_version"`
 	SkipVersion          string `json:"skip_version"`
 	NotificationLevel    string `json:"notification_level"`
+	PostponedVersion     string `json:"postponed_version"`     // Version that was postponed
+	PostponedUntil       string `json:"postponed_until"`       // RFC3339 timestamp when postponement expires
 }
 
 // SystemConfig contains all component configurations
