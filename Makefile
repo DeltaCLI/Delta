@@ -57,7 +57,7 @@ GO_SOURCES = version.go \
 	knowledge_extractor.go knowledge_commands.go knowledge_extractor_agent_command.go \
 	agent_types.go agent_manager.go agent_commands.go \
 	config_manager.go config_commands.go \
-	version_manager.go update_manager.go update_commands.go github_client.go update_checker.go update_downloader.go update_installer.go \
+	version_manager.go update_manager.go update_commands.go github_client.go update_checker.go update_downloader.go update_installer.go update_ui.go update_scheduler.go update_history.go update_validation.go \
 	spellcheck.go spellcheck_commands.go \
 	history_analysis.go history_commands.go \
 	pattern_update.go pattern_commands.go pattern_recognition.go \
@@ -125,4 +125,63 @@ version-info:
 	@echo "  IS_DIRTY: $(IS_DIRTY)"
 	@echo "  LDFLAGS: $(LDFLAGS)"
 
-.PHONY: all deps clean run install build build-all version-info $(PLATFORMS)
+# Release target - creates a full release
+release:
+	@if [ -z "$(RELEASE_VERSION)" ]; then \
+		echo "Error: RELEASE_VERSION not specified"; \
+		echo "Usage: make release RELEASE_VERSION=v0.4.2-alpha"; \
+		exit 1; \
+	fi
+	@echo "Creating release for version $(RELEASE_VERSION)"
+	@echo "Step 1: Creating release notes..."
+	@mkdir -p RELEASE_NOTES
+	@echo "# Release Notes for $(RELEASE_VERSION)" > RELEASE_NOTES/RELEASE_NOTES_$(RELEASE_VERSION).md
+	@echo "" >> RELEASE_NOTES/RELEASE_NOTES_$(RELEASE_VERSION).md
+	@echo "## 🚀 Highlights" >> RELEASE_NOTES/RELEASE_NOTES_$(RELEASE_VERSION).md
+	@echo "" >> RELEASE_NOTES/RELEASE_NOTES_$(RELEASE_VERSION).md
+	@echo "TODO: Add release highlights here" >> RELEASE_NOTES/RELEASE_NOTES_$(RELEASE_VERSION).md
+	@echo "" >> RELEASE_NOTES/RELEASE_NOTES_$(RELEASE_VERSION).md
+	@echo "## 📦 What's New" >> RELEASE_NOTES/RELEASE_NOTES_$(RELEASE_VERSION).md
+	@echo "" >> RELEASE_NOTES/RELEASE_NOTES_$(RELEASE_VERSION).md
+	@echo "TODO: Add new features here" >> RELEASE_NOTES/RELEASE_NOTES_$(RELEASE_VERSION).md
+	@echo "" >> RELEASE_NOTES/RELEASE_NOTES_$(RELEASE_VERSION).md
+	@echo "Release notes template created at: RELEASE_NOTES/RELEASE_NOTES_$(RELEASE_VERSION).md"
+	@echo "Please edit the release notes before continuing..."
+	@echo ""
+	@echo "When ready, run the following commands:"
+	@echo "  1. git add RELEASE_NOTES/RELEASE_NOTES_$(RELEASE_VERSION).md"
+	@echo "  2. git commit -m 'feat: prepare $(RELEASE_VERSION) release'"
+	@echo "  3. git tag -a $(RELEASE_VERSION) -m 'Release $(RELEASE_VERSION)'"
+	@echo "  4. git push origin main"
+	@echo "  5. git push origin $(RELEASE_VERSION)"
+	@echo "  6. ./scripts/create-release.sh $(RELEASE_VERSION)"
+	@echo ""
+	@echo "Or use: make release-auto RELEASE_VERSION=$(RELEASE_VERSION)"
+
+# Automated release process (use with caution)
+release-auto:
+	@if [ -z "$(RELEASE_VERSION)" ]; then \
+		echo "Error: RELEASE_VERSION not specified"; \
+		echo "Usage: make release-auto RELEASE_VERSION=v0.4.2-alpha"; \
+		exit 1; \
+	fi
+	@echo "Automated release process for $(RELEASE_VERSION)"
+	@echo "WARNING: This will create tags and push to GitHub!"
+	@read -p "Continue? (y/N): " -n 1 -r; \
+	echo; \
+	if [[ ! $$REPLY =~ ^[Yy]$$ ]]; then \
+		echo "Release cancelled"; \
+		exit 1; \
+	fi
+	@echo "Creating and committing release notes..."
+	@$(MAKE) release RELEASE_VERSION=$(RELEASE_VERSION)
+	@echo "Edit the release notes file, then press Enter to continue..."
+	@read -p "Press Enter when release notes are ready: "
+	@git add RELEASE_NOTES/RELEASE_NOTES_$(RELEASE_VERSION).md
+	@git commit -m "feat: prepare $(RELEASE_VERSION) release"
+	@git tag -a $(RELEASE_VERSION) -m "Release $(RELEASE_VERSION)"
+	@git push origin main
+	@git push origin $(RELEASE_VERSION)
+	@./scripts/create-release.sh $(RELEASE_VERSION)
+
+.PHONY: all deps clean run install build build-all version-info release release-auto $(PLATFORMS)
