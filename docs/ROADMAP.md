@@ -225,9 +225,9 @@ Recommendation: Download first, review, then execute:
 
 ## 📅 Release Schedule
 
-- **Alpha Releases**: Monthly feature updates
-- **Beta Releases**: Quarterly stability releases  
-- **Stable Releases**: Semi-annual production releases
+- **Alpha Releases**: Weekly feature updates
+- **Beta Releases**: Monthly stability releases  
+- **Stable Releases**: Quarterly production releases
 - **LTS Releases**: Annual long-term support versions
 
 ## 🎯 Our Mission
