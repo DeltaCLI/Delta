@@ -151,7 +151,7 @@ if [ -d "$PROJECT_ROOT/i18n/locales" ]; then
     # Create i18n tarball
     cd "$I18N_TEMP_DIR"
     tar -czf "../delta-i18n-${VERSION_TAG}.tar.gz" locales/
-    cd "$RELEASE_DIR"
+    cd "$PROJECT_ROOT/$RELEASE_DIR"
     
     # Calculate i18n archive size
     I18N_SIZE=$(du -h "delta-i18n-${VERSION_TAG}.tar.gz" | cut -f1)
