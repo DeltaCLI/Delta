@@ -22,7 +22,7 @@ Build Date: %s
 Go Version: %s
 Platform: %s/%s
 
-🌍 Multilingual Support: 6 languages available
+🌍 Multilingual Support: 11 languages available
 💡 AI-Powered Shell Enhancement with Local Privacy
 
 Copyright (c) 2025 Source Parts Inc.

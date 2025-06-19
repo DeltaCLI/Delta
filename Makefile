@@ -5,7 +5,7 @@ BINARY_NAME = delta
 GOFLAGS := -v
 
 # Version information (can be overridden)
-VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.4.0-alpha")
+VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.4.3-alpha")
 GIT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S_UTC')
 IS_DIRTY ?= $(shell git diff --quiet 2>/dev/null; if [ $$? -eq 1 ]; then echo "true"; else echo "false"; fi)
