@@ -166,7 +166,7 @@ fi
 # Create compressed archives
 log_info "Creating compressed archives..."
 
-cd "$RELEASE_DIR"
+cd "$PROJECT_ROOT/$RELEASE_DIR"
 
 # Create archives for each platform
 PLATFORMS="linux/amd64 darwin/amd64 darwin/arm64 windows/amd64"
