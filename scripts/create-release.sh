@@ -137,6 +137,32 @@ fi
 
 log_success "Documentation files included"
 
+# Create i18n archive
+log_info "Creating i18n translations archive..."
+
+# Create temporary directory for i18n files
+I18N_TEMP_DIR="$RELEASE_DIR/i18n-temp"
+mkdir -p "$I18N_TEMP_DIR"
+
+# Copy i18n files if they exist
+if [ -d "$PROJECT_ROOT/i18n/locales" ]; then
+    cp -r "$PROJECT_ROOT/i18n/locales" "$I18N_TEMP_DIR/"
+    
+    # Create i18n tarball
+    cd "$I18N_TEMP_DIR"
+    tar -czf "../delta-i18n-${VERSION_TAG}.tar.gz" locales/
+    cd "$RELEASE_DIR"
+    
+    # Calculate i18n archive size
+    I18N_SIZE=$(du -h "delta-i18n-${VERSION_TAG}.tar.gz" | cut -f1)
+    log_success "Created i18n archive: delta-i18n-${VERSION_TAG}.tar.gz ($I18N_SIZE)"
+    
+    # Clean up temp directory
+    rm -rf "$I18N_TEMP_DIR"
+else
+    log_warning "i18n directory not found, skipping i18n archive creation"
+fi
+
 # Create compressed archives
 log_info "Creating compressed archives..."
 
@@ -185,6 +211,11 @@ log_info "Generating checksums..."
 sha256sum *.tar.gz > checksums.sha256 2>/dev/null || touch checksums.sha256
 sha256sum *.zip >> checksums.sha256 2>/dev/null || true
 
+# Add checksum for i18n archive if it exists
+if [ -f "delta-i18n-${VERSION_TAG}.tar.gz" ]; then
+    sha256sum "delta-i18n-${VERSION_TAG}.tar.gz" >> checksums.sha256
+fi
+
 # Add checksums for individual binaries in platform directories
 for platform_dir in linux-amd64 darwin-amd64 darwin-arm64 windows-amd64; do
     if [ -d "$platform_dir" ]; then
@@ -227,6 +258,9 @@ Archives (binary + documentation):
 - delta-${VERSION_TAG}-darwin-amd64.tar.gz / .zip (macOS Intel)
 - delta-${VERSION_TAG}-darwin-arm64.tar.gz / .zip (macOS Apple Silicon)
 - delta-${VERSION_TAG}-windows-amd64.tar.gz / .zip
+
+Translations:
+- delta-i18n-${VERSION_TAG}.tar.gz (All language translations)
 
 Raw binaries:
 - linux-amd64/delta (Linux AMD64 binary)
@@ -324,14 +358,25 @@ if [ "$2" = "--upload" ]; then
         
         # Create release
         log_info "Creating GitHub release..."
+        
+        # Build file list for upload
+        UPLOAD_FILES=(
+            "$RELEASE_DIR"/delta-${VERSION_TAG}-*.tar.gz
+            "$RELEASE_DIR"/delta-${VERSION_TAG}-*.zip
+            "$RELEASE_DIR"/checksums.sha256
+            "$RELEASE_DIR"/release-info.txt
+        )
+        
+        # Add i18n archive if it exists
+        if [ -f "$RELEASE_DIR/delta-i18n-${VERSION_TAG}.tar.gz" ]; then
+            UPLOAD_FILES+=("$RELEASE_DIR/delta-i18n-${VERSION_TAG}.tar.gz")
+        fi
+        
         gh release create "$VERSION_TAG" \
             --title "$VERSION_TAG: Multilingual Delta - Internationalization Alpha Release" \
             --notes-file "RELEASE_NOTES/RELEASE_NOTES_${VERSION_TAG}.md" \
             --prerelease \
-            "$RELEASE_DIR"/*.tar.gz \
-            "$RELEASE_DIR"/*.zip \
-            "$RELEASE_DIR"/checksums.sha256 \
-            "$RELEASE_DIR"/release-info.txt
+            "${UPLOAD_FILES[@]}"
         
         log_success "Release uploaded to GitHub!"
         gh release view "$VERSION_TAG" --web

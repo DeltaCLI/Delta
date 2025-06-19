@@ -46,7 +46,7 @@ GO_SOURCES = version.go \
 	art2_manager.go art2_preprocessor.go art2_commands.go \
 	jump_manager.go jump_helper.go \
 	cli.go help.go \
-	i18n_manager.go i18n_commands.go \
+	i18n_manager.go i18n_commands.go i18n_remote_loader.go \
 	memory_manager.go memory_commands.go \
 	tokenizer.go tokenizer_commands.go \
 	inference.go inference_commands.go \

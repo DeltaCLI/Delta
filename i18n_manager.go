@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 // I18nManager handles internationalization for Delta CLI
@@ -19,6 +20,8 @@ type I18nManager struct {
 	mutex          sync.RWMutex
 	basePath       string
 	localesFound   bool // Track if locale files were found
+	githubLoader   *I18nGitHubLoader // GitHub loader for release downloads
+	remoteEnabled  bool // Whether remote loading is enabled
 }
 
 // TranslationParams holds parameters for string interpolation
@@ -226,6 +229,8 @@ func NewI18nManager() *I18nManager {
 		loadedFiles:    make(map[string]bool),
 		basePath:       basePath,
 		localesFound:   localesFound,
+		githubLoader:   NewI18nGitHubLoader(),
+		remoteEnabled:  true, // Enable remote loading by default
 	}
 	
 	// Load built-in English translations as fallback
@@ -252,6 +257,10 @@ func (i *I18nManager) LoadLocale(locale string) error {
 
 	// Check if locale directory exists
 	if _, err := os.Stat(localePath); os.IsNotExist(err) {
+		// Try remote loading if enabled and local files not found
+		if i.remoteEnabled && !i.localesFound {
+			return i.loadLocaleFromRemote(locale)
+		}
 		return fmt.Errorf("locale %s not found", locale)
 	}
 
@@ -288,6 +297,33 @@ func (i *I18nManager) LoadLocale(locale string) error {
 	}
 
 	i.loadedFiles[locale] = true
+	return nil
+}
+
+// loadLocaleFromRemote loads a locale from GitHub
+func (i *I18nManager) loadLocaleFromRemote(locale string) error {
+	// Don't hold the mutex during network operations
+	i.mutex.Unlock()
+	
+	// Show user feedback
+	fmt.Printf("Downloading %s translations from GitHub releases...\n", locale)
+	
+	// Download from GitHub releases
+	translations, err := i.githubLoader.LoadSingleLocaleFromGitHub(locale)
+	
+	// Re-acquire the mutex
+	i.mutex.Lock()
+	
+	if err != nil {
+		return fmt.Errorf("failed to load locale %s from GitHub: %v", locale, err)
+	}
+	
+	// Store the translations
+	i.translations[locale] = translations
+	i.loadedFiles[locale] = true
+	
+	fmt.Printf("Successfully loaded %s translations.\n", locale)
+	
 	return nil
 }
 
@@ -334,6 +370,10 @@ func (i *I18nManager) GetAvailableLocales() []string {
 	// Read the locales directory
 	files, err := ioutil.ReadDir(i.basePath)
 	if err != nil {
+		// If local files not found and remote loading is enabled, return known remote locales
+		if !i.localesFound && i.remoteEnabled {
+			return i.getKnownRemoteLocales()
+		}
 		return []string{"en"} // Return default if can't read directory
 	}
 
@@ -341,6 +381,11 @@ func (i *I18nManager) GetAvailableLocales() []string {
 		if file.IsDir() {
 			locales = append(locales, file.Name())
 		}
+	}
+
+	// If no locales found locally and remote is enabled, return known remote locales
+	if len(locales) == 0 && i.remoteEnabled {
+		return i.getKnownRemoteLocales()
 	}
 
 	return locales
@@ -946,4 +991,67 @@ func (i *I18nManager) countKeys(data map[string]interface{}) int {
 		}
 	}
 	return count
+}
+
+// getKnownRemoteLocales returns a list of locales known to be available remotely
+func (i *I18nManager) getKnownRemoteLocales() []string {
+	// This list should match what's available in the GitHub repository
+	return []string{
+		"en",     // English
+		"es",     // Spanish
+		"fr",     // French
+		"it",     // Italian
+		"nl",     // Dutch
+		"zh-CN",  // Chinese Simplified
+		"de",     // German
+		"pt",     // Portuguese
+		"ru",     // Russian
+		"ja",     // Japanese
+		"ko",     // Korean
+	}
+}
+
+// SetRemoteLoadingEnabled enables or disables remote loading
+func (i *I18nManager) SetRemoteLoadingEnabled(enabled bool) {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+	i.remoteEnabled = enabled
+}
+
+// IsRemoteLoadingEnabled returns whether remote loading is enabled
+func (i *I18nManager) IsRemoteLoadingEnabled() bool {
+	i.mutex.RLock()
+	defer i.mutex.RUnlock()
+	return i.remoteEnabled
+}
+
+// DownloadAllLocales downloads all available locales from GitHub
+func (i *I18nManager) DownloadAllLocales() error {
+	if i.githubLoader == nil {
+		return fmt.Errorf("GitHub loader not initialized")
+	}
+	
+	fmt.Println("Downloading all available translations from GitHub releases...")
+	
+	result, err := i.githubLoader.DownloadI18nFilesFromRelease()
+	if err != nil {
+		return fmt.Errorf("failed to download translations: %v", err)
+	}
+	
+	// Update base path to the newly installed location
+	i.mutex.Lock()
+	i.basePath = result.InstallPath
+	i.localesFound = true
+	i.mutex.Unlock()
+	
+	// Reload current locale
+	if err := i.ReloadTranslations(); err != nil {
+		return fmt.Errorf("failed to reload translations: %v", err)
+	}
+	
+	fmt.Printf("Successfully downloaded %d locales with %d files in %s\n", 
+		len(result.DownloadedLocales), result.TotalFiles, result.DownloadTime.Round(time.Millisecond))
+	fmt.Printf("Translations installed to: %s\n", result.InstallPath)
+	
+	return nil
 }

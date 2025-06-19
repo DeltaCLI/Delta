@@ -43,23 +43,21 @@ For larger changes, consider adding Go tests using the standard testing package.
 ## Testing Delta Commands
 Delta supports both interactive shell interface and direct command execution via command-line flags.
 
-### Interactive Mode (Default)
-The standard way to use Delta is through its interactive shell:
-- Use `echo "command" | ./delta` to send commands to delta
-- Example: `echo "vector status" | ./delta`
-- Example: `echo "help" | ./delta`
-- Example: `echo "ai test prompt" | ./delta`
-- For multi-line input or complex testing, create a test file and use `./delta < testfile.txt`
-
-### Direct Command Execution
-Delta now supports direct command execution similar to `zsh -c` or `bash -c`:
+### Direct Command Execution (Recommended for Testing)
+Delta supports direct command execution similar to `zsh -c` or `bash -c`:
 - Use `./delta -c "command"` or `./delta --command "command"` to execute commands directly
 - Use `./delta --cmd "command"` as an alternative syntax
 - Examples:
   - `./delta -c "ls -la"` - Execute external shell command
   - `./delta -c ":update status"` - Execute Delta internal command
-  - `./delta --cmd "echo 'Hello World'"` - Alternative flag syntax
-  - `./delta -c ":help"` - Show Delta help without entering interactive mode
+  - `./delta --cmd ":help"` - Show Delta help without entering interactive mode
+  - `./delta -c ":update validate --tests"` - List validation tests
+
+### Interactive Mode (Default)
+The standard way to use Delta is through its interactive shell:
+- Run `./delta` to enter interactive mode
+- For testing with input streams: `echo "command" | ./delta` (legacy method)
+- For multi-line input or complex testing, create a test file and use `./delta < testfile.txt`
 
 ### Command Types
 - **External Commands**: Regular shell commands like `ls`, `git`, `make` etc.
@@ -166,6 +164,14 @@ When adding support for new languages:
 - Set via environment variables: `DELTA_LOCALE`, `DELTA_FALLBACK_LOCALE`, `DELTA_AUTO_DETECT_LANGUAGE`
 - Commands: `:i18n locale <code>` to change language, `:i18n list` to see available languages
 
+### i18n System Improvements (v0.4.2-alpha)
+- **Automatic Installation**: i18n files now auto-install to `~/.config/delta/i18n/locales`
+- **Built-in English**: Essential English translations built-in as fallback
+- **Robust Path Detection**: Searches multiple locations for i18n files
+- **User Notice**: Clear startup notice if translations are missing
+- **Install Command**: `:i18n install` to manually install/update language files
+- **Conditional Help**: Install command only shows when files are missing
+
 ## Release Process
 
 ### Creating a New Release
@@ -243,18 +249,29 @@ The auto-update system is planned for implementation across 5 phases:
 4. **Phase 4 (v0.4.1-alpha)**: Advanced Features - Scheduling, history, validation
 5. **Phase 5 (v0.5.0-alpha)**: Enterprise Features - Channel management, policies, metrics
 
-### Current Status
-- **Planning**: Complete with detailed roadmap and implementation guide
-- **Documentation**: Comprehensive plans in `docs/planning/AUTO_UPDATE_ROADMAP.md`
-- **Next Step**: Begin Phase 1 implementation
+### Current Status (v0.4.2-alpha)
+- **Phase 1-4**: COMPLETED ✓
+- **Phase 1**: Foundation Infrastructure - COMPLETED in v0.3.0-alpha
+- **Phase 2**: GitHub Integration - COMPLETED in v0.3.1-alpha
+- **Phase 3**: Download & Installation - COMPLETED in v0.4.0-alpha
+- **Phase 4**: Advanced Features - COMPLETED in v0.4.2-alpha
+- **Next Step**: Phase 5 Enterprise Features (v0.5.0-alpha)
 
-### Key Features (Planned)
-- **Automatic Update Checking**: Check GitHub releases on startup (configurable)
-- **Secure Downloads**: SHA256 verification and secure installation
-- **Channel Management**: Stable, alpha, and beta release channels
-- **Backup & Rollback**: Safe updates with automatic rollback on failure
-- **Enterprise Ready**: Policies, metrics, and centralized management
-- **User Friendly**: Intuitive CLI commands and minimal disruption
+### Key Features (Implemented)
+- **Automatic Update Checking**: Check GitHub releases on startup ✓
+- **Secure Downloads**: SHA256 verification and secure installation ✓
+- **Backup & Rollback**: Safe updates with automatic rollback on failure ✓
+- **Interactive Updates**: User-friendly prompts with skip/postpone options ✓
+- **Update Scheduling**: Cron-like scheduling for deferred updates ✓
+- **Update History**: Comprehensive tracking with metrics and audit trails ✓
+- **Post-Update Validation**: Health checks with automatic rollback ✓
+- **Channel Support**: Alpha/beta/stable channel management ✓
+
+### Enterprise Features (Phase 5 - Planned)
+- **Advanced Channel Management**: Channel policies and access control
+- **Enterprise Policies**: Centralized update management
+- **Metrics & Reporting**: Analytics and performance tracking
+- **Silent Updates**: Enterprise deployment options
 
 ### Configuration Options (Planned)
 ```bash
@@ -277,6 +294,35 @@ DELTA_UPDATE_NOTIFICATION_LEVEL=prompt
 - **Roadmap**: `docs/planning/AUTO_UPDATE_ROADMAP.md`
 - **Implementation Guide**: `docs/planning/AUTO_UPDATE_IMPLEMENTATION_PLAN.md`
 - **Phase 1 Milestone**: `docs/milestones/AUTO_UPDATE_PHASE1_MILESTONE.md`
+
+## AI System Improvements (v0.4.2-alpha)
+
+### Configuration Persistence
+- AI enabled/disabled state now persists between sessions
+- Configuration saved to `~/.config/delta/system_config.json`
+- Settings loaded automatically on startup
+
+### Command Aliases
+- Added `:ai enable` as alias for `:ai on`
+- Added `:ai disable` as alias for `:ai off`
+- Help text updated to show aliases clearly
+
+### Known Issues
+- AI predictions require Ollama to be running with the configured model
+- If Ollama is not available, AI features will be disabled but settings persist
+
+## Recent Architecture Changes
+
+### Update System (Phase 4 Complete)
+- `update_history.go` - Comprehensive update tracking with system info
+- `update_scheduler.go` - Cron-like scheduling for deferred updates
+- `update_ui.go` - Interactive prompts with user choices
+- `update_validation.go` - Post-update health checks and rollback
+
+### Configuration Management
+- Centralized configuration in `~/.config/delta/`
+- All subsystems use ConfigManager for persistence
+- Automatic config migration between versions
 
 ## Special User Commands
 - If the user says "continue", analyze TASKS.md, docs/planning/PLAN.md, or milestone files to determine the next course of action

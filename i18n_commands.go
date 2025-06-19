@@ -26,6 +26,10 @@ func HandleI18nCommand(args []string) bool {
 		return handleI18nStatsCommand()
 	case "install":
 		return handleI18nInstallCommand()
+	case "download":
+		return handleI18nDownloadCommand()
+	case "update":
+		return handleI18nUpdateCommand()
 	case "help":
 		return handleI18nHelpCommand()
 	default:
@@ -202,6 +206,47 @@ func handleI18nInstallCommand() bool {
 	return true
 }
 
+// handleI18nDownloadCommand downloads i18n files from GitHub
+func handleI18nDownloadCommand() bool {
+	i18n := GetI18nManager()
+	
+	// Download all locales from GitHub
+	if err := i18n.DownloadAllLocales(); err != nil {
+		fmt.Printf("Error downloading translations: %v\n", err)
+		
+		// Offer alternative solutions
+		fmt.Println("\nTroubleshooting tips:")
+		fmt.Println("1. Check your internet connection")
+		fmt.Println("2. Ensure GitHub is accessible from your network")
+		fmt.Println("3. Try again in a few moments")
+		
+		if !i18n.IsLocalesInstalled() {
+			fmt.Println("\nAlternatively, if you have the source files:")
+			fmt.Println("  :i18n install")
+		}
+		
+		return true
+	}
+	
+	return true
+}
+
+// handleI18nUpdateCommand updates i18n files from GitHub to the latest version
+func handleI18nUpdateCommand() bool {
+	i18n := GetI18nManager()
+	
+	fmt.Println("Checking for translation updates...")
+	
+	// Force re-download of all locales from GitHub
+	if err := i18n.DownloadAllLocales(); err != nil {
+		fmt.Printf("Error updating translations: %v\n", err)
+		return true
+	}
+	
+	fmt.Println("Translations updated successfully.")
+	return true
+}
+
 // handleI18nHelpCommand shows help for i18n commands
 func handleI18nHelpCommand() bool {
 	i18n := GetI18nManager()
@@ -215,9 +260,13 @@ func handleI18nHelpCommand() bool {
 	fmt.Println(T("interface.i18n.help.reload"))
 	fmt.Println(T("interface.i18n.help.stats"))
 	
+	// Show download/update commands (always available)
+	fmt.Println("  :i18n download           - Download all translations from GitHub")
+	fmt.Println("  :i18n update             - Update translations to the latest version")
+	
 	// Only show install command if locales are not installed
 	if !i18n.IsLocalesInstalled() {
-		fmt.Println("  :i18n install            - Install/update i18n files to user config")
+		fmt.Println("  :i18n install            - Install i18n files from local source")
 	}
 	
 	fmt.Println(T("interface.i18n.help.help"))
@@ -227,6 +276,7 @@ func handleI18nHelpCommand() bool {
 	fmt.Println(T("interface.i18n.help.example_list"))
 	fmt.Println(T("interface.i18n.help.example_set_chinese"))
 	fmt.Println(T("interface.i18n.help.example_set_english"))
+	fmt.Println("  :i18n download                - Download all translations")
 
 	return true
 }
@@ -286,10 +336,10 @@ func checkI18nStartup() {
 		fmt.Println("\033[33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
 		fmt.Println("\033[33m[∆ NOTICE]\033[0m Translation files not found. Using built-in English translations.")
 		fmt.Println()
-		fmt.Println("To install all available languages and enable full internationalization support:")
-		fmt.Println("\033[36m  :i18n install\033[0m")
+		fmt.Println("To download all available languages from GitHub:")
+		fmt.Println("\033[36m  :i18n download\033[0m")
 		fmt.Println()
-		fmt.Println("This will install translation files to: ~/.config/delta/i18n/locales")
+		fmt.Println("This will download and install translation files to: ~/.config/delta/i18n/locales")
 		fmt.Println("\033[33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
 		fmt.Println()
 	}

@@ -7,7 +7,7 @@ import (
 
 // Version information - injected at build time via ldflags
 var (
-	Version   = "v0.4.1-alpha"  // Overridden by -ldflags "-X main.Version=..."
+	Version   = "dev"      // Overridden by -ldflags "-X main.Version=..."
 	GitCommit = "unknown"  // Overridden by -ldflags "-X main.GitCommit=..."
 	BuildDate = "unknown"  // Overridden by -ldflags "-X main.BuildDate=..."
 	GoVersion = runtime.Version()
