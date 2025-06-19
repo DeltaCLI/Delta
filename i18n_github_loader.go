@@ -2,7 +2,10 @@ package main
 
 import (
 	"archive/tar"
+	"bufio"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,19 +19,29 @@ import (
 
 // I18nGitHubLoader handles downloading i18n files from GitHub releases
 type I18nGitHubLoader struct {
-	httpClient    *http.Client
-	githubAPIURL  string
-	deltaAPIURL   string
-	cacheDir      string
-	tempDir       string
+	httpClient   *http.Client
+	deltaAPIURL  string
+	cacheDir     string
+	tempDir      string
 }
 
 // I18nReleaseInfo contains information about a release with i18n files
 type I18nReleaseInfo struct {
-	Version      string
-	I18nAssetURL string
-	AssetName    string
-	AssetSize    int64
+	Version         string
+	I18nAssetURL    string
+	ChecksumURL     string
+	AssetName       string
+	AssetSize       int64
+	ExpectedSHA256  string
+}
+
+// I18nDownloadResult contains the result of an i18n download operation
+type I18nDownloadResult struct {
+	DownloadedLocales []string
+	TotalFiles        int
+	DownloadTime      time.Duration
+	InstallPath       string
+	Error             error
 }
 
 // NewI18nGitHubLoader creates a new GitHub-based i18n loader
@@ -47,24 +60,31 @@ func NewI18nGitHubLoader() *I18nGitHubLoader {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		githubAPIURL: "https://api.github.com/repos/deltacli/delta/releases",
-		deltaAPIURL:  "https://deltacli.com/api/github/latest-version",
-		cacheDir:     cacheDir,
-		tempDir:      tempDir,
+		deltaAPIURL: "https://deltacli.com/api/github/latest-version",
+		cacheDir:    cacheDir,
+		tempDir:     tempDir,
 	}
 }
 
 // GetLatestI18nRelease fetches information about the latest release with i18n files
 func (gl *I18nGitHubLoader) GetLatestI18nRelease() (*I18nReleaseInfo, error) {
-	// Try deltacli.com API first for latest version
+	// Get latest version from deltacli.com API
 	version, err := gl.getLatestVersionFromDeltaAPI()
 	if err != nil {
-		// Fallback to GitHub API
-		return gl.getLatestI18nReleaseFromGitHub()
+		return nil, fmt.Errorf("failed to get latest version: %v", err)
 	}
 
-	// Get release info for specific version
-	return gl.getI18nReleaseInfo(version)
+	// Construct the release info based on the version
+	// GitHub releases follow a predictable pattern
+	assetName := fmt.Sprintf("delta-i18n-%s.tar.gz", version)
+	
+	return &I18nReleaseInfo{
+		Version:      version,
+		I18nAssetURL: fmt.Sprintf("https://github.com/deltacli/delta/releases/download/%s/%s", version, assetName),
+		ChecksumURL:  fmt.Sprintf("https://github.com/deltacli/delta/releases/download/%s/checksums.sha256", version),
+		AssetName:    assetName,
+		AssetSize:    0, // We don't know the size without hitting GitHub API
+	}, nil
 }
 
 // getLatestVersionFromDeltaAPI uses deltacli.com API to get latest version
@@ -91,121 +111,6 @@ func (gl *I18nGitHubLoader) getLatestVersionFromDeltaAPI() (string, error) {
 	return result.Version, nil
 }
 
-// getLatestI18nReleaseFromGitHub fetches the latest release with i18n files from GitHub API
-func (gl *I18nGitHubLoader) getLatestI18nReleaseFromGitHub() (*I18nReleaseInfo, error) {
-	req, err := http.NewRequest("GET", gl.githubAPIURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set headers
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "Delta-CLI/"+GetVersionShort())
-
-	// Add GitHub token if available
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-		req.Header.Set("Authorization", "token "+token)
-	}
-
-	resp, err := gl.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
-	}
-
-	var releases []struct {
-		TagName string `json:"tag_name"`
-		Assets  []struct {
-			Name               string `json:"name"`
-			Size               int64  `json:"size"`
-			BrowserDownloadURL string `json:"browser_download_url"`
-		} `json:"assets"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
-		return nil, err
-	}
-
-	// Find the first release with i18n assets
-	for _, release := range releases {
-		for _, asset := range release.Assets {
-			if strings.HasPrefix(asset.Name, "delta-i18n-") && strings.HasSuffix(asset.Name, ".tar.gz") {
-				return &I18nReleaseInfo{
-					Version:      release.TagName,
-					I18nAssetURL: asset.BrowserDownloadURL,
-					AssetName:    asset.Name,
-					AssetSize:    asset.Size,
-				}, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("no release with i18n files found")
-}
-
-// getI18nReleaseInfo gets release info for a specific version
-func (gl *I18nGitHubLoader) getI18nReleaseInfo(version string) (*I18nReleaseInfo, error) {
-	// Ensure version has 'v' prefix
-	if !strings.HasPrefix(version, "v") {
-		version = "v" + version
-	}
-
-	url := fmt.Sprintf("%s/tags/%s", gl.githubAPIURL, version)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set headers
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "Delta-CLI/"+GetVersionShort())
-
-	// Add GitHub token if available
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-		req.Header.Set("Authorization", "token "+token)
-	}
-
-	resp, err := gl.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned status %d for version %s", resp.StatusCode, version)
-	}
-
-	var release struct {
-		TagName string `json:"tag_name"`
-		Assets  []struct {
-			Name               string `json:"name"`
-			Size               int64  `json:"size"`
-			BrowserDownloadURL string `json:"browser_download_url"`
-		} `json:"assets"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, err
-	}
-
-	// Find i18n asset
-	for _, asset := range release.Assets {
-		if strings.HasPrefix(asset.Name, "delta-i18n-") && strings.HasSuffix(asset.Name, ".tar.gz") {
-			return &I18nReleaseInfo{
-				Version:      release.TagName,
-				I18nAssetURL: asset.BrowserDownloadURL,
-				AssetName:    asset.Name,
-				AssetSize:    asset.Size,
-			}, nil
-		}
-	}
-
-	return nil, fmt.Errorf("no i18n files found for version %s", version)
-}
 
 // DownloadI18nFilesFromRelease downloads i18n files from a specific release
 func (gl *I18nGitHubLoader) DownloadI18nFilesFromRelease() (*I18nDownloadResult, error) {
@@ -219,8 +124,7 @@ func (gl *I18nGitHubLoader) DownloadI18nFilesFromRelease() (*I18nDownloadResult,
 		return result, result.Error
 	}
 
-	fmt.Printf("Found i18n files for version %s (%.1f MB)\n", 
-		releaseInfo.Version, float64(releaseInfo.AssetSize)/1024/1024)
+	fmt.Printf("Found i18n files for Delta %s\n", releaseInfo.Version)
 
 	// Clean up temp directory if it exists
 	if err := os.RemoveAll(gl.tempDir); err != nil {
@@ -234,11 +138,33 @@ func (gl *I18nGitHubLoader) DownloadI18nFilesFromRelease() (*I18nDownloadResult,
 	}
 	defer os.RemoveAll(gl.tempDir) // Clean up when done
 
+	// Download checksums if available
+	if releaseInfo.ChecksumURL != "" {
+		fmt.Println("Downloading checksums for verification...")
+		expectedSHA, err := gl.downloadAndParseChecksums(releaseInfo)
+		if err != nil {
+			fmt.Printf("Warning: Could not download checksums: %v\n", err)
+			fmt.Println("Proceeding without checksum verification...")
+		} else {
+			releaseInfo.ExpectedSHA256 = expectedSHA
+		}
+	}
+
 	// Download the i18n archive
 	archivePath, err := gl.downloadI18nArchive(releaseInfo)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to download i18n archive: %v", err)
 		return result, result.Error
+	}
+	
+	// Verify checksum if available
+	if releaseInfo.ExpectedSHA256 != "" {
+		fmt.Println("Verifying file integrity...")
+		if err := gl.verifyChecksum(archivePath, releaseInfo.ExpectedSHA256); err != nil {
+			result.Error = fmt.Errorf("checksum verification failed: %v", err)
+			return result, result.Error
+		}
+		fmt.Println("✓ Checksum verified successfully")
 	}
 
 	// Extract i18n files
@@ -507,4 +433,93 @@ func (gl *I18nGitHubLoader) LoadSingleLocaleFromGitHub(locale string) (map[strin
 	}
 
 	return translations, nil
+}
+
+// downloadAndParseChecksums downloads and parses the checksums file
+func (gl *I18nGitHubLoader) downloadAndParseChecksums(releaseInfo *I18nReleaseInfo) (string, error) {
+	req, err := http.NewRequest("GET", releaseInfo.ChecksumURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("User-Agent", "Delta-CLI/"+GetVersionShort())
+
+	resp, err := gl.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to download checksums: status %d", resp.StatusCode)
+	}
+
+	// Parse checksums file
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Fields(line)
+		if len(parts) == 2 {
+			checksum, filename := parts[0], parts[1]
+			// Look for our i18n file
+			if filename == releaseInfo.AssetName || 
+			   filename == "./"+releaseInfo.AssetName ||
+			   strings.HasSuffix(filename, "/"+releaseInfo.AssetName) {
+				return checksum, nil
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	return "", fmt.Errorf("checksum not found for %s", releaseInfo.AssetName)
+}
+
+// verifyChecksum verifies the SHA256 checksum of a file
+func (gl *I18nGitHubLoader) verifyChecksum(filepath string, expectedSHA256 string) error {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return err
+	}
+
+	actualSHA256 := hex.EncodeToString(hasher.Sum(nil))
+	if actualSHA256 != expectedSHA256 {
+		return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedSHA256, actualSHA256)
+	}
+
+	return nil
+}
+
+// calculateSHA256 calculates the SHA256 checksum of a file
+func (gl *I18nGitHubLoader) calculateSHA256(filepath string) (string, error) {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+// i18nContains checks if a string slice contains a value
+func i18nContains(slice []string, value string) bool {
+	for _, item := range slice {
+		if item == value {
+			return true
+		}
+	}
+	return false
 }

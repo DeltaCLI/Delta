@@ -210,6 +210,10 @@ func handleI18nInstallCommand() bool {
 func handleI18nDownloadCommand() bool {
 	i18n := GetI18nManager()
 	
+	fmt.Println("Checking for latest Delta release...")
+	fmt.Println("This will download translations with SHA256 verification for security.")
+	fmt.Println()
+	
 	// Download all locales from GitHub
 	if err := i18n.DownloadAllLocales(); err != nil {
 		fmt.Printf("Error downloading translations: %v\n", err)
@@ -217,8 +221,9 @@ func handleI18nDownloadCommand() bool {
 		// Offer alternative solutions
 		fmt.Println("\nTroubleshooting tips:")
 		fmt.Println("1. Check your internet connection")
-		fmt.Println("2. Ensure GitHub is accessible from your network")
-		fmt.Println("3. Try again in a few moments")
+		fmt.Println("2. Ensure deltacli.com is accessible from your network")
+		fmt.Println("3. Ensure GitHub releases are accessible for downloads")
+		fmt.Println("4. Try again in a few moments")
 		
 		if !i18n.IsLocalesInstalled() {
 			fmt.Println("\nAlternatively, if you have the source files:")
