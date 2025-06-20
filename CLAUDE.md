@@ -37,8 +37,26 @@ When making changes, follow these steps:
 2. Build with `make build`
 3. Test manually
 4. Use `go fmt` before committing
+5. Update CHANGELOG.md under `## [Unreleased]` section
 
 For larger changes, consider adding Go tests using the standard testing package.
+
+### Maintaining the CHANGELOG
+- Always add changes to the `## [Unreleased]` section at the top
+- Follow [Keep a Changelog](https://keepachangelog.com/) format
+- Categories: Added, Changed, Fixed, Deprecated, Removed, Security
+- The release script will automatically move [Unreleased] to the version section
+- Example entry:
+  ```markdown
+  ## [Unreleased]
+  
+  ### Added
+  - Interactive safety prompts for dangerous commands
+  - New `:validation stats` command
+  
+  ### Fixed
+  - Direct command mode now includes training pipeline
+  ```
 
 ## Testing Delta Commands
 Delta supports both interactive shell interface and direct command execution via command-line flags.
@@ -176,9 +194,10 @@ When adding support for new languages:
 
 ### Creating a New Release
 
-1. **Update Version Information**:
-   - Update version number in relevant files
+1. **Update Documentation**:
+   - Update CHANGELOG.md with changes under `## [Unreleased]` section
    - Create release notes file: `RELEASE_NOTES_v<version>.md`
+   - Ensure CHANGELOG.md has an `[Unreleased]` section (required)
 
 2. **Commit Changes**:
    ```bash
@@ -201,6 +220,13 @@ When adding support for new languages:
    # Create release and upload to GitHub
    ./scripts/create-release.sh v<version> --upload
    ```
+   
+   The script will automatically:
+   - Update CHANGELOG.md (move [Unreleased] to version section)
+   - Update ROADMAP.md with new version
+   - Create binaries for all platforms
+   - Generate checksums
+   - Create GitHub release (if --upload is used)
 
 ### Release Script Requirements
 
