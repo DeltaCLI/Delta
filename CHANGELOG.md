@@ -7,13 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-
-## [v0.4.5-alpha] - 2025-06-21
-
-
-## [Unreleased]
-
-
 ## [v0.4.5-alpha] - 2025-06-21
 
 ### Added - Command Validation Phase 4: Interactive Safety (2025-06-20)
