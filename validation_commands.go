@@ -22,6 +22,10 @@ func HandleValidationCommand(args []string) bool {
 		return handleSafetyCommand(args[1:])
 	case "config":
 		return handleValidationConfig(args[1:])
+	case "stats", "statistics":
+		return handleValidationStats()
+	case "history":
+		return handleValidationHistory()
 	case "help":
 		showValidationHelp()
 		return true
@@ -113,9 +117,91 @@ func handleValidationConfig(args []string) bool {
 		return true
 	}
 
-	// TODO: Implement configuration management
-	fmt.Println("Validation configuration management coming soon!")
-	return true
+	switch args[0] {
+	case "set":
+		if len(args) < 3 {
+			fmt.Println("Usage: :validation config set <key> <value>")
+			fmt.Println("\nAvailable keys:")
+			fmt.Println("  enabled              - Enable/disable validation (true/false)")
+			fmt.Println("  syntax_check         - Enable syntax checking (true/false)")
+			fmt.Println("  safety_check         - Enable safety analysis (true/false)")
+			fmt.Println("  interactive_safety   - Enable interactive safety prompts (true/false)")
+			fmt.Println("  educational_info     - Show educational content (true/false)")
+			fmt.Println("  auto_deny_critical   - Auto-deny critical commands (true/false)")
+			fmt.Println("  bypass_trusted_paths - Skip prompts in trusted directories (true/false)")
+			return true
+		}
+		
+		key := args[1]
+		value := args[2]
+		
+		// Update configuration through config manager
+		cm := GetConfigManager()
+		if cm != nil {
+			configKey := fmt.Sprintf("validation.%s", key)
+			if err := cm.SetConfig(configKey, value); err != nil {
+				fmt.Printf("❌ Error setting config: %v\n", err)
+			} else {
+				// Also update the validation engine
+				UpdateValidationConfig(key, value)
+				fmt.Printf("✅ Set %s = %s\n", key, value)
+			}
+		} else {
+			// Update validation engine directly
+			UpdateValidationConfig(key, value)
+			fmt.Printf("✅ Set %s = %s (in memory only)\n", key, value)
+		}
+		
+		return true
+		
+	case "get":
+		if len(args) < 2 {
+			fmt.Println("Usage: :validation config get <key>")
+			return true
+		}
+		
+		key := args[1]
+		cm := GetConfigManager()
+		if cm != nil {
+			value := cm.GetConfig(fmt.Sprintf("validation.%s", key))
+			if value != "" {
+				fmt.Printf("%s = %s\n", key, value)
+			} else {
+				fmt.Printf("%s is not set\n", key)
+			}
+		}
+		
+		return true
+		
+	case "reset":
+		fmt.Println("Resetting validation configuration to defaults...")
+		// Reset to default configuration
+		engine := GetValidationEngine()
+		defaultConfig := validation.ValidationConfig{
+			EnableSyntaxCheck:  true,
+			EnableSafetyCheck:  true,
+			EnableCustomRules:  false,
+			StrictMode:        false,
+			RealTimeValidation: false,
+			MaxValidationTime:  5 * time.Second,
+			SafetyPromptConfig: validation.SafetyPromptConfig{
+				Enabled:               true,
+				RequireConfirmation:   true,
+				ShowEducationalInfo:   true,
+				TrackSafetyDecisions:  true,
+				AutoDenyLevel:         validation.RiskLevelCritical,
+				BypassForTrustedPaths: true,
+			},
+		}
+		engine.SetConfig(defaultConfig)
+		fmt.Println("✅ Configuration reset to defaults")
+		return true
+		
+	default:
+		fmt.Printf("Unknown config command: %s\n", args[0])
+		fmt.Println("Available commands: set, get, reset")
+		return true
+	}
 }
 
 // displayValidationResult shows validation results to the user
@@ -253,9 +339,15 @@ Syntax Validation:
 Safety Analysis:
   :validation safety <command>     Analyze command safety
   
-Configuration:
+Interactive Safety:
   :validation config              Show configuration
   :validation config set <key> <value>  Update configuration
+  :validation config get <key>    Get configuration value
+  :validation config reset        Reset to defaults
+  
+Safety Statistics:
+  :validation stats               Show safety decision history
+  :validation history             View recent safety decisions
   
 Help:
   :validation help               Show this help
@@ -263,7 +355,17 @@ Help:
 Examples:
   :validate ls -la | grep test
   :validation safety rm -rf /
-  :validation config set strict true
+  :validation config set interactive_safety true
+  :validation config set educational_info false
+
+Configuration Keys:
+  enabled              - Enable/disable validation
+  syntax_check         - Enable syntax checking
+  safety_check         - Enable safety analysis
+  interactive_safety   - Enable interactive prompts
+  educational_info     - Show educational content
+  auto_deny_critical   - Auto-deny critical commands
+  bypass_trusted_paths - Skip prompts in trusted directories
 
 Shortcuts:
   :v                            Alias for :validate`)
@@ -271,18 +373,117 @@ Shortcuts:
 
 // showValidationConfig displays current validation configuration
 func showValidationConfig() {
+	engine := GetValidationEngine()
+	config := engine.GetConfig()
+	
 	fmt.Println(`Current Validation Configuration:
-═══════════════════════════════
-
-Syntax Checking:     Enabled
-Safety Analysis:     Enabled  
-Custom Rules:        Disabled
-Strict Mode:         Disabled
-Real-time:           Disabled
-Max Validation Time: 5s
-
+═══════════════════════════════`)
+	
+	fmt.Printf("\nCore Settings:\n")
+	fmt.Printf("  Validation Enabled:      %v\n", getBoolConfigDisplay("validation.enabled", true))
+	fmt.Printf("  Syntax Checking:         %v\n", config.EnableSyntaxCheck)
+	fmt.Printf("  Safety Analysis:         %v\n", config.EnableSafetyCheck)
+	fmt.Printf("  Custom Rules:            %v\n", config.EnableCustomRules)
+	fmt.Printf("  Strict Mode:             %v\n", config.StrictMode)
+	fmt.Printf("  Real-time Validation:    %v\n", config.RealTimeValidation)
+	fmt.Printf("  Max Validation Time:     %s\n", config.MaxValidationTime)
+	
+	fmt.Printf("\nInteractive Safety:\n")
+	fmt.Printf("  Interactive Prompts:     %v\n", config.SafetyPromptConfig.Enabled)
+	fmt.Printf("  Require Confirmation:    %v\n", config.SafetyPromptConfig.RequireConfirmation)
+	fmt.Printf("  Show Educational Info:   %v\n", config.SafetyPromptConfig.ShowEducationalInfo)
+	fmt.Printf("  Track Decisions:         %v\n", config.SafetyPromptConfig.TrackSafetyDecisions)
+	fmt.Printf("  Auto-deny Critical:      %v\n", config.SafetyPromptConfig.AutoDenyLevel == validation.RiskLevelCritical)
+	fmt.Printf("  Bypass Trusted Paths:    %v\n", config.SafetyPromptConfig.BypassForTrustedPaths)
+	
+	fmt.Println(`
 To modify settings, use:
-  :validation config set <key> <value>`)
+  :validation config set <key> <value>
+  :validation config get <key>
+  :validation config reset`)
+}
+
+// getBoolConfigDisplay gets a boolean config value with default
+func getBoolConfigDisplay(key string, defaultValue bool) bool {
+	cm := GetConfigManager()
+	if cm != nil {
+		value := cm.GetConfig(key)
+		if value == "false" {
+			return false
+		} else if value == "true" {
+			return true
+		}
+	}
+	return defaultValue
+}
+
+// handleValidationStats shows safety decision statistics
+func handleValidationStats() bool {
+	engine := GetValidationEngine()
+	safetyChecker := engine.GetSafetyChecker()
+	if safetyChecker == nil {
+		fmt.Println("Interactive safety checker is not enabled.")
+		fmt.Println("Enable it with: :validation config set interactive_safety true")
+		return true
+	}
+	
+	stats := safetyChecker.GetSafetyStats()
+	
+	fmt.Println("Safety Decision Statistics:")
+	fmt.Println("═════════════════════════")
+	fmt.Printf("\nTotal decisions:     %d\n", stats["total"])
+	fmt.Printf("Commands proceeded:  %d\n", stats["proceeded"])
+	fmt.Printf("Commands cancelled:  %d\n", stats["cancelled"])
+	fmt.Printf("Commands modified:   %d\n", stats["modified"])
+	fmt.Printf("Marked as safe:      %d\n", stats["safe"])
+	
+	if stats["total"] > 0 {
+		proceedRate := float64(stats["proceeded"]) / float64(stats["total"]) * 100
+		cancelRate := float64(stats["cancelled"]) / float64(stats["total"]) * 100
+		fmt.Printf("\nProceed rate:        %.1f%%\n", proceedRate)
+		fmt.Printf("Cancel rate:         %.1f%%\n", cancelRate)
+	}
+	
+	return true
+}
+
+// handleValidationHistory shows recent safety decisions
+func handleValidationHistory() bool {
+	engine := GetValidationEngine()
+	safetyChecker := engine.GetSafetyChecker()
+	if safetyChecker == nil {
+		fmt.Println("Interactive safety checker is not enabled.")
+		fmt.Println("Enable it with: :validation config set interactive_safety true")
+		return true
+	}
+	
+	history := safetyChecker.GetSafetyHistory()
+	
+	if len(history) == 0 {
+		fmt.Println("No safety decision history available.")
+		return true
+	}
+	
+	fmt.Println("Recent Safety Decisions:")
+	fmt.Println("════════════════════════")
+	
+	// Show last 10 decisions
+	start := 0
+	if len(history) > 10 {
+		start = len(history) - 10
+	}
+	
+	for i := start; i < len(history); i++ {
+		decision := history[i]
+		fmt.Printf("\n[%s] %s\n", decision.Timestamp.Format("2006-01-02 15:04:05"), decision.Command)
+		fmt.Printf("  Risk Level: %s\n", validation.FormatRiskLevel(decision.RiskLevel))
+		fmt.Printf("  Decision:   %s\n", decision.Decision)
+		if decision.LearnedSafe {
+			fmt.Printf("  Note:       Marked as safe for future use\n")
+		}
+	}
+	
+	return true
 }
 
 // ValidateCommandRealTime performs real-time validation as user types

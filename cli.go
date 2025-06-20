@@ -1851,6 +1851,12 @@ with AI-powered suggestions, encrypted command history, and seamless shell compa
 }
 
 func runCommand(command string, sigChan chan os.Signal) (int, time.Duration) {
+	// Validate command before execution
+	if !ValidateBeforeExecution(command) {
+		// Command was cancelled by user or blocked by safety rules
+		return 1, 0
+	}
+	
 	// Parse the command to get the executable
 	cmdParts := strings.Fields(command)
 	if len(cmdParts) == 0 {

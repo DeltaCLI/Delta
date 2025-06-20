@@ -62,7 +62,7 @@ GO_SOURCES = version.go \
 	history_analysis.go history_commands.go \
 	pattern_update.go pattern_commands.go pattern_recognition.go \
 	error_learning.go \
-	validation_commands.go
+	validation_commands.go command_validator.go
 
 all: deps build
 

@@ -93,11 +93,12 @@ type Validator interface {
 
 // Engine is the main validation engine
 type Engine struct {
-	shellType    ShellType
-	parsers      map[ShellType]Parser
-	safetyRules  []SafetyRule
-	customRules  []CustomRule
-	config       ValidationConfig
+	shellType      ShellType
+	parsers        map[ShellType]Parser
+	safetyRules    []SafetyRule
+	customRules    []CustomRule
+	config         ValidationConfig
+	safetyChecker  *InteractiveSafetyChecker
 }
 
 // Parser interface for shell-specific parsing
@@ -124,12 +125,13 @@ type CustomRule interface {
 
 // ValidationConfig configures the validation engine
 type ValidationConfig struct {
-	EnableSyntaxCheck   bool
-	EnableSafetyCheck   bool
-	EnableCustomRules   bool
-	StrictMode          bool
-	RealTimeValidation  bool
-	MaxValidationTime   time.Duration
+	EnableSyntaxCheck      bool
+	EnableSafetyCheck      bool
+	EnableCustomRules      bool
+	StrictMode             bool
+	RealTimeValidation     bool
+	MaxValidationTime      time.Duration
+	SafetyPromptConfig     SafetyPromptConfig // Configuration for interactive safety
 }
 
 // NewEngine creates a new validation engine
@@ -144,6 +146,11 @@ func NewEngine(config ValidationConfig) *Engine {
 	
 	// Initialize parsers
 	engine.initializeParsers()
+	
+	// Initialize interactive safety checker if enabled
+	if config.SafetyPromptConfig.Enabled {
+		engine.safetyChecker = NewInteractiveSafetyChecker(config.SafetyPromptConfig)
+	}
 	
 	return engine
 }
@@ -273,5 +280,26 @@ func (e *Engine) GetConfig() ValidationConfig {
 // SetConfig updates the configuration
 func (e *Engine) SetConfig(config ValidationConfig) {
 	e.config = config
+	
+	// Update interactive safety checker if needed
+	if config.SafetyPromptConfig.Enabled && e.safetyChecker == nil {
+		e.safetyChecker = NewInteractiveSafetyChecker(config.SafetyPromptConfig)
+	} else if !config.SafetyPromptConfig.Enabled {
+		e.safetyChecker = nil
+	}
+}
+
+// CheckInteractiveSafety performs interactive safety check on validation result
+func (e *Engine) CheckInteractiveSafety(result *ValidationResult) (bool, *SafetyDecision) {
+	if e.safetyChecker == nil {
+		return true, nil
+	}
+	
+	return e.safetyChecker.CheckInteractiveSafety(result)
+}
+
+// GetSafetyChecker returns the interactive safety checker
+func (e *Engine) GetSafetyChecker() *InteractiveSafetyChecker {
+	return e.safetyChecker
 }
 

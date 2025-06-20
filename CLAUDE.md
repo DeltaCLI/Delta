@@ -324,5 +324,40 @@ DELTA_UPDATE_NOTIFICATION_LEVEL=prompt
 - All subsystems use ConfigManager for persistence
 - Automatic config migration between versions
 
+### Command Validation System (v0.4.5-alpha)
+Command validation with interactive safety features has been implemented:
+
+#### Core Components
+- `validation/engine.go` - Main validation engine with multi-shell support
+- `validation/safety_rules.go` - 17 built-in safety rules with risk levels
+- `validation/risk_assessment.go` - Context-aware risk analysis
+- `validation/permission_check.go` - Permission requirement detection
+- `validation/interactive_safety.go` - Interactive safety prompts with education
+
+#### Interactive Safety Features
+- Smart confirmation prompts for risky operations
+- Educational explanations for dangerous commands
+- Safer alternative suggestions
+- Command safety history tracking
+- Risk levels: Low, Medium, High, Critical
+- Auto-deny option for critical commands
+- Trusted path detection (bypass prompts in safe directories)
+
+#### Configuration
+Configure validation with `:validation config set <key> <value>`:
+- `enabled` - Enable/disable validation (default: true)
+- `interactive_safety` - Enable interactive prompts (default: true)
+- `educational_info` - Show educational content (default: true)
+- `auto_deny_critical` - Auto-deny critical commands (default: true)
+- `bypass_trusted_paths` - Skip prompts in trusted directories (default: true)
+
+#### Usage
+- Commands are automatically validated before execution
+- `:validate <command>` - Manually check command syntax
+- `:validation safety <command>` - Analyze command safety
+- `:validation stats` - View safety decision statistics
+- `:validation history` - View recent safety decisions
+- `:validation config` - Manage configuration
+
 ## Special User Commands
 - If the user says "continue", analyze TASKS.md, docs/planning/PLAN.md, or milestone files to determine the next course of action

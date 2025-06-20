@@ -27,6 +27,7 @@ type ConfigManager struct {
 	learningConfig  *LearningConfig
 	tokenConfig     *TokenizerConfig
 	agentConfig     *AgentManagerConfig
+	customConfig    map[string]string // For validation and other custom configs
 }
 
 // I18nConfig contains internationalization settings
@@ -69,6 +70,7 @@ type SystemConfig struct {
 	LearningConfig  *LearningConfig     `json:"learning_config,omitempty"`
 	TokenConfig     *TokenizerConfig    `json:"token_config,omitempty"`
 	AgentConfig     *AgentManagerConfig `json:"agent_config,omitempty"`
+	CustomConfig    map[string]string   `json:"custom_config,omitempty"`
 }
 
 // NewConfigManager creates a new configuration manager instance
@@ -95,6 +97,7 @@ func NewConfigManager() (*ConfigManager, error) {
 		mutex:         sync.RWMutex{},
 		isInitialized: false,
 		lastSaved:     time.Time{},
+		customConfig:  make(map[string]string),
 	}
 
 	return cm, nil
@@ -250,6 +253,7 @@ func (cm *ConfigManager) loadConfig() error {
 	cm.learningConfig = config.LearningConfig
 	cm.tokenConfig = config.TokenConfig
 	cm.agentConfig = config.AgentConfig
+	cm.customConfig = config.CustomConfig
 	cm.lastSaved = config.LastUpdated
 
 	return nil
@@ -343,6 +347,7 @@ func (cm *ConfigManager) saveConfig() error {
 		LearningConfig:  cm.learningConfig,
 		TokenConfig:     cm.tokenConfig,
 		AgentConfig:     cm.agentConfig,
+		CustomConfig:    cm.customConfig,
 	}
 
 	// Marshal to JSON with indentation for readability
@@ -536,6 +541,7 @@ func (cm *ConfigManager) ExportConfig(path string) error {
 		ConfigVersion:   "1.0",
 		LastUpdated:     time.Now(),
 		I18nConfig:      cm.i18nConfig,
+		UpdateConfig:    cm.updateConfig,
 		MemoryConfig:    cm.memoryConfig,
 		AIConfig:        cm.aiConfig,
 		VectorConfig:    cm.vectorConfig,
@@ -544,6 +550,7 @@ func (cm *ConfigManager) ExportConfig(path string) error {
 		LearningConfig:  cm.learningConfig,
 		TokenConfig:     cm.tokenConfig,
 		AgentConfig:     cm.agentConfig,
+		CustomConfig:    cm.customConfig,
 	}
 
 	// Marshal to JSON with indentation for readability
@@ -581,6 +588,7 @@ func (cm *ConfigManager) ImportConfig(path string) error {
 
 	// Set component configurations
 	cm.i18nConfig = config.I18nConfig
+	cm.updateConfig = config.UpdateConfig
 	cm.memoryConfig = config.MemoryConfig
 	cm.aiConfig = config.AIConfig
 	cm.vectorConfig = config.VectorConfig
@@ -589,9 +597,35 @@ func (cm *ConfigManager) ImportConfig(path string) error {
 	cm.learningConfig = config.LearningConfig
 	cm.tokenConfig = config.TokenConfig
 	cm.agentConfig = config.AgentConfig
+	cm.customConfig = config.CustomConfig
 
 	// Save the configuration
 	return cm.saveConfig()
+}
+
+// SetConfig sets a custom configuration value
+func (cm *ConfigManager) SetConfig(key, value string) error {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+	
+	if cm.customConfig == nil {
+		cm.customConfig = make(map[string]string)
+	}
+	
+	cm.customConfig[key] = value
+	return cm.saveConfig()
+}
+
+// GetConfig gets a custom configuration value
+func (cm *ConfigManager) GetConfig(key string) string {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+	
+	if cm.customConfig == nil {
+		return ""
+	}
+	
+	return cm.customConfig[key]
 }
 
 // applyEnvironmentOverrides applies settings from environment variables
