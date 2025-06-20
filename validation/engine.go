@@ -54,6 +54,7 @@ type ValidationError struct {
 	Message     string
 	Rule        string
 	Suggestion  string
+	RiskLevel   RiskLevel // Added for risk assessment
 }
 
 // ValidationWarning represents a non-critical issue
@@ -72,15 +73,16 @@ type Suggestion struct {
 
 // ValidationResult contains the results of validation
 type ValidationResult struct {
-	Valid       bool
-	Command     string
-	Shell       ShellType
-	Errors      []ValidationError
-	Warnings    []ValidationWarning
-	Suggestions []Suggestion
-	Timestamp   time.Time
-	Duration    time.Duration
-	Metadata    map[string]interface{}
+	Valid          bool
+	Command        string
+	Shell          ShellType
+	Errors         []ValidationError
+	Warnings       []ValidationWarning
+	Suggestions    []Suggestion
+	RiskAssessment *RiskAssessment // Added for comprehensive risk analysis
+	Timestamp      time.Time
+	Duration       time.Duration
+	Metadata       map[string]interface{}
 }
 
 // Validator is the main interface for command validation
@@ -110,6 +112,7 @@ type SafetyRule interface {
 	Check(command string, ast *AST) []ValidationError
 	GetName() string
 	GetDescription() string
+	GetRiskLevel() RiskLevel
 }
 
 // CustomRule allows user-defined validation rules
@@ -196,6 +199,11 @@ func (e *Engine) ValidateWithShell(ctx context.Context, command string, shell Sh
 	
 	// Add suggestions
 	result.Suggestions = e.generateSuggestions(command, nil, result.Errors)
+	
+	// Perform risk assessment
+	envContext := GetEnvironmentContext()
+	result.RiskAssessment = &RiskAssessment{}
+	*result.RiskAssessment = AssessCommandRisk(command, result.Errors, envContext)
 	
 	result.Duration = time.Since(start)
 	return result, nil

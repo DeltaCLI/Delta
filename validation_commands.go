@@ -120,12 +120,36 @@ func handleValidationConfig(args []string) bool {
 
 // displayValidationResult shows validation results to the user
 func displayValidationResult(result *validation.ValidationResult) {
-	if result.Valid {
-		fmt.Println("✅ Command syntax is valid")
+	// Display risk assessment first if available
+	if result.RiskAssessment != nil && len(result.RiskAssessment.Factors) > 0 {
+		fmt.Printf("Risk Assessment: %s\n\n", validation.FormatRiskLevel(result.RiskAssessment.OverallRisk))
+		
+		if result.RiskAssessment.RequiresRoot {
+			fmt.Println("⚠️  Command requires elevated privileges (root/sudo)")
+		}
+		if result.RiskAssessment.AffectsSystem {
+			fmt.Println("⚠️  Command affects system directories")
+		}
+		if result.RiskAssessment.IsIrreversible {
+			fmt.Println("⚠️  Command performs irreversible operations")
+		}
+		fmt.Println()
+	}
+	
+	if result.Valid && (result.RiskAssessment == nil || result.RiskAssessment.OverallRisk == validation.RiskLevelLow) {
+		fmt.Println("✅ Command syntax is valid and safe")
+	} else if result.Valid {
+		fmt.Println("⚠️  Command syntax is valid but has safety concerns")
 	} else {
 		fmt.Println("❌ Command has validation errors:")
 		for i, err := range result.Errors {
-			fmt.Printf("\n%d. %s Error: %s\n", i+1, err.Type, err.Message)
+			// Show risk level for safety errors
+			riskInfo := ""
+			if err.Type == validation.ErrorSafety && err.RiskLevel != "" {
+				riskInfo = fmt.Sprintf(" [%s]", validation.FormatRiskLevel(err.RiskLevel))
+			}
+			
+			fmt.Printf("\n%d. %s Error%s: %s\n", i+1, err.Type, riskInfo, err.Message)
 			if err.Position.Offset > 0 {
 				fmt.Printf("   Position: line %d, column %d\n", 
 					err.Position.Line, err.Position.Column)
@@ -164,34 +188,43 @@ func displayValidationResult(result *validation.ValidationResult) {
 
 // displaySafetyResult shows safety analysis results
 func displaySafetyResult(result *validation.ValidationResult) {
-	// Count errors by severity
-	criticalCount := 0
-	highCount := 0
-	mediumCount := 0
-	// lowCount := 0 // TODO: Use when we add severity levels to errors
-
-	for _, err := range result.Errors {
-		if err.Type == validation.ErrorSafety {
-			// TODO: Add risk level to errors
-			highCount++
+	if result.RiskAssessment == nil {
+		fmt.Println("⚠️  Risk assessment not available")
+		return
+	}
+	
+	// Display overall risk
+	fmt.Printf("Safety Analysis: %s\n\n", validation.FormatRiskLevel(result.RiskAssessment.OverallRisk))
+	
+	// Display risk factors
+	if len(result.RiskAssessment.Factors) > 0 {
+		fmt.Println("Risk Factors:")
+		for _, factor := range result.RiskAssessment.Factors {
+			fmt.Printf("- %s %s\n", validation.GetRiskEmoji(factor.Level), factor.Description)
+			if factor.Mitigation != "" {
+				fmt.Printf("  Mitigation: %s\n", factor.Mitigation)
+			}
 		}
+		fmt.Println()
 	}
-
-	// Overall risk assessment
-	risk := "Low"
-	emoji := "🟢"
-	if criticalCount > 0 {
-		risk = "Critical"
-		emoji = "🔴"
-	} else if highCount > 0 {
-		risk = "High"
-		emoji = "🟠"
-	} else if mediumCount > 0 {
-		risk = "Medium"
-		emoji = "🟡"
+	
+	// Display context information
+	if result.RiskAssessment.Context.IsGitRepository {
+		fmt.Println("📁 Current directory is a Git repository")
 	}
-
-	fmt.Printf("Safety Analysis: %s %s Risk\n\n", emoji, risk)
+	if result.RiskAssessment.Context.IsSystemPath {
+		fmt.Println("⚠️  Current directory is a system path")
+	}
+	if result.RiskAssessment.RequiresRoot {
+		fmt.Println("🔐 Command requires root/sudo privileges")
+	}
+	if result.RiskAssessment.AffectsSystem {
+		fmt.Println("⚠️  Command affects system directories")
+	}
+	if result.RiskAssessment.IsIrreversible {
+		fmt.Println("❌ Command performs irreversible operations")
+	}
+	fmt.Println()
 
 	if len(result.Errors) == 0 {
 		fmt.Println("✅ No safety concerns detected.")
