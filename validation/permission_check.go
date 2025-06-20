@@ -6,7 +6,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
-	"syscall"
 )
 
 // PermissionRequirement represents required permissions for a command
@@ -142,33 +141,9 @@ func isOperator(token string) bool {
 	return false
 }
 
-// canWrite checks if current user can write to a path
-func canWrite(path string, info os.FileInfo, currentUser *user.User) bool {
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok {
-		return false
-	}
-	
-	// Check owner
-	if fmt.Sprint(stat.Uid) == currentUser.Uid {
-		// Owner write permission
-		return info.Mode().Perm()&0200 != 0
-	}
-	
-	// Check group
-	groups, err := currentUser.GroupIds()
-	if err == nil {
-		for _, gid := range groups {
-			if fmt.Sprint(stat.Gid) == gid {
-				// Group write permission
-				return info.Mode().Perm()&0020 != 0
-			}
-		}
-	}
-	
-	// Others write permission
-	return info.Mode().Perm()&0002 != 0
-}
+// canWrite is implemented in platform-specific files:
+// - permission_check_unix.go for Unix-like systems
+// - permission_check_windows.go for Windows
 
 // isSystemPath checks if a path is a system directory
 func isSystemPath(path string) bool {
@@ -186,7 +161,6 @@ func isSystemPath(path string) bool {
 	return false
 }
 
-// isRoot checks if running as root
-func isRoot() bool {
-	return os.Geteuid() == 0
-}
+// isRoot is implemented in platform-specific files:
+// - permission_check_unix.go for Unix-like systems  
+// - permission_check_windows.go for Windows
