@@ -1,7 +1,6 @@
 package validation
 
 import (
-	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
