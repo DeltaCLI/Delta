@@ -4,7 +4,7 @@
 
 Delta CLI is an AI-powered, context-aware shell enhancement that aims to revolutionize the command-line experience. This roadmap outlines our vision for making the terminal safer, smarter, and more intuitive.
 
-## Current Version: v0.4.3-alpha
+## Current Version: v0.4.4-alpha (Released: 2025-06-20)
 
 ### ✅ Completed Features
 
