@@ -153,6 +153,14 @@ func showEnhancedHelp() {
 	fmt.Println("  :history config        - Configure history analysis")
 	fmt.Println("  :hist                  - Shorthand for history commands")
 
+	// Command Validation
+	fmt.Println("")
+	fmt.Println("  Command Validation:")
+	fmt.Println("  :validate <command>    - Check command syntax and safety")
+	fmt.Println("  :validation safety <cmd> - Analyze command safety risks")
+	fmt.Println("  :validation config     - Configure validation settings")
+	fmt.Println("  :v                     - Shorthand for validate")
+
 	// Other Commands
 	fmt.Println("")
 	fmt.Println("  System:")

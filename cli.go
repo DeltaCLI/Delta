@@ -315,6 +315,9 @@ func NewDeltaCompleter(historyHandler *EncryptedHistoryHandler) *DeltaCompleter 
 		"inf":       {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
 		"feedback":  {"helpful", "unhelpful", "correction"},
 		"init":      {},
+		"validate":  {},
+		"v":         {},
+		"validation": {"check", "safety", "config", "help"},
 	}
 
 	return &DeltaCompleter{
@@ -756,6 +759,10 @@ func handleInternalCommand(command string) bool {
 		return true
 	case "init":
 		return handleInitCommand()
+	case "validate", "v":
+		return HandleValidationCommand(args)
+	case "validation":
+		return HandleValidationCommand(args)
 	default:
 		// Check for typos and suggest corrections
 		if sc := GetSpellChecker(); sc != nil && sc.IsEnabled() {
@@ -1457,6 +1464,9 @@ func runInteractiveShell() {
 		"docs":            {"build", "dev", "open", "status", "help"},
 		"update":          {"status", "config", "version", "help"},
 		"init":            {},
+		"validate":        {},
+		"v":               {},
+		"validation":      {"check", "safety", "config", "help"},
 	}
 
 	completer := NewDeltaCompleter(historyHandler)
