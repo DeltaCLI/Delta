@@ -1732,37 +1732,6 @@ func executeDirectCommand(command string) {
 	// Initialize managers for command execution
 	initializeManagers()
 	
-	// Process command with AI if enabled (before execution for predictions)
-	ai := GetAIManager()
-	if ai != nil && ai.IsEnabled() && command != "" && !strings.HasPrefix(command, ":") {
-		// Submit command to AI for analysis
-		ai.AddCommand(command)
-	}
-	
-	// Process command with ART-2 learning if enabled (before execution)
-	if art2Mgr := GetART2Manager(); art2Mgr != nil && art2Mgr.IsEnabled() && command != "" && !strings.HasPrefix(command, ":") {
-		// Get current context
-		dir, _ := os.Getwd()
-		
-		// Preprocess the command into a feature vector
-		preprocessor := GetART2Preprocessor()
-		if preprocessor != nil {
-			featureVector, err := preprocessor.PreprocessCommand(command, "", dir)
-			if err == nil {
-				// Create ART-2 input
-				art2Input := ART2Input{
-					Vector:    featureVector.Values,
-					Command:   command,
-					Context:   dir,
-					Timestamp: time.Now(),
-				}
-				
-				// Process with ART-2 algorithm
-				art2Mgr.ProcessInput(art2Input)
-			}
-		}
-	}
-	
 	var exitCode int
 	var duration time.Duration
 	
@@ -1781,35 +1750,68 @@ func executeDirectCommand(command string) {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		
-		// Execute external command
+		// Execute external command IMMEDIATELY
 		exitCode, duration = runCommand(command, sigChan)
 	}
 	
-	// Record command in history analyzer if enabled (after execution for exit code)
-	if ha := GetHistoryAnalyzer(); ha != nil && ha.IsEnabled() {
-		// Get the current directory for context
-		dir, err := os.Getwd()
-		if err != nil {
-			dir = ""
+	// Launch background goroutine for all training/recording operations
+	// This allows delta to exit immediately with the proper exit code
+	go func() {
+		// Process command with AI if enabled
+		ai := GetAIManager()
+		if ai != nil && ai.IsEnabled() && command != "" && !strings.HasPrefix(command, ":") {
+			// Submit command to AI for analysis
+			ai.AddCommand(command)
 		}
 		
-		// Create command context
-		ctx := CommandContext{
-			Directory:   dir,
-			Environment: map[string]string{}, // Minimal environment info for privacy
-			Timestamp:   time.Now(),
-			ExitCode:    exitCode,
-			Duration:    duration,
+		// Process command with ART-2 learning if enabled
+		if art2Mgr := GetART2Manager(); art2Mgr != nil && art2Mgr.IsEnabled() && command != "" && !strings.HasPrefix(command, ":") {
+			// Get current context
+			dir, _ := os.Getwd()
+			
+			// Preprocess the command into a feature vector
+			preprocessor := GetART2Preprocessor()
+			if preprocessor != nil {
+				featureVector, err := preprocessor.PreprocessCommand(command, "", dir)
+				if err == nil {
+					// Create ART-2 input
+					art2Input := ART2Input{
+						Vector:    featureVector.Values,
+						Command:   command,
+						Context:   dir,
+						Timestamp: time.Now(),
+					}
+					
+					// Process with ART-2 algorithm
+					art2Mgr.ProcessInput(art2Input)
+				}
+			}
 		}
 		
-		// Record the command (synchronously since we're about to exit)
-		ha.AddCommand(command, ctx)
-		
-		// Give a brief moment for async operations to complete
-		time.Sleep(10 * time.Millisecond)
-	}
+		// Record command in history analyzer if enabled
+		if ha := GetHistoryAnalyzer(); ha != nil && ha.IsEnabled() {
+			// Get the current directory for context
+			dir, err := os.Getwd()
+			if err != nil {
+				dir = ""
+			}
+			
+			// Create command context
+			ctx := CommandContext{
+				Directory:   dir,
+				Environment: map[string]string{}, // Minimal environment info for privacy
+				Timestamp:   time.Now(),
+				ExitCode:    exitCode,
+				Duration:    duration,
+			}
+			
+			// Record the command
+			ha.AddCommand(command, ctx)
+		}
+	}()
 	
-	// Exit with the command's exit code
+	// Exit immediately with the command's exit code
+	// Background goroutine will continue processing
 	os.Exit(exitCode)
 }
 
