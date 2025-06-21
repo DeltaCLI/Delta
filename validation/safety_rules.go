@@ -59,6 +59,8 @@ func (r *BasicSafetyRule) GetRiskLevel() RiskLevel {
 // DefaultSafetyRules returns the default set of safety rules
 func DefaultSafetyRules() []SafetyRule {
 	return []SafetyRule{
+		NewGitSafetyRule(),
+		NewCICDSafetyRule(),
 		&BasicSafetyRule{
 			name:        "RecursiveRootDelete",
 			description: "Detects recursive deletion of root directory",

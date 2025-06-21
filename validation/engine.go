@@ -93,12 +93,14 @@ type Validator interface {
 
 // Engine is the main validation engine
 type Engine struct {
-	shellType      ShellType
-	parsers        map[ShellType]Parser
-	safetyRules    []SafetyRule
-	customRules    []CustomRule
-	config         ValidationConfig
-	safetyChecker  *InteractiveSafetyChecker
+	shellType            ShellType
+	parsers              map[ShellType]Parser
+	safetyRules          []SafetyRule
+	customRules          []ICustomRule
+	config               ValidationConfig
+	safetyChecker        *InteractiveSafetyChecker
+	obfuscationDetector  *ObfuscationDetector
+	customRuleEngine     *CustomRuleEngine
 }
 
 // Parser interface for shell-specific parsing
@@ -116,8 +118,8 @@ type SafetyRule interface {
 	GetRiskLevel() RiskLevel
 }
 
-// CustomRule allows user-defined validation rules
-type CustomRule interface {
+// ICustomRule allows user-defined validation rules (interface)
+type ICustomRule interface {
 	Validate(command string, ast *AST) []ValidationError
 	GetName() string
 	IsEnabled() bool
@@ -125,13 +127,14 @@ type CustomRule interface {
 
 // ValidationConfig configures the validation engine
 type ValidationConfig struct {
-	EnableSyntaxCheck      bool
-	EnableSafetyCheck      bool
-	EnableCustomRules      bool
-	StrictMode             bool
-	RealTimeValidation     bool
-	MaxValidationTime      time.Duration
-	SafetyPromptConfig     SafetyPromptConfig // Configuration for interactive safety
+	EnableSyntaxCheck          bool
+	EnableSafetyCheck          bool
+	EnableCustomRules          bool
+	EnableObfuscationDetection bool
+	StrictMode                 bool
+	RealTimeValidation         bool
+	MaxValidationTime          time.Duration
+	SafetyPromptConfig         SafetyPromptConfig // Configuration for interactive safety
 }
 
 // NewEngine creates a new validation engine
@@ -140,7 +143,7 @@ func NewEngine(config ValidationConfig) *Engine {
 		shellType:   ShellAuto,
 		parsers:     make(map[ShellType]Parser),
 		safetyRules: DefaultSafetyRules(),
-		customRules: []CustomRule{},
+		customRules: []ICustomRule{},
 		config:      config,
 	}
 	
@@ -150,6 +153,18 @@ func NewEngine(config ValidationConfig) *Engine {
 	// Initialize interactive safety checker if enabled
 	if config.SafetyPromptConfig.Enabled {
 		engine.safetyChecker = NewInteractiveSafetyChecker(config.SafetyPromptConfig)
+	}
+	
+	// Initialize obfuscation detector if enabled
+	if config.EnableObfuscationDetection {
+		engine.obfuscationDetector = NewObfuscationDetector()
+	}
+	
+	// Initialize custom rule engine if enabled
+	if config.EnableCustomRules {
+		// Use default path if not specified
+		customRulesPath := "~/.config/delta/validation_rules.yaml"
+		engine.customRuleEngine = NewCustomRuleEngine(customRulesPath)
 	}
 	
 	return engine
@@ -187,6 +202,26 @@ func (e *Engine) ValidateWithShell(ctx context.Context, command string, shell Sh
 		return nil, fmt.Errorf("validation cancelled: %w", err)
 	}
 	
+	// Obfuscation detection (do this first to potentially deobfuscate)
+	if e.config.EnableObfuscationDetection && e.obfuscationDetector != nil {
+		obfResult := e.obfuscationDetector.DetectObfuscation(command)
+		if obfResult.IsObfuscated {
+			// Add obfuscation error
+			result.Errors = append(result.Errors, ValidationError{
+				Type:     ErrorSafety,
+				Severity: SeverityError,
+				Message:  fmt.Sprintf("Command appears to be obfuscated: %s", obfResult.Explanation),
+				Rule:     "ObfuscationDetection",
+				RiskLevel: obfResult.RiskLevel,
+				Suggestion: "Obfuscated commands are often used to hide malicious intent. Review the deobfuscated command carefully.",
+			})
+			
+			// Store obfuscation info in metadata
+			result.Metadata["obfuscation"] = obfResult
+			result.Metadata["deobfuscated"] = obfResult.Deobfuscated
+		}
+	}
+	
 	// For now, use simple syntax checking without full parsing
 	if e.config.EnableSyntaxCheck {
 		syntaxErrors := SimpleSyntaxCheck(command)
@@ -199,6 +234,12 @@ func (e *Engine) ValidateWithShell(ctx context.Context, command string, shell Sh
 			safetyErrors := rule.Check(command, nil) // Pass nil AST for now
 			result.Errors = append(result.Errors, safetyErrors...)
 		}
+	}
+	
+	// Custom rules validation
+	if e.config.EnableCustomRules && e.customRuleEngine != nil {
+		customErrors := e.customRuleEngine.ValidateCommand(command)
+		result.Errors = append(result.Errors, customErrors...)
 	}
 	
 	// Set valid flag based on errors
@@ -263,7 +304,7 @@ func (e *Engine) generateSuggestions(command string, ast *AST, errors []Validati
 }
 
 // AddCustomRule adds a custom validation rule
-func (e *Engine) AddCustomRule(rule CustomRule) {
+func (e *Engine) AddCustomRule(rule ICustomRule) {
 	e.customRules = append(e.customRules, rule)
 }
 
@@ -301,5 +342,10 @@ func (e *Engine) CheckInteractiveSafety(result *ValidationResult) (bool, *Safety
 // GetSafetyChecker returns the interactive safety checker
 func (e *Engine) GetSafetyChecker() *InteractiveSafetyChecker {
 	return e.safetyChecker
+}
+
+// GetCustomRuleEngine returns the custom rule engine
+func (e *Engine) GetCustomRuleEngine() *CustomRuleEngine {
+	return e.customRuleEngine
 }
 

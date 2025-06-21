@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Command Validation Phase 5: Advanced Features (2025-06-21)
+
+#### Overview
+Completed Phase 5 of the command validation system, adding advanced features including obfuscation detection, custom rule engine with DSL, Git-aware safety checks, and CI/CD pipeline integration.
+
+#### Features
+
+##### 1. Obfuscation Detection (`validation/obfuscation_detector.go`)
+- Detects multiple obfuscation techniques:
+  - Base64 encoded commands (e.g., `echo "cm0gLXJmIC8=" | base64 -d`)
+  - Hex encoding (e.g., `echo -e "\x72\x6d"`)
+  - Unicode escape sequences
+  - Variable substitution tricks (e.g., `a="r"; b="m"; $a$b -rf /`)
+  - Character substitution (e.g., `rm${IFS}-rf${IFS}/`)
+  - Command substitution abuse
+  - Eval chains and source from URLs
+- Provides deobfuscated command analysis
+- Risk assessment based on obfuscation techniques used
+
+##### 2. Custom Rule Engine with DSL (`validation/custom_rule_engine.go`)
+- YAML-based DSL for defining custom validation rules
+- Default rules file at `~/.config/delta/validation_rules.yaml`
+- Pre-configured with security rules:
+  - Force push protection for main/master branches
+  - Curl pipe bash detection
+  - Password exposure prevention
+  - Docker privileged container warnings
+  - AWS credential exposure detection
+  - Database drop operation protection
+- CLI commands for rule management:
+  - `:validation rules list` - List all custom rules
+  - `:validation rules add` - Add new rule interactively
+  - `:validation rules edit <name>` - Edit existing rule
+  - `:validation rules delete <name>` - Delete a rule
+  - `:validation rules enable/disable <name>` - Toggle rule status
+  - `:validation rules test <command>` - Test command against rules
+
+##### 3. Git-Aware Safety Checks (`validation/git_safety.go`)
+- Specialized safety checks for Git operations:
+  - Force push detection on protected branches
+  - Hard reset warnings with uncommitted changes
+  - Aggressive clean operation alerts
+  - Sensitive file addition detection (.env, .key, .pem files)
+  - Rebase warnings on protected branches
+- Automatic Git context detection
+- Protected branch configuration (main, master, production, release)
+
+##### 4. CI/CD Pipeline Integration (`validation/cicd_validator.go`)
+- Automatic CI/CD platform detection:
+  - GitHub Actions
+  - GitLab CI
+  - CircleCI
+  - Jenkins
+  - Travis CI
+  - Azure Pipelines
+- Platform-specific validations:
+  - Secret exposure prevention in commands
+  - Environment variable exposure detection
+  - Deprecated command warnings (e.g., GitHub Actions ::set-output)
+  - CI-specific dangerous pattern detection
+- Enhanced security for automated environments
+
+##### 5. Configuration Enhancements
+New configuration keys:
+- `custom_rules` - Enable custom validation rules (default: true)
+- `obfuscation_detection` - Enable obfuscation detection (default: true)
+
+#### Testing
+- Comprehensive integration tests for all Phase 5 features
+- Unit tests for each component:
+  - Obfuscation detection patterns
+  - Custom rule engine operations
+  - Git safety checks
+  - CI/CD platform detection
+
 ## [v0.4.5-alpha] - 2025-06-21
 
 ### Added - Command Validation Phase 4: Interactive Safety (2025-06-20)

@@ -19,7 +19,8 @@ func GetValidationEngine() *validation.Engine {
 		config := validation.ValidationConfig{
 			EnableSyntaxCheck:  true,
 			EnableSafetyCheck:  true,
-			EnableCustomRules:  false,
+			EnableCustomRules:  true,
+			EnableObfuscationDetection: true,
 			StrictMode:        false,
 			RealTimeValidation: false,
 			MaxValidationTime:  5 * time.Second,
@@ -145,6 +146,20 @@ func UpdateValidationConfig(key string, value string) {
 		}
 	case "bypass_trusted_paths":
 		config.SafetyPromptConfig.BypassForTrustedPaths = value == "true"
+	case "custom_rules":
+		config.EnableCustomRules = value == "true"
+		// Reinitialize engine with new config to load custom rule engine
+		engine.SetConfig(config)
+		if value == "true" {
+			*engine = *validation.NewEngine(config)
+		}
+	case "obfuscation_detection":
+		config.EnableObfuscationDetection = value == "true"
+		// Reinitialize engine with new config
+		engine.SetConfig(config)
+		if value == "true" {
+			*engine = *validation.NewEngine(config)
+		}
 	}
 	
 	engine.SetConfig(config)

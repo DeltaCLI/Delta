@@ -26,6 +26,12 @@ func HandleValidationCommand(args []string) bool {
 		return handleValidationStats()
 	case "history":
 		return handleValidationHistory()
+	case "obfuscation":
+		return handleObfuscationCommand(args[1:])
+	case "deobfuscate":
+		return handleDeobfuscateCommand(args[1:])
+	case "rules":
+		return handleCustomRulesCommand(args[1:])
 	case "help":
 		showValidationHelp()
 		return true
@@ -181,6 +187,7 @@ func handleValidationConfig(args []string) bool {
 			EnableSyntaxCheck:  true,
 			EnableSafetyCheck:  true,
 			EnableCustomRules:  false,
+			EnableObfuscationDetection: true,
 			StrictMode:        false,
 			RealTimeValidation: false,
 			MaxValidationTime:  5 * time.Second,
@@ -339,6 +346,16 @@ Syntax Validation:
 Safety Analysis:
   :validation safety <command>     Analyze command safety
   
+Obfuscation Detection:
+  :validation obfuscation <command>  Check for obfuscated commands
+  :validation deobfuscate <command>  Show deobfuscated version
+  
+Custom Rules:
+  :validation rules              List all custom rules
+  :validation rules add          Add a new rule interactively
+  :validation rules test <cmd>   Test command against custom rules
+  :validation rules help         Show custom rules help
+  
 Interactive Safety:
   :validation config              Show configuration
   :validation config set <key> <value>  Update configuration
@@ -355,17 +372,20 @@ Help:
 Examples:
   :validate ls -la | grep test
   :validation safety rm -rf /
+  :validation obfuscation 'echo "cm0gLXJmIC8=" | base64 -d'
+  :validation deobfuscate 'r${IFS}m${IFS}-rf${IFS}/'
   :validation config set interactive_safety true
-  :validation config set educational_info false
 
 Configuration Keys:
-  enabled              - Enable/disable validation
-  syntax_check         - Enable syntax checking
-  safety_check         - Enable safety analysis
-  interactive_safety   - Enable interactive prompts
-  educational_info     - Show educational content
-  auto_deny_critical   - Auto-deny critical commands
-  bypass_trusted_paths - Skip prompts in trusted directories
+  enabled                - Enable/disable validation
+  syntax_check          - Enable syntax checking
+  safety_check          - Enable safety analysis
+  custom_rules          - Enable custom validation rules
+  obfuscation_detection - Enable obfuscation detection
+  interactive_safety    - Enable interactive prompts
+  educational_info      - Show educational content
+  auto_deny_critical    - Auto-deny critical commands
+  bypass_trusted_paths  - Skip prompts in trusted directories
 
 Shortcuts:
   :v                            Alias for :validate`)
@@ -484,6 +504,445 @@ func handleValidationHistory() bool {
 	}
 	
 	return true
+}
+
+// handleObfuscationCommand checks a command for obfuscation
+func handleObfuscationCommand(args []string) bool {
+	if len(args) == 0 {
+		fmt.Println("Usage: :validation obfuscation <command>")
+		fmt.Println("Example: :validation obfuscation 'echo \"cm0gLXJmIC8=\" | base64 -d'")
+		return true
+	}
+	
+	command := strings.Join(args, " ")
+	fmt.Printf("Analyzing command for obfuscation: %s\n\n", command)
+	
+	// Create detector
+	detector := validation.NewObfuscationDetector()
+	result := detector.DetectObfuscation(command)
+	
+	// Display results
+	if !result.IsObfuscated {
+		fmt.Println("✅ No obfuscation detected")
+		return true
+	}
+	
+	// Show obfuscation details
+	fmt.Printf("%s Obfuscation Detected!\n", validation.GetRiskEmoji(result.RiskLevel))
+	fmt.Printf("Risk Level: %s\n", validation.FormatRiskLevel(result.RiskLevel))
+	fmt.Printf("Confidence: %.0f%%\n\n", result.Confidence*100)
+	
+	fmt.Println("Techniques Used:")
+	for i, technique := range result.Techniques {
+		fmt.Printf("  %d. %s\n", i+1, technique)
+	}
+	
+	if result.Deobfuscated != "" && result.Deobfuscated != command {
+		fmt.Println("\n🔍 Deobfuscated Command:")
+		fmt.Printf("  %s\n", result.Deobfuscated)
+		
+		// Run safety check on deobfuscated command
+		fmt.Println("\n🛡️  Safety Analysis of Deobfuscated Command:")
+		config := validation.ValidationConfig{
+			EnableSyntaxCheck:  false,
+			EnableSafetyCheck:  true,
+			EnableCustomRules:  false,
+			StrictMode:        true,
+			RealTimeValidation: false,
+			MaxValidationTime:  5 * time.Second,
+		}
+		engine := validation.NewEngine(config)
+		
+		ctx, cancel := context.WithTimeout(context.Background(), config.MaxValidationTime)
+		defer cancel()
+		
+		valResult, err := engine.Validate(ctx, result.Deobfuscated)
+		if err == nil {
+			displaySafetyResult(valResult)
+		}
+	}
+	
+	fmt.Println("\n⚠️  Warning: Obfuscated commands are often used to hide malicious intent.")
+	fmt.Println("Never run obfuscated commands without understanding what they do!")
+	
+	return true
+}
+
+// handleDeobfuscateCommand attempts to deobfuscate a command
+func handleDeobfuscateCommand(args []string) bool {
+	if len(args) == 0 {
+		fmt.Println("Usage: :validation deobfuscate <command>")
+		fmt.Println("Example: :validation deobfuscate 'echo \"bHMgLWxh\" | base64 -d'")
+		return true
+	}
+	
+	command := strings.Join(args, " ")
+	
+	// Create detector
+	detector := validation.NewObfuscationDetector()
+	result := detector.DetectObfuscation(command)
+	
+	if !result.IsObfuscated {
+		fmt.Println("No obfuscation detected in this command.")
+		fmt.Printf("Original: %s\n", command)
+		return true
+	}
+	
+	fmt.Println("🔍 Deobfuscation Results:")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━")
+	
+	fmt.Printf("\nOriginal Command:\n  %s\n", command)
+	
+	if result.Deobfuscated != "" && result.Deobfuscated != command {
+		fmt.Printf("\nDeobfuscated Command:\n  %s\n", result.Deobfuscated)
+		
+		fmt.Printf("\nTechniques Detected:\n")
+		for _, technique := range result.Techniques {
+			fmt.Printf("  • %s\n", technique)
+		}
+		
+		fmt.Printf("\nConfidence: %.0f%%\n", result.Confidence*100)
+		
+		// Warn about the deobfuscated command
+		fmt.Println("\n⚠️  WARNING: The deobfuscated command may be dangerous!")
+		fmt.Println("Review it carefully before considering execution.")
+	} else {
+		fmt.Println("\nUnable to fully deobfuscate this command.")
+		fmt.Println("The obfuscation technique may be too complex or unknown.")
+	}
+	
+	return true
+}
+
+// handleCustomRulesCommand manages custom validation rules
+func handleCustomRulesCommand(args []string) bool {
+	engine := GetValidationEngine()
+	ruleEngine := engine.GetCustomRuleEngine()
+	
+	if ruleEngine == nil {
+		fmt.Println("Custom rules are not enabled.")
+		fmt.Println("Enable them with: :validation config set custom_rules true")
+		return true
+	}
+	
+	if len(args) == 0 {
+		// Default to list
+		return handleRulesList()
+	}
+	
+	switch args[0] {
+	case "list":
+		return handleRulesList()
+	case "add":
+		return handleRulesAdd(args[1:])
+	case "edit":
+		return handleRulesEdit(args[1:])
+	case "delete", "remove":
+		return handleRulesDelete(args[1:])
+	case "enable":
+		return handleRulesEnable(args[1:])
+	case "disable":
+		return handleRulesDisable(args[1:])
+	case "test":
+		return handleRulesTest(args[1:])
+	case "reload":
+		return handleRulesReload()
+	case "help":
+		showCustomRulesHelp()
+		return true
+	default:
+		fmt.Printf("Unknown rules command: %s\n", args[0])
+		fmt.Println("Use ':validation rules help' for available commands")
+		return true
+	}
+}
+
+// handleRulesList shows all custom rules
+func handleRulesList() bool {
+	engine := GetValidationEngine()
+	ruleEngine := engine.GetCustomRuleEngine()
+	
+	rules := ruleEngine.GetRules()
+	if len(rules) == 0 {
+		fmt.Println("No custom rules defined.")
+		fmt.Println("Add rules with: :validation rules add")
+		return true
+	}
+	
+	fmt.Println("Custom Validation Rules:")
+	fmt.Println("═══════════════════════")
+	
+	for i, rule := range rules {
+		status := "✓ Enabled"
+		if !rule.Enabled {
+			status = "✗ Disabled"
+		}
+		
+		fmt.Printf("\n%d. %s [%s]\n", i+1, rule.Name, status)
+		fmt.Printf("   Description: %s\n", rule.Description)
+		fmt.Printf("   Risk Level:  %s\n", validation.FormatRiskLevel(parseRiskLevel(rule.Risk)))
+		fmt.Printf("   Pattern:     %s\n", rule.Pattern)
+		if rule.Suggest != "" {
+			fmt.Printf("   Suggestion:  %s\n", rule.Suggest)
+		}
+		if len(rule.Tags) > 0 {
+			fmt.Printf("   Tags:        %s\n", strings.Join(rule.Tags, ", "))
+		}
+	}
+	
+	fmt.Println("\nTo test a command against rules: :validation rules test <command>")
+	
+	return true
+}
+
+// handleRulesAdd adds a new custom rule
+func handleRulesAdd(args []string) bool {
+	// For now, we'll create rules interactively
+	fmt.Println("Adding a new custom rule")
+	fmt.Println("═════════════════════")
+	
+	rule := validation.CustomRule{
+		Enabled: true,
+	}
+	
+	// Get rule details
+	fmt.Print("Rule name (unique identifier): ")
+	fmt.Scanln(&rule.Name)
+	
+	fmt.Print("Description: ")
+	fmt.Scanln(&rule.Description)
+	
+	fmt.Print("Pattern (regex): ")
+	fmt.Scanln(&rule.Pattern)
+	
+	fmt.Print("Risk level (low/medium/high/critical): ")
+	fmt.Scanln(&rule.Risk)
+	
+	fmt.Print("Error message: ")
+	fmt.Scanln(&rule.Message)
+	
+	fmt.Print("Suggestion (optional): ")
+	fmt.Scanln(&rule.Suggest)
+	
+	// Add the rule
+	engine := GetValidationEngine()
+	ruleEngine := engine.GetCustomRuleEngine()
+	
+	if err := ruleEngine.AddRule(rule); err != nil {
+		fmt.Printf("❌ Error adding rule: %v\n", err)
+		return true
+	}
+	
+	fmt.Printf("✅ Rule '%s' added successfully\n", rule.Name)
+	return true
+}
+
+// handleRulesEdit edits an existing rule
+func handleRulesEdit(args []string) bool {
+	if len(args) == 0 {
+		fmt.Println("Usage: :validation rules edit <rule_name>")
+		return true
+	}
+	
+	ruleName := args[0]
+	engine := GetValidationEngine()
+	ruleEngine := engine.GetCustomRuleEngine()
+	
+	rule, exists := ruleEngine.GetRule(ruleName)
+	if !exists {
+		fmt.Printf("Rule '%s' not found\n", ruleName)
+		return true
+	}
+	
+	fmt.Printf("Editing rule: %s\n", ruleName)
+	fmt.Println("(Press Enter to keep current value)")
+	
+	// Edit fields
+	fmt.Printf("Description [%s]: ", rule.Description)
+	var newDesc string
+	fmt.Scanln(&newDesc)
+	if newDesc != "" {
+		rule.Description = newDesc
+	}
+	
+	fmt.Printf("Pattern [%s]: ", rule.Pattern)
+	var newPattern string
+	fmt.Scanln(&newPattern)
+	if newPattern != "" {
+		rule.Pattern = newPattern
+	}
+	
+	// Update the rule
+	if err := ruleEngine.UpdateRule(ruleName, *rule); err != nil {
+		fmt.Printf("❌ Error updating rule: %v\n", err)
+		return true
+	}
+	
+	fmt.Printf("✅ Rule '%s' updated successfully\n", ruleName)
+	return true
+}
+
+// handleRulesDelete removes a custom rule
+func handleRulesDelete(args []string) bool {
+	if len(args) == 0 {
+		fmt.Println("Usage: :validation rules delete <rule_name>")
+		return true
+	}
+	
+	ruleName := args[0]
+	engine := GetValidationEngine()
+	ruleEngine := engine.GetCustomRuleEngine()
+	
+	if err := ruleEngine.DeleteRule(ruleName); err != nil {
+		fmt.Printf("❌ Error deleting rule: %v\n", err)
+		return true
+	}
+	
+	fmt.Printf("✅ Rule '%s' deleted successfully\n", ruleName)
+	return true
+}
+
+// handleRulesEnable enables a rule
+func handleRulesEnable(args []string) bool {
+	if len(args) == 0 {
+		fmt.Println("Usage: :validation rules enable <rule_name>")
+		return true
+	}
+	
+	ruleName := args[0]
+	engine := GetValidationEngine()
+	ruleEngine := engine.GetCustomRuleEngine()
+	
+	if err := ruleEngine.EnableRule(ruleName); err != nil {
+		fmt.Printf("❌ Error enabling rule: %v\n", err)
+		return true
+	}
+	
+	fmt.Printf("✅ Rule '%s' enabled\n", ruleName)
+	return true
+}
+
+// handleRulesDisable disables a rule
+func handleRulesDisable(args []string) bool {
+	if len(args) == 0 {
+		fmt.Println("Usage: :validation rules disable <rule_name>")
+		return true
+	}
+	
+	ruleName := args[0]
+	engine := GetValidationEngine()
+	ruleEngine := engine.GetCustomRuleEngine()
+	
+	if err := ruleEngine.DisableRule(ruleName); err != nil {
+		fmt.Printf("❌ Error disabling rule: %v\n", err)
+		return true
+	}
+	
+	fmt.Printf("✅ Rule '%s' disabled\n", ruleName)
+	return true
+}
+
+// handleRulesTest tests a command against custom rules
+func handleRulesTest(args []string) bool {
+	if len(args) == 0 {
+		fmt.Println("Usage: :validation rules test <command>")
+		return true
+	}
+	
+	command := strings.Join(args, " ")
+	engine := GetValidationEngine()
+	ruleEngine := engine.GetCustomRuleEngine()
+	
+	fmt.Printf("Testing command: %s\n\n", command)
+	
+	matchedRules := ruleEngine.TestCommand(command)
+	
+	if len(matchedRules) == 0 {
+		fmt.Println("✅ No custom rules matched this command")
+		return true
+	}
+	
+	fmt.Printf("⚠️  %d custom rule(s) matched:\n\n", len(matchedRules))
+	
+	for i, rule := range matchedRules {
+		fmt.Printf("%d. %s [%s]\n", i+1, rule.Name, validation.FormatRiskLevel(parseRiskLevel(rule.Risk)))
+		fmt.Printf("   Message: %s\n", rule.Message)
+		if rule.Suggest != "" {
+			fmt.Printf("   Suggestion: %s\n", rule.Suggest)
+		}
+		if !rule.Enabled {
+			fmt.Printf("   Note: This rule is currently disabled\n")
+		}
+		fmt.Println()
+	}
+	
+	return true
+}
+
+// handleRulesReload reloads rules from file
+func handleRulesReload() bool {
+	engine := GetValidationEngine()
+	ruleEngine := engine.GetCustomRuleEngine()
+	
+	if err := ruleEngine.LoadRules(); err != nil {
+		fmt.Printf("❌ Error reloading rules: %v\n", err)
+		return true
+	}
+	
+	rules := ruleEngine.GetRules()
+	fmt.Printf("✅ Reloaded %d rules from file\n", len(rules))
+	return true
+}
+
+// showCustomRulesHelp shows help for custom rules commands
+func showCustomRulesHelp() {
+	fmt.Println(`Custom Rules Commands:
+════════════════════
+
+Managing Rules:
+  :validation rules list              List all custom rules
+  :validation rules add               Add a new rule interactively
+  :validation rules edit <name>       Edit an existing rule
+  :validation rules delete <name>     Delete a rule
+  :validation rules enable <name>     Enable a rule
+  :validation rules disable <name>    Disable a rule
+  :validation rules reload            Reload rules from file
+  
+Testing:
+  :validation rules test <command>    Test command against all rules
+  
+Help:
+  :validation rules help             Show this help
+
+Rule File Location:
+  ~/.config/delta/validation_rules.yaml
+
+Rule Format:
+  rules:
+    - name: unique-identifier
+      description: "What this rule checks"
+      pattern: "regex pattern to match"
+      risk: low|medium|high|critical
+      message: "Error message when matched"
+      suggest: "How to fix the issue"
+      enabled: true
+      tags: [security, git]`)
+}
+
+// parseRiskLevel converts string risk level to RiskLevel type
+func parseRiskLevel(risk string) validation.RiskLevel {
+	switch strings.ToLower(risk) {
+	case "low":
+		return validation.RiskLevelLow
+	case "medium":
+		return validation.RiskLevelMedium
+	case "high":
+		return validation.RiskLevelHigh
+	case "critical":
+		return validation.RiskLevelCritical
+	default:
+		return validation.RiskLevelMedium
+	}
 }
 
 // ValidateCommandRealTime performs real-time validation as user types
