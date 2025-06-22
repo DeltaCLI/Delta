@@ -185,4 +185,51 @@ release-auto:
 	@git push origin $(RELEASE_VERSION)
 	@./scripts/create-release.sh $(RELEASE_VERSION)
 
-.PHONY: all deps clean run install build build-all version-info release release-auto $(PLATFORMS)
+# Windows installer related variables
+INSTALLER_DIR = installer
+INNO_SETUP = "C:/Program Files (x86)/Inno Setup 6/ISCC.exe"
+
+# Windows installer target
+installer: build-windows
+	@echo "Building Windows installer for Delta v$(VERSION)"
+	@mkdir -p $(INSTALLER_DIR)
+	@if [ -f "$(INSTALLER_DIR)/delta-installer.iss" ]; then \
+		if [ "$$(uname)" = "Linux" ] || [ "$$(uname)" = "Darwin" ]; then \
+			if command -v wine >/dev/null 2>&1; then \
+				echo "Building installer using Wine..."; \
+				if [ -f "$$HOME/.wine/drive_c/Program Files (x86)/Inno Setup 6/ISCC.exe" ]; then \
+					wine "$$HOME/.wine/drive_c/Program Files (x86)/Inno Setup 6/ISCC.exe" $(INSTALLER_DIR)/delta-installer.iss; \
+				elif [ -f "$$HOME/.wine/drive_c/Program Files/Inno Setup 6/ISCC.exe" ]; then \
+					wine "$$HOME/.wine/drive_c/Program Files/Inno Setup 6/ISCC.exe" $(INSTALLER_DIR)/delta-installer.iss; \
+				else \
+					echo "Error: Inno Setup not found in Wine. Please install it with:"; \
+					echo "  1. Download Inno Setup from https://jrsoftware.org/isdl.php"; \
+					echo "  2. Run: wine innosetup-6.x.x.exe"; \
+					exit 1; \
+				fi; \
+			else \
+				echo "Error: Wine is required to build Windows installer on Linux/macOS"; \
+				echo "Install Wine with:"; \
+				echo "  Ubuntu/Debian: sudo apt-get install wine"; \
+				echo "  macOS: brew install wine-stable"; \
+				exit 1; \
+			fi; \
+		else \
+			$(INNO_SETUP) $(INSTALLER_DIR)/delta-installer.iss; \
+		fi; \
+		echo "Installer created successfully: build/installer/delta-setup-$(VERSION).exe"; \
+	else \
+		echo "Error: Installer configuration not found at $(INSTALLER_DIR)/delta-installer.iss"; \
+		exit 1; \
+	fi
+
+# Build Windows binary
+build-windows:
+	@$(MAKE) windows/amd64
+
+# Clean installer build artifacts
+installer-clean:
+	@echo "Cleaning installer build artifacts"
+	@rm -rf $(BUILD_DIR)/installer
+
+.PHONY: all deps clean run install build build-all version-info release release-auto installer installer-clean $(PLATFORMS)
