@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Natural language command suggestion system
+  - New `:suggest` command (alias `:s`) for getting command suggestions from plain text descriptions
+  - Pattern-based matching for common command patterns (file operations, git, docker, etc.)
+  - Project-aware suggestions based on detected project type (Node.js, Go, Python, etc.)
+  - AI-powered suggestions when Ollama is enabled
+  - History-based suggestions that learn from your command usage
+  - Interactive selection interface with safety indicators
+  - Command explanation feature with `:suggest explain <command>`
+  - Safety validation with warnings for dangerous commands
+  - Context-aware caching for improved performance
+  - Examples: `:suggest list files`, `:suggest install dependencies`, `:suggest create new branch`
+
+- Ollama health monitoring system for AI features
+  - Periodic connectivity checks when AI is disabled
+  - Automatic notifications when Ollama becomes available
+  - Configurable check intervals and notification settings
+  - New commands: `:ai health`, `:ai health monitor on/off`, `:ai health interval <seconds>`, `:ai health notify on/off`
+  - Smart backoff strategy for failed connection attempts
+  - Integrated with configuration persistence
+
 ### Added - Command Validation Phase 5: Advanced Features (2025-06-21)
 
 #### Overview

@@ -42,7 +42,7 @@ SQLITE_VEC_URL = https://github.com/asg017/sqlite-vec/releases/download/$(SQLITE
 
 # Define Go source files
 GO_SOURCES = version.go \
-	ai.go ai_manager.go \
+	ai.go ai_manager.go ai_health_monitor.go \
 	art2_manager.go art2_preprocessor.go art2_commands.go \
 	jump_manager.go jump_helper.go \
 	cli.go help.go \
@@ -62,6 +62,7 @@ GO_SOURCES = version.go \
 	history_analysis.go history_commands.go \
 	pattern_update.go pattern_commands.go pattern_recognition.go \
 	error_learning.go \
+	suggest_command.go suggest_commands.go \
 	validation_commands.go command_validator.go
 
 all: deps build

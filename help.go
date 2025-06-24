@@ -153,6 +153,15 @@ func showEnhancedHelp() {
 	fmt.Println("  :history config        - Configure history analysis")
 	fmt.Println("  :hist                  - Shorthand for history commands")
 
+	// Command Suggestions
+	fmt.Println("")
+	fmt.Println("  Command Suggestions:")
+	fmt.Println("  :suggest <description> - Get command suggestions from natural language")
+	fmt.Println("  :suggest explain <cmd> - Explain what a command does")
+	fmt.Println("  :suggest last          - Show last suggestions")
+	fmt.Println("  :suggest clear         - Clear suggestion cache")
+	fmt.Println("  :s                     - Shorthand for suggest")
+
 	// Command Validation
 	fmt.Println("")
 	fmt.Println("  Command Validation:")

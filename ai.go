@@ -125,25 +125,38 @@ func (c *OllamaClient) Generate(prompt string, systemPrompt string) (string, err
 	return response, nil
 }
 
-// CheckModelAvailability checks if the specified model is available
-func (c *OllamaClient) CheckModelAvailability() (bool, error) {
+// OllamaModel represents a model available in Ollama
+type OllamaModel struct {
+	Name string `json:"name"`
+}
+
+// ListModels returns all available models from Ollama
+func (c *OllamaClient) ListModels() ([]OllamaModel, error) {
 	resp, err := c.HttpClient.Get(c.BaseURL + "/api/tags")
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	var result struct {
-		Models []struct {
-			Name string `json:"name"`
-		} `json:"models"`
+		Models []OllamaModel `json:"models"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Models, nil
+}
+
+// CheckModelAvailability checks if the specified model is available
+func (c *OllamaClient) CheckModelAvailability() (bool, error) {
+	models, err := c.ListModels()
+	if err != nil {
 		return false, err
 	}
 
-	for _, model := range result.Models {
+	for _, model := range models {
 		if model.Name == c.ModelName {
 			return true, nil
 		}

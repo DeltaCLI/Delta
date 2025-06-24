@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -759,6 +760,8 @@ func handleInternalCommand(command string) bool {
 		return true
 	case "init":
 		return handleInitCommand()
+	case "suggest", "s":
+		return handleSuggestCommand(args)
 	case "validate", "v":
 		return HandleValidationCommand(args)
 	case "validation":
@@ -1163,10 +1166,30 @@ func handleAICommand(args []string) bool {
 		fmt.Println("- Model:", ai.ollamaClient.ModelName)
 		fmt.Println("- Available:", ai.isInitialized)
 
+		// Show health monitor status
+		if ai.healthMonitor != nil {
+			isRunning, lastCheck, lastStatus := ai.healthMonitor.GetStatus()
+			fmt.Println("\nHealth Monitor:")
+			fmt.Println("- Monitor enabled:", ai.config.HealthMonitorEnabled)
+			fmt.Println("- Running:", isRunning)
+			if !lastCheck.IsZero() {
+				fmt.Printf("- Last check: %s ago\n", time.Since(lastCheck).Round(time.Second))
+			}
+			fmt.Println("- Ollama status:", func() string {
+				if lastStatus {
+					return "Available"
+				}
+				return "Unavailable"
+			}())
+			fmt.Printf("- Check interval: %d seconds\n", ai.config.HealthCheckInterval)
+			fmt.Println("- Notifications:", ai.config.HealthNotificationEnabled)
+		}
+
 		// Check for custom trained model
 		infMgr := GetInferenceManager()
 		if infMgr != nil && infMgr.IsEnabled() {
-			fmt.Println("- Learning system enabled:", infMgr.IsEnabled())
+			fmt.Println("\nLearning System:")
+			fmt.Println("- Enabled:", infMgr.IsEnabled())
 			if infMgr.learningConfig.UseCustomModel {
 				fmt.Println("- Using custom trained model:", infMgr.learningConfig.CustomModelPath)
 			}
@@ -1183,6 +1206,120 @@ func handleAICommand(args []string) bool {
 			}
 		}
 		return true
+
+	case "health":
+		// Health monitoring configuration
+		if len(args) < 2 {
+			// Show current health monitoring status
+			if ai.healthMonitor != nil {
+				isRunning, lastCheck, lastStatus := ai.healthMonitor.GetStatus()
+				fmt.Println("Health Monitoring Configuration:")
+				fmt.Println("- Enabled:", ai.config.HealthMonitorEnabled)
+				fmt.Println("- Monitor running:", isRunning)
+				fmt.Printf("- Check interval: %d seconds\n", ai.config.HealthCheckInterval)
+				fmt.Println("- Notifications enabled:", ai.config.HealthNotificationEnabled)
+				if !lastCheck.IsZero() {
+					fmt.Printf("- Last checked: %s ago\n", time.Since(lastCheck).Round(time.Second))
+					fmt.Printf("- Ollama status: %s\n", func() string {
+						if lastStatus {
+							return "Available"
+						}
+						return "Unavailable"
+					}())
+				}
+			}
+			fmt.Println("\nUsage:")
+			fmt.Println("  :ai health monitor <on|off>     - Enable/disable health monitoring")
+			fmt.Println("  :ai health interval <seconds>   - Set check interval")
+			fmt.Println("  :ai health notify <on|off>      - Enable/disable notifications")
+			return true
+		}
+
+		switch args[1] {
+		case "monitor":
+			if len(args) < 3 {
+				fmt.Println("Please specify 'on' or 'off'")
+				return true
+			}
+			enabled := args[2] == "on"
+			ai.config.HealthMonitorEnabled = enabled
+			
+			// Update the monitor state
+			if ai.healthMonitor != nil {
+				if enabled && !ai.IsEnabled() {
+					ai.healthMonitor.SetMonitorEnabled(true)
+					ai.healthMonitor.Start()
+					fmt.Println("Health monitoring enabled")
+				} else {
+					ai.healthMonitor.Stop()
+					fmt.Println("Health monitoring disabled")
+				}
+			}
+			
+			// Persist configuration
+			cm := GetConfigManager()
+			if cm != nil {
+				cm.UpdateAIConfig(&ai.config)
+			}
+			return true
+
+		case "interval":
+			if len(args) < 3 {
+				fmt.Printf("Current interval: %d seconds\n", ai.config.HealthCheckInterval)
+				fmt.Println("Usage: :ai health interval <seconds>")
+				return true
+			}
+			interval, err := strconv.Atoi(args[2])
+			if err != nil || interval < 10 {
+				fmt.Println("Invalid interval. Please specify a value of at least 10 seconds")
+				return true
+			}
+			ai.config.HealthCheckInterval = interval
+			
+			// Update the monitor
+			if ai.healthMonitor != nil {
+				ai.healthMonitor.SetCheckInterval(time.Duration(interval) * time.Second)
+			}
+			
+			// Persist configuration
+			cm := GetConfigManager()
+			if cm != nil {
+				cm.UpdateAIConfig(&ai.config)
+			}
+			fmt.Printf("Health check interval set to %d seconds\n", interval)
+			return true
+
+		case "notify":
+			if len(args) < 3 {
+				fmt.Println("Please specify 'on' or 'off'")
+				return true
+			}
+			enabled := args[2] == "on"
+			ai.config.HealthNotificationEnabled = enabled
+			
+			// Update the monitor
+			if ai.healthMonitor != nil {
+				ai.healthMonitor.SetEnabled(enabled)
+			}
+			
+			// Persist configuration
+			cm := GetConfigManager()
+			if cm != nil {
+				cm.UpdateAIConfig(&ai.config)
+			}
+			
+			if enabled {
+				fmt.Println("Health notifications enabled")
+			} else {
+				fmt.Println("Health notifications disabled")
+			}
+			return true
+
+		default:
+			fmt.Println("Unknown health command:", args[1])
+			fmt.Println("Use ':ai health' to see available options")
+			return true
+		}
 
 	case "feedback":
 		// Shorthand for inference feedback
@@ -1220,6 +1357,10 @@ func handleAICommand(args []string) bool {
 		fmt.Println("  :ai model custom <path> - Use custom trained model")
 		fmt.Println("  :ai model default - Revert to default model")
 		fmt.Println("  :ai status       - Show detailed AI status")
+		fmt.Println("  :ai health       - Show health monitoring status")
+		fmt.Println("  :ai health monitor <on|off> - Enable/disable health monitoring")
+		fmt.Println("  :ai health interval <sec>   - Set check interval (min 10s)")
+		fmt.Println("  :ai health notify <on|off>  - Enable/disable notifications")
 		fmt.Println("  :ai feedback <helpful|unhelpful|correction> [correction]")
 		fmt.Println("                   - Provide feedback on last prediction")
 		fmt.Println("  :ai help         - Show this help message")
@@ -1433,7 +1574,7 @@ func runInteractiveShell() {
 
 	// Create our completer with extended commands
 	internalCmds := map[string][]string{
-		"ai":              {"on", "off", "model", "custom", "default", "status", "feedback", "help"},
+		"ai":              {"on", "off", "model", "custom", "default", "status", "health", "feedback", "help"},
 		"art2":            {"enable", "disable", "status", "stats", "categories", "predict", "feedback", "config", "help"},
 		"help":            {},
 		"jump":            {"add", "remove", "rm", "import", "list"},
@@ -1464,6 +1605,8 @@ func runInteractiveShell() {
 		"docs":            {"build", "dev", "open", "status", "help"},
 		"update":          {"status", "config", "version", "help"},
 		"init":            {},
+		"suggest":         {"help", "explain", "last", "clear"},
+		"s":               {},
 		"validate":        {},
 		"v":               {},
 		"validation":      {"check", "safety", "config", "help"},
@@ -1486,6 +1629,13 @@ func runInteractiveShell() {
 		return
 	}
 	defer rl.Close()
+
+	// Set up cleanup for AI manager on exit
+	defer func() {
+		if ai := GetAIManager(); ai != nil {
+			ai.Cleanup()
+		}
+	}()
 
 	// Load history from our encrypted file
 	if historyHandler != nil {

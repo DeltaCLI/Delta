@@ -11,11 +11,14 @@ import (
 
 // AIPredictionConfig contains configuration for AI prediction system
 type AIPredictionConfig struct {
-	Enabled       bool   `json:"enabled"`        // Whether AI prediction is enabled
-	ModelName     string `json:"model_name"`     // Model name to use (e.g., phi4:latest)
-	ServerURL     string `json:"server_url"`     // Ollama server URL
-	MaxHistory    int    `json:"max_history"`    // Maximum history entries to keep
-	ContextPrompt string `json:"context_prompt"` // Base prompt for AI
+	Enabled                   bool   `json:"enabled"`                      // Whether AI prediction is enabled
+	ModelName                 string `json:"model_name"`                   // Model name to use (e.g., phi4:latest)
+	ServerURL                 string `json:"server_url"`                   // Ollama server URL
+	MaxHistory                int    `json:"max_history"`                  // Maximum history entries to keep
+	ContextPrompt             string `json:"context_prompt"`               // Base prompt for AI
+	HealthMonitorEnabled      bool   `json:"health_monitor_enabled"`       // Whether to monitor Ollama health
+	HealthCheckInterval       int    `json:"health_check_interval"`        // Health check interval in seconds (default: 30)
+	HealthNotificationEnabled bool   `json:"health_notification_enabled"`  // Whether to show notifications when Ollama becomes available
 }
 
 // AIPredictionManager manages the AI predictions and context
@@ -37,7 +40,8 @@ type AIPredictionManager struct {
 		prediction string
 		timestamp  time.Time
 	}
-	config AIPredictionConfig // Configuration for AI prediction
+	config        AIPredictionConfig   // Configuration for AI prediction
+	healthMonitor *OllamaHealthMonitor // Health monitoring for Ollama
 }
 
 // NewAIPredictionManager creates a new AI prediction manager
@@ -47,7 +51,7 @@ func NewAIPredictionManager(ollamaURL string, modelName string) (*AIPredictionMa
 	// Create a cancellable context
 	_, cancel := context.WithCancel(context.Background())
 
-	return &AIPredictionManager{
+	manager := &AIPredictionManager{
 		ollamaClient:      client,
 		commandHistory:    []string{},
 		maxHistorySize:    10,
@@ -58,13 +62,21 @@ func NewAIPredictionManager(ollamaURL string, modelName string) (*AIPredictionMa
 		predictionEnabled: false,
 		cancelFunc:        cancel,
 		config: AIPredictionConfig{
-			Enabled:       false,
-			ModelName:     modelName,
-			ServerURL:     ollamaURL,
-			MaxHistory:    10,
-			ContextPrompt: "You are Delta, an AI assistant for the command line. Analyze the user's commands and provide a short, helpful thought or prediction.",
+			Enabled:                   false,
+			ModelName:                 modelName,
+			ServerURL:                 ollamaURL,
+			MaxHistory:                10,
+			ContextPrompt:             "You are Delta, an AI assistant for the command line. Analyze the user's commands and provide a short, helpful thought or prediction.",
+			HealthMonitorEnabled:      true,
+			HealthCheckInterval:       30,
+			HealthNotificationEnabled: true,
 		},
-	}, nil
+	}
+
+	// Create health monitor
+	manager.healthMonitor = NewOllamaHealthMonitor(manager)
+
+	return manager, nil
 }
 
 // Initialize initializes the AI manager and checks Ollama availability
@@ -72,6 +84,16 @@ func (m *AIPredictionManager) Initialize() bool {
 	// Check if already initialized
 	if m.isInitialized {
 		return m.predictionEnabled
+	}
+
+	// Start health monitor if configured
+	if m.healthMonitor != nil && m.config.HealthMonitorEnabled && !m.predictionEnabled {
+		// Configure health monitor with settings
+		if m.config.HealthCheckInterval > 0 {
+			m.healthMonitor.SetCheckInterval(time.Duration(m.config.HealthCheckInterval) * time.Second)
+		}
+		m.healthMonitor.SetEnabled(m.config.HealthNotificationEnabled)
+		m.healthMonitor.Start()
 	}
 
 	// Check if Ollama is available
@@ -116,6 +138,11 @@ func (m *AIPredictionManager) Initialize() bool {
 	m.isInitialized = true
 	m.predictionEnabled = true
 
+	// Stop health monitor when AI is enabled
+	if m.healthMonitor != nil {
+		m.healthMonitor.Stop()
+	}
+
 	// Generate initial thought
 	m.currentThought = "Ready to assist with commands and suggestions."
 
@@ -131,12 +158,22 @@ func (m *AIPredictionManager) IsEnabled() bool {
 func (m *AIPredictionManager) EnablePredictions() {
 	m.predictionEnabled = true
 	m.config.Enabled = true
+	
+	// Stop health monitor when AI is enabled
+	if m.healthMonitor != nil {
+		m.healthMonitor.Stop()
+	}
 }
 
 // DisablePredictions disables AI predictions
 func (m *AIPredictionManager) DisablePredictions() {
 	m.predictionEnabled = false
 	m.config.Enabled = false
+	
+	// Start health monitor when AI is disabled
+	if m.healthMonitor != nil {
+		m.healthMonitor.Start()
+	}
 }
 
 // AddCommand adds a command to the history and updates predictions
@@ -460,4 +497,20 @@ func (m *AIPredictionManager) GenerateEmbedding(text string) ([]float32, error) 
 	}
 
 	return response.Embedding, nil
+}
+
+// Cleanup stops background tasks and health monitoring
+func (m *AIPredictionManager) Cleanup() {
+	// Stop health monitor
+	if m.healthMonitor != nil {
+		m.healthMonitor.Stop()
+	}
+
+	// Cancel any pending requests
+	if m.cancelFunc != nil {
+		m.cancelFunc()
+	}
+
+	// Wait for background tasks to complete
+	m.Wait()
 }
