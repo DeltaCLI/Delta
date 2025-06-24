@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [v0.4.6-alpha] - 2025-06-24
+
 ### Added
 - Natural language command suggestion system
   - New `:suggest` command (alias `:s`) for getting command suggestions from plain text descriptions
