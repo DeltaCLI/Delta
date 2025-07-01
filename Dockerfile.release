@@ -1,0 +1,73 @@
+# Multi-stage Dockerfile for building Delta CLI releases
+FROM golang:1.21-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    git \
+    make \
+    gcc \
+    musl-dev \
+    sqlite-dev \
+    curl \
+    bash \
+    zip
+
+# Set working directory
+WORKDIR /build
+
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Download SQLite vector extension
+RUN curl -L -o sqlite-vec.tar.gz https://github.com/asg017/sqlite-vec/releases/download/v0.1.6/sqlite-vec-0.1.6-loadable-linux-x86_64.tar.gz && \
+    tar -xzf sqlite-vec.tar.gz && \
+    rm -f sqlite-vec.tar.gz
+
+# Build for all platforms
+ARG VERSION
+ENV VERSION=${VERSION}
+
+# Build script that handles cross-compilation
+RUN echo '#!/bin/bash' > /build-all.sh && \
+    echo 'set -e' >> /build-all.sh && \
+    echo 'VERSION=${VERSION:-v0.4.7-alpha}' >> /build-all.sh && \
+    echo 'echo "Building Delta CLI ${VERSION} for all platforms..."' >> /build-all.sh && \
+    echo '' >> /build-all.sh && \
+    echo '# Linux AMD64' >> /build-all.sh && \
+    echo 'CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${VERSION}" -o build/linux-amd64/delta *.go' >> /build-all.sh && \
+    echo '' >> /build-all.sh && \
+    echo '# Darwin AMD64 (macOS Intel)' >> /build-all.sh && \
+    echo 'CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.Version=${VERSION}" -o build/darwin-amd64/delta *.go' >> /build-all.sh && \
+    echo '' >> /build-all.sh && \
+    echo '# Darwin ARM64 (macOS M1/M2)' >> /build-all.sh && \
+    echo 'CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=${VERSION}" -o build/darwin-arm64/delta *.go' >> /build-all.sh && \
+    echo '' >> /build-all.sh && \
+    echo '# Windows AMD64' >> /build-all.sh && \
+    echo 'CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=${VERSION}" -o build/windows-amd64/delta.exe *.go' >> /build-all.sh && \
+    chmod +x /build-all.sh
+
+# Run the build
+RUN /build-all.sh
+
+# Create archives
+RUN cd build && \
+    tar -czf delta-${VERSION}-linux-amd64.tar.gz -C linux-amd64 delta && \
+    tar -czf delta-${VERSION}-darwin-amd64.tar.gz -C darwin-amd64 delta && \
+    tar -czf delta-${VERSION}-darwin-arm64.tar.gz -C darwin-arm64 delta && \
+    zip delta-${VERSION}-windows-amd64.zip -j windows-amd64/delta.exe
+
+# Final stage - just the artifacts
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates
+WORKDIR /release
+COPY --from=builder /build/build/*.tar.gz /build/build/*.zip ./
+COPY --from=builder /build/build/*/delta* ./binaries/
+
+# Generate checksums
+RUN sha256sum * > checksums.sha256 || true
+
+CMD ["ls", "-la"]
