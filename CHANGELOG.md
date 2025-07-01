@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Man page generation system
+  - New `:man` command for generating and managing Unix man pages
+  - Generates standard troff format man pages for Delta and its commands
+  - Subcommands: `generate`, `preview`, `install`, `view`, `completions`
+  - Shell completion generation for bash (zsh/fish placeholders)
+  - Makefile targets: `make man`, `make install-man`, `make completions`
+  - PowerShell build script support for man page generation
+  - Structured command documentation system for consistent help
+
+### Fixed
+- Ollama "connection restored" message no longer shows on startup
+  - Added first-check detection to prevent misleading restoration messages
+  - Connection status messages now only show for actual state changes
+
+### Changed
+- Planning and milestone documents moved to private repository
+  - Added docs/planning/ and docs/milestones/ to .gitignore
+  - Removed sensitive OAuth and device activation plans from public repo
+
 
 ## [v0.4.6-alpha] - 2025-06-24
 
