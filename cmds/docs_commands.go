@@ -27,6 +27,13 @@ func HandleDocsCommand(args []string) bool {
 		return openDocs()
 	case "status":
 		return showDocsStatus()
+	case "man":
+		// Handle man page subcommands
+		if len(args) > 1 {
+			return handleManCommand(args[1:])
+		}
+		showManHelp()
+		return true
 	case "help":
 		showDocsHelp()
 		return true
@@ -281,8 +288,35 @@ func showDocsHelp() {
 	fmt.Println("  :docs dev       - Start the development server")
 	fmt.Println("  :docs open      - Build and open docs in browser")
 	fmt.Println("  :docs status    - Show documentation status")
+	fmt.Println("  :docs man       - Manage man pages")
 	fmt.Println("  :docs help      - Show this help message")
 	fmt.Println()
 	fmt.Println("The documentation uses Astro and will be served locally.")
 	fmt.Println("For development, use ':docs dev' to start a live-reload server.")
+}
+
+// handleManCommand handles man page related commands
+func handleManCommand(args []string) bool {
+	// TODO: Integrate man page generation once the package structure is refactored
+	// For now, we'll add a separate command handler in the main package
+	fmt.Println("Note: Man page commands will be available after integration.")
+	showManHelp()
+	return true
+}
+
+// showManHelp displays help for man page commands
+func showManHelp() {
+	fmt.Println("Man Page Commands")
+	fmt.Println("=================")
+	fmt.Println("  :docs man generate [dir]     - Generate man pages to directory (default: ./man)")
+	fmt.Println("  :docs man preview [command]  - Preview a man page")
+	fmt.Println("  :docs man install [dir]      - Install man pages to system (may need sudo)")
+	fmt.Println("  :docs man completions [shell] - Generate shell completions (bash/zsh/fish)")
+	fmt.Println("  :docs man help               - Show this help message")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  :docs man generate           - Generate all man pages to ./man/")
+	fmt.Println("  :docs man preview ai         - Preview the man page for :ai command")
+	fmt.Println("  :docs man install            - Install to /usr/local/share/man/man1/")
+	fmt.Println("  :docs man completions bash   - Generate bash completion script")
 }

@@ -736,6 +736,8 @@ func handleInternalCommand(command string) bool {
 		return HandleHistoryCommand(args)
 	case "docs":
 		return cmds.HandleDocsCommand(args)
+	case "man":
+		return HandleManCommand(args)
 	case "update":
 		return HandleUpdateCommand(args)
 	case "feedback":

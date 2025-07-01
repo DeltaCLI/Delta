@@ -13,6 +13,14 @@ docs/public/
 vec0.so
 sqlite-extensions/
 
+# Generated documentation
+man/
+completions/
+
+# Planning and milestone documents (private)
+docs/planning/
+docs/milestones/
+
 # Security - Sensitive files
 .env
 .env.*

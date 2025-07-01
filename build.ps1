@@ -104,6 +104,10 @@ function Show-Help {
     Write-Host "  version-info  Show version information"
     Write-Host "  release       Create a new release"
     Write-Host "  installer     Build Windows installer"
+    Write-Host "  man           Generate man pages"
+    Write-Host "  install-man   Install man pages (Unix-like systems)"
+    Write-Host "  preview-man   Preview man pages"
+    Write-Host "  completions   Generate shell completions"
     Write-Host ""
     Write-Host "Options:"
     Write-Host "  -Platform     Specify target platform (e.g., 'linux/amd64')"
@@ -116,6 +120,7 @@ function Show-Help {
     Write-Host "  .\build.ps1 build-all          # Build for all platforms"
     Write-Host "  .\build.ps1 build -Platform linux/amd64"
     Write-Host "  .\build.ps1 release -ReleaseVersion v0.4.6-alpha"
+    Write-Host "  .\build.ps1 man                # Generate man pages"
 }
 
 function Get-Dependencies {
@@ -368,6 +373,97 @@ function Build-Installer {
     }
 }
 
+function Build-ManPages {
+    Write-Host "Generating man pages..."
+    
+    # First ensure Delta is built
+    Build-Delta
+    
+    # Create man directory
+    New-Item -ItemType Directory -Force -Path "man" | Out-Null
+    
+    # Generate man pages
+    $binary = Join-Path $BuildDir "windows/amd64" "$BinaryName.exe"
+    if (-not (Test-Path $binary)) {
+        $binary = ".\$BinaryName.exe"
+    }
+    
+    & $binary :man generate man/
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Man pages generated in ./man/" -ForegroundColor Green
+        
+        # List generated files
+        $manFiles = Get-ChildItem -Path "man" -Filter "*.1"
+        if ($manFiles) {
+            Write-Host "`nGenerated man pages:"
+            foreach ($file in $manFiles) {
+                Write-Host "  - $($file.Name)"
+            }
+        }
+        
+        Write-Host "`nNote: Man pages are primarily for Unix-like systems."
+        Write-Host "On Windows, use 'delta :help' for command documentation."
+    } else {
+        Write-Host "Failed to generate man pages" -ForegroundColor Red
+        exit 1
+    }
+}
+
+function Install-ManPages {
+    Write-Host "Man page installation is not supported on Windows" -ForegroundColor Yellow
+    Write-Host "Man pages are for Unix-like systems (Linux, macOS, etc.)"
+    Write-Host ""
+    Write-Host "On Windows, you can:"
+    Write-Host "1. Use 'delta :help' for built-in help"
+    Write-Host "2. Generate man pages with '.\build.ps1 man' and copy to a Unix system"
+    Write-Host "3. Use WSL (Windows Subsystem for Linux) to install man pages"
+}
+
+function Preview-ManPage {
+    Write-Host "Previewing man pages..."
+    
+    # First ensure Delta is built
+    Build-Delta
+    
+    $binary = Join-Path $BuildDir "windows/amd64" "$BinaryName.exe"
+    if (-not (Test-Path $binary)) {
+        $binary = ".\$BinaryName.exe"
+    }
+    
+    & $binary :man preview
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Failed to preview man page" -ForegroundColor Red
+        exit 1
+    }
+}
+
+function Generate-Completions {
+    Write-Host "Generating shell completions..."
+    
+    # First ensure Delta is built
+    Build-Delta
+    
+    # Create completions directory
+    New-Item -ItemType Directory -Force -Path "completions" | Out-Null
+    
+    $binary = Join-Path $BuildDir "windows/amd64" "$BinaryName.exe"
+    if (-not (Test-Path $binary)) {
+        $binary = ".\$BinaryName.exe"
+    }
+    
+    # Generate bash completions
+    & $binary :man completions bash | Out-File -FilePath "completions\delta.bash" -Encoding UTF8
+    Write-Host "Bash completions saved to completions\delta.bash" -ForegroundColor Green
+    
+    # Generate PowerShell completions (if supported)
+    # Note: This would require implementing PowerShell completion generation
+    Write-Host ""
+    Write-Host "Note: PowerShell completions are not yet implemented."
+    Write-Host "For PowerShell, use tab completion with the built-in features."
+}
+
 # Main script logic
 if ($Help) {
     Show-Help
@@ -420,6 +516,18 @@ switch ($Target.ToLower()) {
     }
     "installer" {
         Build-Installer
+    }
+    "man" {
+        Build-ManPages
+    }
+    "install-man" {
+        Install-ManPages
+    }
+    "preview-man" {
+        Preview-ManPage
+    }
+    "completions" {
+        Generate-Completions
     }
     default {
         Write-Host "Unknown target: $Target" -ForegroundColor Red

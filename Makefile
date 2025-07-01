@@ -63,7 +63,8 @@ GO_SOURCES = version.go \
 	pattern_update.go pattern_commands.go pattern_recognition.go \
 	error_learning.go \
 	suggest_command.go suggest_commands.go \
-	validation_commands.go command_validator.go
+	validation_commands.go command_validator.go \
+	command_docs.go man_generator.go man_commands.go
 
 all: deps build
 
@@ -233,4 +234,35 @@ installer-clean:
 	@echo "Cleaning installer build artifacts"
 	@rm -rf $(BUILD_DIR)/installer
 
-.PHONY: all deps clean run install build build-all version-info release release-auto installer installer-clean $(PLATFORMS)
+# Man page targets
+man: build
+	@echo "Generating man pages..."
+	@mkdir -p man
+	@./$(OUTPUT_BINARY) :man generate man/
+	@echo "Man pages generated in ./man/"
+	@echo "To install: sudo make install-man"
+
+install-man: man
+	@echo "Installing man pages..."
+	@mkdir -p /usr/local/share/man/man1
+	@cp man/*.1 /usr/local/share/man/man1/
+	@echo "Man pages installed successfully"
+	@echo "Run 'sudo mandb' to update the man database"
+
+preview-man: build
+	@echo "Previewing main man page..."
+	@./$(OUTPUT_BINARY) :man preview
+
+completions: build
+	@echo "Generating shell completions..."
+	@mkdir -p completions
+	@./$(OUTPUT_BINARY) :man completions bash > completions/delta.bash
+	@echo "Bash completions saved to completions/delta.bash"
+	@echo "To install: source completions/delta.bash"
+
+clean-man:
+	@echo "Cleaning man pages..."
+	@rm -rf man/
+	@rm -rf completions/
+
+.PHONY: all deps clean run install build build-all version-info release release-auto installer installer-clean man install-man preview-man completions clean-man $(PLATFORMS)

@@ -18,6 +18,7 @@ type OllamaHealthMonitor struct {
 	consecutiveFailures  int
 	enabled              bool
 	notificationsEnabled bool
+	isFirstCheck         bool
 }
 
 func NewOllamaHealthMonitor(aiManager *AIPredictionManager) *OllamaHealthMonitor {
@@ -27,6 +28,7 @@ func NewOllamaHealthMonitor(aiManager *AIPredictionManager) *OllamaHealthMonitor
 		stopChan:             make(chan struct{}),
 		enabled:              true,
 		notificationsEnabled: true,
+		isFirstCheck:         true,
 	}
 }
 
@@ -97,8 +99,8 @@ func (m *OllamaHealthMonitor) checkOllamaStatus() {
 		if !currentStatus && m.lastStatus {
 			// Ollama just went offline while AI was enabled
 			fmt.Println("\033[33m⚠ Ollama server connection lost. AI features temporarily unavailable.\033[0m")
-		} else if currentStatus && !m.lastStatus {
-			// Ollama came back online
+		} else if currentStatus && !m.lastStatus && !m.isFirstCheck {
+			// Ollama came back online (but not on first check)
 			fmt.Println("\033[32m✓ Ollama server connection restored.\033[0m")
 			// Reinitialize AI if needed
 			m.aiManager.Initialize()
@@ -106,6 +108,11 @@ func (m *OllamaHealthMonitor) checkOllamaStatus() {
 	}
 
 	m.lastStatus = currentStatus
+	
+	// After the first check, set the flag to false
+	if m.isFirstCheck {
+		m.isFirstCheck = false
+	}
 }
 
 func (m *OllamaHealthMonitor) showAvailabilityNotification() {

@@ -170,6 +170,17 @@ func showEnhancedHelp() {
 	fmt.Println("  :validation config     - Configure validation settings")
 	fmt.Println("  :v                     - Shorthand for validate")
 
+	// Documentation Commands
+	fmt.Println("")
+	fmt.Println("  Documentation:")
+	fmt.Println("  :docs              - Build and open web documentation")
+	fmt.Println("  :docs build        - Build documentation")
+	fmt.Println("  :docs dev          - Start documentation dev server")
+	fmt.Println("  :man               - Manage man pages")
+	fmt.Println("  :man generate      - Generate man pages")
+	fmt.Println("  :man install       - Install man pages to system")
+	fmt.Println("  :man view          - View installed man pages")
+
 	// Other Commands
 	fmt.Println("")
 	fmt.Println("  System:")
