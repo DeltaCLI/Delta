@@ -72,6 +72,10 @@ func HandleUpdateCommand(args []string) bool {
 		handleLogsCommand(um, args[1:])
 	case "validate":
 		handleValidateCommand(um, args[1:])
+	case "channel":
+		HandleUpdateChannelCommand(args[1:])
+	case "channels":
+		HandleUpdateChannelsCommand(args[1:])
 	case "help":
 		showUpdateHelp()
 	default:
@@ -91,7 +95,21 @@ func showUpdateStatus(um *UpdateManager) {
 	fmt.Printf("  Update Checking: %s\n", getUpdateStatusText(config.Enabled))
 	fmt.Printf("  Check on Startup: %s\n", getUpdateStatusText(config.CheckOnStartup))
 	fmt.Printf("  Auto Install: %s\n", getUpdateStatusText(config.AutoInstall))
-	fmt.Printf("  Channel: %s\n", config.Channel)
+	
+	// Show channel from ChannelManager if available
+	if cm := GetChannelManager(); cm != nil {
+		channel := cm.GetCurrentChannel()
+		fmt.Printf("  Channel: %s\n", channel)
+		
+		// Show if enterprise mode is enabled
+		stats := cm.GetChannelStats()
+		if isEnterprise, ok := stats["enterprise_mode"].(bool); ok && isEnterprise {
+			fmt.Printf("  Enterprise Mode: Enabled\n")
+		}
+	} else {
+		fmt.Printf("  Channel: %s\n", config.Channel)
+	}
+	
 	fmt.Printf("  Check Interval: %s\n", config.CheckInterval)
 	fmt.Printf("  Last Check: %s\n", getLastCheckText(config.LastCheck))
 	
@@ -268,6 +286,15 @@ func showUpdateHelp() {
 	fmt.Println("  Validation:")
 	fmt.Println("  :update validate            - Run post-update validation")
 	fmt.Println("  :update validate --tests    - List available validation tests")
+	fmt.Println()
+	fmt.Println("  Channel Management:")
+	fmt.Println("  :update channel             - Show current channel")
+	fmt.Println("  :update channel <name>      - Switch to a different channel")
+	fmt.Println("  :update channels            - List available channels")
+	fmt.Println("  :update channel policy      - Manage channel policies")
+	fmt.Println("  :update channel access      - Manage channel access control")
+	fmt.Println("  :update channel migrate     - Manage channel migrations")
+	fmt.Println("  :update channel enterprise  - Toggle enterprise mode")
 	fmt.Println()
 	fmt.Println("  Maintenance:")
 	fmt.Println("  :update cleanup             - Clean old downloads and backups")

@@ -126,6 +126,11 @@ func (um *UpdateManager) SetEnabled(enabled bool) error {
 
 // GetChannel returns the current update channel
 func (um *UpdateManager) GetChannel() string {
+	// Use ChannelManager if available
+	if cm := GetChannelManager(); cm != nil {
+		return string(cm.GetCurrentChannel())
+	}
+	
 	um.mutex.RLock()
 	defer um.mutex.RUnlock()
 	return um.config.Channel
@@ -133,21 +138,17 @@ func (um *UpdateManager) GetChannel() string {
 
 // SetChannel sets the update channel
 func (um *UpdateManager) SetChannel(channel string) error {
+	// Use ChannelManager if available
+	if cm := GetChannelManager(); cm != nil {
+		return cm.SetChannel(UpdateChannel(channel), "Manual channel change via update config")
+	}
+	
 	um.mutex.Lock()
 	defer um.mutex.Unlock()
 	
 	// Validate channel
-	validChannels := []string{"stable", "alpha", "beta"}
-	isValid := false
-	for _, valid := range validChannels {
-		if channel == valid {
-			isValid = true
-			break
-		}
-	}
-	
-	if !isValid {
-		return fmt.Errorf("invalid channel: %s (must be stable, alpha, or beta)", channel)
+	if !ValidateChannelName(channel) {
+		return fmt.Errorf("invalid channel: %s", channel)
 	}
 	
 	um.config.Channel = channel

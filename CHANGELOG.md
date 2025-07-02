@@ -38,6 +38,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Subcommand completion for complex commands like :ai, :memory, :learning
   - Integration with existing help system via :man completions command
 
+- Enterprise Update Features - Channel Management System (Phase 5)
+  - Advanced channel policies (stable, beta, alpha, nightly, custom)
+  - Channel-specific update configurations with fine-grained control
+  - Enterprise mode with access control and user restrictions
+  - Forced channel management for organizations
+  - Scheduled channel migrations with user targeting
+  - Channel history tracking and statistics
+  - New commands: `:update channel <name>`, `:update channels`
+  - Channel policy management with version constraints
+  - Custom update URLs and verification keys for enterprise channels
+  - Integration with existing update system
+
 ### Fixed
 - Ollama "connection restored" message no longer shows on startup
   - Added first-check detection to prevent misleading restoration messages
