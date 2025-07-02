@@ -1,0 +1,65 @@
+# Ignore files for Docker build
+.git
+.gitignore
+build/
+releases/
+docs/node_modules/
+docs/.astro/
+docs/dist/
+*.log
+*.pid
+*.sock
+.DS_Store
+Thumbs.db
+vec0.so
+sqlite-extensions/
+man/
+completions/
+.untracked/
+.claude/
+.env
+.env.*
+*.key
+*.pem
+*.crt
+*.cer
+*.p12
+*.pfx
+secrets/
+*secret*
+*password*
+*credential*
+*.local
+*.tmp
+*.temp
+*~
+*.bak
+*.backup
+~/.config/
+~/.cache/
+# Keep docs for release notes but skip heavy folders
+docs/planning/
+docs/milestones/
+docs/public/
+docs/src/
+# Memory database files
+*.db
+*.db-journal
+*.db-wal
+# Training data
+*.bin
+*.model
+*.onnx
+# Archives
+*.tar.gz
+*.zip
+*.tar
+*.gz
+# Installer files
+installer/
+*.exe
+*.msi
+*.deb
+*.rpm
+*.dmg
+*.pkg

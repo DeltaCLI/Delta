@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -775,6 +776,59 @@ func (mm *MemoryManager) ImportMemory(importPath string, options map[string]bool
 
 	// Reinitialize memory manager
 	return mm.Initialize()
+}
+
+// GetCommandsInRange returns commands within the specified time range
+func (mm *MemoryManager) GetCommandsInRange(startTime, endTime time.Time) ([]CommandEntry, error) {
+	var allCommands []CommandEntry
+
+	// Get all shard files
+	entries, err := os.ReadDir(mm.config.StoragePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Process each shard that might contain commands in the range
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "commands_") {
+			continue
+		}
+
+		// Extract date from filename
+		dateStr := strings.TrimPrefix(entry.Name(), "commands_")
+		dateStr = strings.TrimSuffix(dateStr, ".bin")
+		
+		shardDate, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			continue
+		}
+
+		// Check if this shard might contain relevant commands
+		shardEnd := shardDate.Add(24 * time.Hour)
+		if shardEnd.Before(startTime) || shardDate.After(endTime) {
+			continue
+		}
+
+		// Read commands from this shard
+		commands, err := mm.ReadCommands(dateStr)
+		if err != nil {
+			continue
+		}
+
+		// Filter commands by time range
+		for _, cmd := range commands {
+			if cmd.Timestamp.After(startTime) && cmd.Timestamp.Before(endTime) {
+				allCommands = append(allCommands, cmd)
+			}
+		}
+	}
+
+	// Sort by timestamp
+	sort.Slice(allCommands, func(i, j int) bool {
+		return allCommands[i].Timestamp.Before(allCommands[j].Timestamp)
+	})
+
+	return allCommands, nil
 }
 
 // Close closes the memory manager and releases resources

@@ -442,11 +442,238 @@ complete -F _delta_completions delta
 }
 
 func (g *ManPageGenerator) generateZshCompletions() (string, error) {
-	// Similar implementation for Zsh
-	return "# Zsh completion not yet implemented\n", nil
+	var cmds []string
+	var cmdDescriptions []string
+	
+	// Build list of commands with descriptions
+	for name, doc := range g.Registry.Commands {
+		cmds = append(cmds, ":"+name)
+		// Get first line of description
+		desc := doc.Synopsis
+		if desc == "" && doc.Description != "" {
+			lines := strings.Split(doc.Description, "\n")
+			if len(lines) > 0 {
+				desc = strings.TrimSpace(lines[0])
+			}
+		}
+		// Escape single quotes in description
+		desc = strings.ReplaceAll(desc, "'", "'\"'\"'")
+		cmdDescriptions = append(cmdDescriptions, fmt.Sprintf("':%s:%s'", name, desc))
+	}
+	sort.Strings(cmds)
+	sort.Strings(cmdDescriptions)
+
+	// For now, we'll handle subcommands manually for known commands
+	// This can be enhanced later when subcommands are added to CommandDoc
+	subcommandMap := map[string][]string{
+		"ai": {"on", "off", "status", "model", "feedback"},
+		"memory": {"enable", "disable", "status", "stats", "config", "list", "export", "clear", "train"},
+		"learning": {"enable", "disable", "status", "feedback", "train", "patterns", "process", "stats", "config"},
+		"update": {"status", "check", "install", "config", "history", "channel"},
+		"validation": {"check", "safety", "stats", "history", "config"},
+		"man": {"generate", "preview", "install", "view", "completions"},
+	}
+	
+	var subcommandCases []string
+	for cmd, subs := range subcommandMap {
+		var subList []string
+		for _, sub := range subs {
+			subList = append(subList, fmt.Sprintf("'%s:%s'", sub, sub))
+		}
+		subcommandCases = append(subcommandCases, fmt.Sprintf(`      %s)
+        _arguments \
+          '1: :->subcmd' \
+          '*:: :->args' && return 0
+        case $state in
+          subcmd)
+            local subcmds=(
+              %s
+            )
+            _describe -t subcmds 'subcommand' subcmds && return 0
+            ;;
+        esac
+        ;;`, cmd, strings.Join(subList, "\n              ")))
+	}
+
+	completion := fmt.Sprintf(`#compdef delta
+# Delta CLI Zsh Completion
+# Generated on %s
+
+_delta() {
+  local context state state_descr line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Show help information]' \
+    '(-v --version)'{-v,--version}'[Show version information]' \
+    '(-c --command)'{-c,--command}'[Execute a single command and exit]:command:_command_names' \
+    '--debug[Enable debug mode]' \
+    '1: :->cmd' \
+    '*:: :->args' && return 0
+
+  case $state in
+    cmd)
+      if [[ "$words[1]" == ":" || "$words[1]" == ":*" ]]; then
+        # Internal Delta commands
+        local commands=(
+          %s
+        )
+        _describe -t commands 'Delta command' commands && return 0
+      else
+        # External shell commands
+        _command_names && return 0
+      fi
+      ;;
+    args)
+      # Handle subcommands for specific Delta commands
+      local cmd="${words[1]#:}"
+      case $cmd in
+%s
+        *)
+          # Default file completion for other commands
+          _files
+          ;;
+      esac
+      ;;
+  esac
+
+  return 1
+}
+
+# Helper function for internal commands
+_delta_commands() {
+  local commands=(
+    %s
+  )
+  _describe -t commands 'Delta command' commands
+}
+
+_delta "$@"
+`, 
+		time.Now().Format("2006-01-02"),
+		strings.Join(cmdDescriptions, "\n    "),
+		strings.Join(subcommandCases, "\n"),
+		strings.Join(cmdDescriptions, "\n    "))
+
+	return completion, nil
 }
 
 func (g *ManPageGenerator) generateFishCompletions() (string, error) {
-	// Similar implementation for Fish
-	return "# Fish completion not yet implemented\n", nil
+	var completions []string
+	
+	// Add basic flags
+	completions = append(completions,
+		"# Delta CLI Fish Completion",
+		fmt.Sprintf("# Generated on %s", time.Now().Format("2006-01-02")),
+		"",
+		"# Disable file completion by default",
+		"complete -c delta -f",
+		"",
+		"# Global flags", 
+		"complete -c delta -s h -l help -d 'Show help information'",
+		"complete -c delta -s v -l version -d 'Show version information'",
+		"complete -c delta -s c -l command -d 'Execute a single command and exit' -r",
+		"complete -c delta -l debug -d 'Enable debug mode'",
+		"",
+		"# Enable file completion for external commands",
+		"complete -c delta -n '__fish_is_first_token; and not __fish_seen_colon_command' -F",
+		"",
+		"# Internal Delta commands",
+	)
+	
+	// Get all commands sorted
+	var cmdNames []string
+	for name := range g.Registry.Commands {
+		cmdNames = append(cmdNames, name)
+	}
+	sort.Strings(cmdNames)
+	
+	// Add main commands
+	for _, name := range cmdNames {
+		doc := g.Registry.Commands[name]
+		desc := doc.Synopsis
+		if desc == "" && doc.Description != "" {
+			lines := strings.Split(doc.Description, "\n")
+			if len(lines) > 0 {
+				desc = strings.TrimSpace(lines[0])
+			}
+		}
+		// Escape single quotes for fish
+		desc = strings.ReplaceAll(desc, "'", "\\'")
+		
+		// Add the main command
+		completions = append(completions,
+			fmt.Sprintf("complete -c delta -n '__fish_use_subcommand' -a ':%s' -d '%s'", name, desc))
+		
+		// Add subcommands based on our manual mapping
+		subcommandMap := map[string][]string{
+			"ai": {"on", "off", "status", "model", "feedback"},
+			"memory": {"enable", "disable", "status", "stats", "config", "list", "export", "clear", "train"},
+			"learning": {"enable", "disable", "status", "feedback", "train", "patterns", "process", "stats", "config"},
+			"update": {"status", "check", "install", "config", "history", "channel"},
+			"validation": {"check", "safety", "stats", "history", "config"},
+			"man": {"generate", "preview", "install", "view", "completions"},
+		}
+		
+		if subs, hasSubs := subcommandMap[name]; hasSubs {
+			completions = append(completions, "")
+			completions = append(completions, fmt.Sprintf("# Subcommands for :%s", name))
+			
+			for _, sub := range subs {
+				condition := fmt.Sprintf("__fish_seen_subcommand_from :%s; and not __fish_seen_subcommand_from %s", 
+					name, strings.Join(subs, " "))
+				
+				completions = append(completions,
+					fmt.Sprintf("complete -c delta -n '%s' -a '%s' -d 'Subcommand for %s'", 
+						condition, sub, name))
+			}
+		}
+		
+		// Add flag completions for commands that have them
+		if len(doc.Flags) > 0 {
+			completions = append(completions, "")
+			completions = append(completions, fmt.Sprintf("# Flags for :%s", name))
+			
+			for _, flag := range doc.Flags {
+				flagDesc := strings.ReplaceAll(flag.Description, "'", "\\'")
+				condition := fmt.Sprintf("__fish_seen_subcommand_from :%s", name)
+				
+				if flag.Short != "" && flag.Name != "" {
+					completions = append(completions,
+						fmt.Sprintf("complete -c delta -n '%s' -s %s -l %s -d '%s'",
+							condition, flag.Short, flag.Name, flagDesc))
+				} else if flag.Name != "" {
+					completions = append(completions,
+						fmt.Sprintf("complete -c delta -n '%s' -l %s -d '%s'",
+							condition, flag.Name, flagDesc))
+				} else if flag.Short != "" {
+					completions = append(completions,
+						fmt.Sprintf("complete -c delta -n '%s' -s %s -d '%s'",
+							condition, flag.Short, flagDesc))
+				}
+			}
+		}
+	}
+	
+	// Add help function for detecting subcommands
+	completions = append(completions, "", "# Helper functions", `
+# Check if we're completing the first argument
+function __fish_use_subcommand
+    set -l cmd (commandline -opc)
+    test (count $cmd) -eq 1
+end
+
+# Check if a colon command has been used
+function __fish_seen_colon_command
+    set -l cmd (commandline -opc)
+    for c in $cmd
+        if string match -q ':*' -- $c
+            return 0
+        end
+    end
+    return 1
+end`)
+
+	return strings.Join(completions, "\n"), nil
 }
+

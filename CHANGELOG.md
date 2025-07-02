@@ -12,10 +12,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New `:man` command for generating and managing Unix man pages
   - Generates standard troff format man pages for Delta and its commands
   - Subcommands: `generate`, `preview`, `install`, `view`, `completions`
-  - Shell completion generation for bash (zsh/fish placeholders)
+  - Shell completion generation for bash, zsh, and fish shells
   - Makefile targets: `make man`, `make install-man`, `make completions`
   - PowerShell build script support for man page generation
   - Structured command documentation system for consistent help
+
+- Memory & Learning System (Milestone 4)
+  - Core learning mechanisms for command patterns
+  - Real-time pattern learning from command execution
+  - Command sequence detection and learning
+  - Directory-specific and time-based pattern recognition
+  - Feedback collection system with implicit and explicit modes
+  - Interactive feedback collection with `:learn feedback`
+  - Daily training pipeline with Docker and local support
+  - Training data extraction and evaluation tools
+  - Integration with existing memory and inference systems
+  - New `:learning` command with comprehensive subcommands
+  - New `:training` command for data management
+  - Automatic model deployment after successful training
+
+- Shell Completion Enhancements
+  - Full zsh completion support with subcommand awareness
+  - Full fish completion support with proper command chaining
+  - Intelligent completion for Delta's internal commands (prefixed with :)
+  - Subcommand completion for complex commands like :ai, :memory, :learning
+  - Integration with existing help system via :man completions command
 
 ### Fixed
 - Ollama "connection restored" message no longer shows on startup

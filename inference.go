@@ -601,6 +601,19 @@ func hashString(s string) uint32 {
 	return h
 }
 
+// UpdateModelPath updates the model path for inference
+func (im *InferenceManager) UpdateModelPath(modelPath string) error {
+	im.mutex.Lock()
+	defer im.mutex.Unlock()
+
+	im.inferenceConfig.ModelPath = modelPath
+	im.learningConfig.UseCustomModel = true
+	im.learningConfig.CustomModelPath = modelPath
+
+	// Save the updated configuration
+	return im.saveConfig()
+}
+
 // formatInferenceDuration formats a duration in a user-friendly way
 func formatInferenceDuration(d time.Duration) string {
 	days := int(d.Hours() / 24)

@@ -64,7 +64,10 @@ GO_SOURCES = version.go \
 	error_learning.go \
 	suggest_command.go suggest_commands.go \
 	validation_commands.go command_validator.go \
-	command_docs.go man_generator.go man_commands.go
+	command_docs.go man_generator.go man_commands.go \
+	training_data.go training_commands.go \
+	learning_engine.go learning_commands.go \
+	feedback_collector.go training_pipeline.go
 
 all: deps build
 

@@ -281,7 +281,6 @@ func extractTrainingData(tds *TrainingDataService, args []string) {
 func evaluateTrainingData(tds *TrainingDataService, args []string) {
 	// Default options
 	dataPath := ""
-	verbose := false
 
 	// Parse options
 	for i := 0; i < len(args); i++ {
@@ -291,8 +290,6 @@ func evaluateTrainingData(tds *TrainingDataService, args []string) {
 				dataPath = args[i+1]
 				i++ // Skip the next argument
 			}
-		case "--verbose":
-			verbose = true
 		}
 	}
 
@@ -359,13 +356,13 @@ func evaluateTrainingData(tds *TrainingDataService, args []string) {
 	neutral := float64(stats["neutral_examples"].(int))
 	total := positive + negative + neutral
 
+	classBalance := 0.0
 	if total > 0 {
 		fmt.Printf("\nClass Distribution:\n")
 		fmt.Printf("  Positive: %.1f%%\n", 100*positive/total)
 		fmt.Printf("  Negative: %.1f%%\n", 100*negative/total)
 		fmt.Printf("  Neutral: %.1f%%\n", 100*neutral/total)
 
-		classBalance := 0.0
 		if positive > 0 && negative > 0 {
 			if positive > negative {
 				classBalance = negative / positive

@@ -59,6 +59,29 @@ func showEnhancedHelp() {
 	fmt.Println("  :inf               - Shorthand for inference commands")
 	fmt.Println("  :feedback <type>   - Shorthand for feedback commands (helpful|unhelpful|correction)")
 
+	// Training Commands
+	fmt.Println("")
+	fmt.Println("  Training Data:")
+	fmt.Println("  :training              - Show training data status")
+	fmt.Println("  :training extract      - Extract training data with options")
+	fmt.Println("  :training stats        - Show detailed training statistics")
+	fmt.Println("  :training evaluate     - Evaluate training data quality")
+	fmt.Println("  :train                 - Shorthand for training commands")
+
+	// Learning System Commands
+	fmt.Println("")
+	fmt.Println("  Learning System:")
+	fmt.Println("  :learning              - Show learning system status")
+	fmt.Println("  :learning enable       - Enable learning from commands")
+	fmt.Println("  :learning disable      - Disable learning from commands")
+	fmt.Println("  :learning feedback     - Provide interactive feedback")
+	fmt.Println("  :learning train        - Manage training pipeline")
+	fmt.Println("  :learning patterns     - Show learned command patterns")
+	fmt.Println("  :learning process      - Process learning data manually")
+	fmt.Println("  :learning stats        - Show learning statistics")
+	fmt.Println("  :learning config       - Configure learning settings")
+	fmt.Println("  :learn                 - Shorthand for learning commands")
+
 	// Vector Database Commands
 	fmt.Println("")
 	fmt.Println("  Vector Database:")

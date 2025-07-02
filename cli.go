@@ -314,6 +314,10 @@ func NewDeltaCompleter(historyHandler *EncryptedHistoryHandler) *DeltaCompleter 
 		"tok":       {"status", "stats", "process", "vocab", "test", "help"},
 		"inference": {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
 		"inf":       {"enable", "disable", "status", "stats", "feedback", "model", "examples", "config", "help"},
+		"training":  {"extract", "stats", "evaluate", "help"},
+		"train":     {"extract", "stats", "evaluate", "help"},
+		"learning":  {"status", "enable", "disable", "feedback", "train", "patterns", "process", "stats", "config", "help"},
+		"learn":     {"status", "enable", "disable", "feedback", "train", "patterns", "process", "stats", "config", "help"},
 		"feedback":  {"helpful", "unhelpful", "correction"},
 		"init":      {},
 		"validate":  {},
@@ -716,6 +720,10 @@ func handleInternalCommand(command string) bool {
 		return HandleTokenizerCommand(args)
 	case "inference", "inf":
 		return HandleInferenceCommand(args)
+	case "training", "train":
+		return HandleTrainingCommand(args)
+	case "learning", "learn":
+		return HandleLearningCommand(args)
 	case "vector":
 		return HandleVectorCommand(args)
 	case "embedding":
@@ -1700,6 +1708,15 @@ func runInteractiveShell() {
 			if thought != "" {
 				// Display thought above prompt using formatThought function
 				fmt.Println(formatThought(thought))
+				
+				// Record the prediction for feedback collection
+				if fc := GetFeedbackCollector(); fc != nil && fc.IsEnabled() {
+					// Get the last command for context
+					lastCmd, _, _ := ai.GetLastPrediction()
+					if lastCmd != "" {
+						fc.RecordPrediction(lastCmd, thought)
+					}
+				}
 			}
 		}
 
@@ -1794,14 +1811,14 @@ func runInteractiveShell() {
 		// Process the command in a subshell and pass our signal channel
 		exitCode, duration := runCommand(command, c)
 
+		// Get the current directory for context
+		dir, err := os.Getwd()
+		if err != nil {
+			dir = ""
+		}
+
 		// Record command in history analyzer if enabled
 		if ha := GetHistoryAnalyzer(); ha != nil && ha.IsEnabled() {
-			// Get the current directory for context
-			dir, err := os.Getwd()
-			if err != nil {
-				dir = ""
-			}
-
 			// Create command context
 			ctx := CommandContext{
 				Directory:   dir,
@@ -1827,6 +1844,29 @@ func runInteractiveShell() {
 					}
 				}
 			}
+		}
+
+		// Record command in memory manager if enabled
+		if mm := GetMemoryManager(); mm != nil && mm.IsEnabled() {
+			mm.AddCommand(command, dir, exitCode, duration.Milliseconds())
+		}
+
+		// Process with learning engine if enabled
+		if le := GetLearningEngine(); le != nil && le.isEnabled {
+			entry := CommandEntry{
+				Command:     command,
+				Directory:   dir,
+				Timestamp:   time.Now(),
+				ExitCode:    exitCode,
+				Duration:    duration.Milliseconds(),
+				Environment: map[string]string{},
+			}
+			go le.LearnFromCommand(entry)
+		}
+
+		// Collect implicit feedback if enabled
+		if fc := GetFeedbackCollector(); fc != nil && fc.IsEnabled() {
+			go fc.CollectImplicitFeedback(command, exitCode, duration)
 		}
 	}
 }
@@ -1959,6 +1999,35 @@ func executeDirectCommand(command string) {
 			
 			// Record the command
 			ha.AddCommand(command, ctx)
+		}
+
+		// Get directory for other managers
+		dir, err := os.Getwd()
+		if err != nil {
+			dir = ""
+		}
+
+		// Record command in memory manager if enabled
+		if mm := GetMemoryManager(); mm != nil && mm.IsEnabled() {
+			mm.AddCommand(command, dir, exitCode, duration.Milliseconds())
+		}
+
+		// Process with learning engine if enabled
+		if le := GetLearningEngine(); le != nil && le.isEnabled {
+			entry := CommandEntry{
+				Command:     command,
+				Directory:   dir,
+				Timestamp:   time.Now(),
+				ExitCode:    exitCode,
+				Duration:    duration.Milliseconds(),
+				Environment: map[string]string{},
+			}
+			le.LearnFromCommand(entry)
+		}
+
+		// Collect implicit feedback if enabled
+		if fc := GetFeedbackCollector(); fc != nil && fc.IsEnabled() {
+			fc.CollectImplicitFeedback(command, exitCode, duration)
 		}
 	}()
 	
