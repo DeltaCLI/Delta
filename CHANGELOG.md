@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [v0.4.8-alpha] - 2025-07-03
+
 ### Added
 - Man page generation system
   - New `:man` command for generating and managing Unix man pages
