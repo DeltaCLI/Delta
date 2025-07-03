@@ -156,6 +156,11 @@ func (ui *UpdateInstaller) InstallUpdate(downloadResult *DownloadResult) (*Insta
 			ui.logStep("rollback", "success", "Rollback completed")
 		}
 		
+		// Record failed installation metrics
+		if metrics := GetUpdateMetrics(); metrics != nil {
+			metrics.RecordUpdateInstall(result.OldVersion, result.NewVersion, time.Since(startTime), false, err)
+		}
+		
 		ui.cleanup(extractedPath)
 		return result, err
 	}
@@ -191,6 +196,11 @@ func (ui *UpdateInstaller) InstallUpdate(downloadResult *DownloadResult) (*Insta
 	result.LogEntries = ui.getLogEntries()
 
 	ui.logStep("complete", "success", fmt.Sprintf("Installation completed successfully in %s", result.InstallTime.Truncate(time.Millisecond)))
+
+	// Record installation metrics
+	if metrics := GetUpdateMetrics(); metrics != nil {
+		metrics.RecordUpdateInstall(result.OldVersion, result.NewVersion, result.InstallTime, true, nil)
+	}
 
 	return result, nil
 }

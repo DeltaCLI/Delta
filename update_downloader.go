@@ -125,11 +125,16 @@ func (ud *UpdateDownloader) DownloadUpdate(release *Release) (*DownloadResult, e
 	// Download the file
 	startTime := time.Now()
 	downloadedSize, err := ud.downloadFile(asset.BrowserDownloadURL, filePath, asset.Size)
+	downloadTime := time.Since(startTime)
+	
+	// Record download metrics
+	if metrics := GetUpdateMetrics(); metrics != nil {
+		metrics.RecordUpdateDownload(release.TagName, asset.Size, downloadTime, err == nil, err)
+	}
+	
 	if err != nil {
 		return nil, fmt.Errorf("failed to download file: %v", err)
 	}
-
-	downloadTime := time.Since(startTime)
 
 	// Verify the download
 	verified, checksum, err := ud.verifier.VerifyFile(filePath, asset)

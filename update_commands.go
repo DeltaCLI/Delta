@@ -76,6 +76,8 @@ func HandleUpdateCommand(args []string) bool {
 		HandleUpdateChannelCommand(args[1:])
 	case "channels":
 		HandleUpdateChannelsCommand(args[1:])
+	case "metrics":
+		HandleUpdateMetricsCommand(args[1:])
 	case "help":
 		showUpdateHelp()
 	default:
@@ -295,6 +297,13 @@ func showUpdateHelp() {
 	fmt.Println("  :update channel access      - Manage channel access control")
 	fmt.Println("  :update channel migrate     - Manage channel migrations")
 	fmt.Println("  :update channel enterprise  - Toggle enterprise mode")
+	fmt.Println()
+	fmt.Println("  Metrics & Analytics:")
+	fmt.Println("  :update metrics             - Show metrics summary")
+	fmt.Println("  :update metrics report      - Generate detailed report")
+	fmt.Println("  :update metrics channel     - Channel-specific metrics")
+	fmt.Println("  :update metrics errors      - Error analysis")
+	fmt.Println("  :update metrics performance - Performance statistics")
 	fmt.Println()
 	fmt.Println("  Maintenance:")
 	fmt.Println("  :update cleanup             - Clean old downloads and backups")

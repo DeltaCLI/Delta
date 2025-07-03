@@ -55,6 +55,7 @@ func (uc *UpdateChecker) CheckForUpdates() (*UpdateInfo, error) {
 	}
 
 	uc.isChecking = true
+	checkStartTime := time.Now()
 	defer func() {
 		uc.isChecking = false
 		uc.lastCheck = time.Now()
@@ -66,6 +67,10 @@ func (uc *UpdateChecker) CheckForUpdates() (*UpdateInfo, error) {
 	// Get the latest release for the configured channel
 	latestRelease, err := uc.githubClient.GetLatestRelease(config.Channel)
 	if err != nil {
+		// Record failed check
+		if metrics := GetUpdateMetrics(); metrics != nil {
+			metrics.RecordUpdateCheck(currentVersion, false, time.Since(checkStartTime))
+		}
 		return nil, fmt.Errorf("failed to fetch latest release: %v", err)
 	}
 
@@ -137,6 +142,11 @@ func (uc *UpdateChecker) CheckForUpdates() (*UpdateInfo, error) {
 
 	// Update last check time in config
 	uc.updateLastCheckTime()
+
+	// Record successful check metrics
+	if metrics := GetUpdateMetrics(); metrics != nil {
+		metrics.RecordUpdateCheck(currentVersion, hasUpdate, time.Since(checkStartTime))
+	}
 
 	return updateInfo, nil
 }

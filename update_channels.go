@@ -240,6 +240,11 @@ func (cm *ChannelManager) SetChannel(channel UpdateChannel, reason string) error
 		cm.saveConfigFile(config)
 	}
 
+	// Record channel switch metrics
+	if metrics := GetUpdateMetrics(); metrics != nil {
+		metrics.RecordChannelSwitch(string(oldChannel), string(channel), reason)
+	}
+
 	return nil
 }
 

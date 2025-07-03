@@ -50,6 +50,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Custom update URLs and verification keys for enterprise channels
   - Integration with existing update system
 
+- Enterprise Update Features - Metrics & Reporting System (Phase 5)
+  - Comprehensive metrics collection for all update operations
+  - Real-time tracking of downloads, installations, and rollbacks
+  - Channel-specific performance metrics and analytics
+  - Version adoption tracking with success rates
+  - Error analysis with pattern detection and suggestions
+  - Performance statistics including download speeds and durations
+  - Export capabilities in JSON, CSV, and Prometheus formats
+  - New commands: `:update metrics`, `:update metrics report`
+  - Configurable data retention and privacy controls
+  - System resource monitoring during updates
+
 ### Fixed
 - Ollama "connection restored" message no longer shows on startup
   - Added first-check detection to prevent misleading restoration messages
