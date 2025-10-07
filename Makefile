@@ -120,7 +120,19 @@ run: build
 install: build
 	@echo "Installing $(BINARY_NAME) to /usr/local/bin/$(BINARY_NAME)"
 	@sudo cp $(OUTPUT_BINARY) /usr/local/bin/$(BINARY_NAME)
-	@chmod +x /usr/local/bin/$(BINARY_NAME)
+	@sudo chmod +x /usr/local/bin/$(BINARY_NAME)
+
+install-user: build
+	@echo "Installing $(BINARY_NAME) to ~/.local/bin/$(BINARY_NAME)"
+	@mkdir -p ~/.local/bin
+	@cp $(OUTPUT_BINARY) ~/.local/bin/$(BINARY_NAME)
+	@chmod +x ~/.local/bin/$(BINARY_NAME)
+	@echo "$(BINARY_NAME) installed to ~/.local/bin/"
+	@echo ""
+	@echo "Make sure ~/.local/bin is in your PATH:"
+	@echo "  export PATH=\"\$$HOME/.local/bin:\$$PATH\""
+	@echo ""
+	@echo "Add this line to your ~/.bashrc or ~/.zshrc to make it permanent"
 
 # Show version information that will be injected
 version-info:

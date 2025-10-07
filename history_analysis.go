@@ -150,6 +150,11 @@ func (ha *HistoryAnalyzer) Initialize() error {
 	ha.historyLock.Lock()
 	defer ha.historyLock.Unlock()
 
+	// Skip if already initialized
+	if ha.isInitialized {
+		return nil
+	}
+
 	// Try to load existing configuration
 	err := ha.loadConfig()
 	if err != nil {
@@ -164,7 +169,11 @@ func (ha *HistoryAnalyzer) Initialize() error {
 	err = ha.loadHistory()
 	if err != nil {
 		fmt.Printf("No existing history found, starting fresh: %v\n", err)
-		// This is fine - we'll start with an empty history
+		// Create an empty history file
+		err = ha.saveHistory()
+		if err != nil {
+			fmt.Printf("Warning: Failed to create history file: %v\n", err)
+		}
 	}
 
 	// Rebuild indexes
@@ -257,6 +266,19 @@ func (ha *HistoryAnalyzer) saveHistory() error {
 
 	// Write to file
 	return os.WriteFile(ha.historyPath, data, 0644)
+}
+
+// Cleanup saves history and performs cleanup before shutdown
+func (ha *HistoryAnalyzer) Cleanup() error {
+	if !ha.isInitialized {
+		return nil
+	}
+
+	ha.historyLock.Lock()
+	defer ha.historyLock.Unlock()
+
+	// Save history to disk
+	return ha.saveHistory()
 }
 
 // UpdateConfig updates the history analyzer configuration

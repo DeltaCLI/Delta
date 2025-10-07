@@ -1734,6 +1734,7 @@ func runInteractiveShell() {
 			} else if err == io.EOF {
 				// Ctrl+D exits
 				fmt.Printf("\n%s\n", T("interface.goodbye.message"))
+				cleanupManagers()
 				resetTerminalTitle()
 				break
 			}
@@ -1785,6 +1786,7 @@ func runInteractiveShell() {
 		// Handle the exit command
 		if command == "exit" || command == "quit" {
 			fmt.Println(T("interface.goodbye.message"))
+			cleanupManagers()
 			resetTerminalTitle()
 			break
 		}
@@ -1919,6 +1921,28 @@ func initializeManagers() {
 	}
 }
 
+// cleanupManagers performs cleanup operations before exit
+func cleanupManagers() {
+	// Save history analyzer data
+	if ha := GetHistoryAnalyzer(); ha != nil {
+		if err := ha.Cleanup(); err != nil {
+			fmt.Printf("Warning: Failed to save history: %v\n", err)
+		}
+	}
+
+	// Close memory manager (flushes pending writes)
+	if mm := GetMemoryManager(); mm != nil {
+		if err := mm.Close(); err != nil {
+			fmt.Printf("Warning: Failed to close memory manager: %v\n", err)
+		}
+	}
+
+	// Cleanup AI manager
+	if ai := GetAIManager(); ai != nil && ai.cancelFunc != nil {
+		ai.cancelFunc()
+	}
+}
+
 // executeDirectCommand executes a single command and exits with appropriate code
 func executeDirectCommand(command string) {
 	// Initialize managers for command execution
@@ -1946,6 +1970,9 @@ func executeDirectCommand(command string) {
 		exitCode, duration = runCommand(command, sigChan)
 	}
 	
+	// Save critical state before exit (synchronous)
+	cleanupManagers()
+
 	// Launch background goroutine for all training/recording operations
 	// This allows delta to exit immediately with the proper exit code
 	go func() {
